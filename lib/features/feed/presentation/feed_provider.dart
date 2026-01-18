@@ -32,22 +32,27 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
   }
 
   /// 加载“所有”卡片 (Library Mode)，支持筛选
+  /// 只显示已收藏的知识点
   void loadLibraryItems({FeedItemMastery? filter}) {
+    // 先过滤出已收藏的
+    final favoritedItems = _allItems.where((item) => item.isFavorited).toList();
+    
     if (filter == null) {
-      state = List.from(_allItems);
+      state = favoritedItems;
     } else {
-      state = _allItems.where((item) => item.masteryLevel == filter).toList();
+      state = favoritedItems.where((item) => item.masteryLevel == filter).toList();
     }
   }
   
   /// 每日复习算法 (The Smart SRS Session)
   /// 需求：随机抽 50% Complex, 30% Medium, 20% Easy/Simple
+  /// 仅包含已收藏的知识点
   void loadDailyReviewSession() {
     final now = DateTime.now();
-    // 1. Get Pool of Due Items
+    // 1. Get Pool of Due Items (只包含已收藏的)
     final dueItems = _allItems.where((item) {
-      // 只要设定了 nextReviewTime 且时间到了，或者 Mastery 为 Hard (Forgot) 的也可以强制从池子里捞？
-      // 暂时严格按时间:
+      // 必须收藏过 + 设定了复习时间 + 时间到了
+      if (!item.isFavorited) return false;
       if (item.nextReviewTime == null) return false;
       return item.nextReviewTime!.isBefore(now);
     }).toList();
@@ -115,6 +120,16 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     ];
   }
 
+  /// 获取剩余待复习总数 (包括未加载到当前 Session 的，但只算已收藏的)
+  int get totalDueCount {
+    final now = DateTime.now();
+    return _allItems.where((item) {
+      return item.isFavorited && 
+             item.nextReviewTime != null && 
+             item.nextReviewTime!.isBefore(now);
+    }).length;
+  }
+
   /// Pin 笔记逻辑
   void pinNoteToItem(String itemId, String question, String answer) async {
     // Find item in _allItems
@@ -131,6 +146,25 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
           createdAt: DateTime.now(),
         )
       ],
+    );
+
+    updateItem(newItem);
+  }
+
+  /// 收藏/取消收藏 (添加到复习池)
+  void toggleFavorite(String itemId) {
+    final index = _allItems.indexWhere((i) => i.id == itemId);
+    if (index == -1) return;
+
+    final item = _allItems[index];
+    final newFavoritedState = !item.isFavorited;
+    
+    final newItem = item.copyWith(
+      isFavorited: newFavoritedState,
+      // 收藏时设置初始复习时间为明天
+      nextReviewTime: newFavoritedState ? DateTime.now().add(const Duration(days: 1)) : null,
+      // 取消收藏时重置掌握程度
+      masteryLevel: newFavoritedState ? item.masteryLevel : FeedItemMastery.unknown,
     );
 
     updateItem(newItem);

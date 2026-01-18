@@ -75,17 +75,17 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     );
   }
 
-  // Local state for favorite toggle (In a real app, this should be in Provider)
-  bool _isFavorited = false;
-
   void _toggleFavorite() {
-    setState(() {
-      _isFavorited = !_isFavorited;
-    });
+    // 使用 provider 更新状态
+    ref.read(feedProvider.notifier).toggleFavorite(widget.feedItem.id);
+    
+    // 给用户反馈
+    final isFavorited = !widget.feedItem.isFavorited; // 即将变成的状态
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_isFavorited ? '已收藏到复习区' : '已取消收藏'),
+        content: Text(isFavorited ? '✨ 已收藏到复习区' : '已取消收藏'),
         duration: const Duration(seconds: 1),
+        backgroundColor: isFavorited ? Colors.green[600] : Colors.grey[600],
       ),
     );
   }
@@ -147,8 +147,8 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           child: Column(
             children: [
               _buildActionButton(
-                icon: _isFavorited ? Icons.favorite : Icons.favorite_border,
-                color: _isFavorited ? Colors.redAccent : Colors.white,
+                icon: widget.feedItem.isFavorited ? Icons.favorite : Icons.favorite_border,
+                color: widget.feedItem.isFavorited ? Colors.redAccent : Colors.white,
                 label: '收藏',
                 onTap: _toggleFavorite,
               ),

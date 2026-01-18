@@ -2,7 +2,7 @@ import '../models/feed_item.dart';
 
 class MockData {
   static List<FeedItem> get initialFeedItems {
-    return [
+    final baseItems = [
       // Example 1: PM Role Definition
       FeedItem(
         id: '101',
@@ -67,9 +67,6 @@ class MockData {
             flashcardAnswer: '更高的通勤效率（更短的时间到达目的地），而不是对“马”这种生物的执着。',
           ),
         ],
-        // Make this item due for review
-        nextReviewTime: DateTime.now().subtract(const Duration(hours: 1)),
-        intervalDays: 1,
       ),
 
       // Example 3: MVP Thinking
@@ -103,5 +100,26 @@ MVP 不是“半成品”或“烂产品”。它必须是 **Viable**（可用�
         ],
       ),
     ];
+    
+    // Auto-generate 30 dummy items for testing
+    final dummyItems = List.generate(30, (index) {
+      final id = '90$index'; // 900, 901...
+      
+      return FeedItem(
+        id: id,
+        moduleId: 'A', // Put in "Fundamentals" module
+        title: 'Mock Item #$index: 产品经理核心技能',
+        pages: [
+          OfficialPage(
+            '# Mock Content $index\n\nThis is a generated mock item to test the list behavior.\n\n### Section 1\nLorem ipsum dolor sit amet.',
+            flashcardQuestion: 'Question for item $index?',
+            flashcardAnswer: 'Answer for item $index.',
+          )
+        ],
+        // 不预设复习时间和难度，等用户收藏后才设置
+      );
+    });
+
+    return [...baseItems, ...dummyItems];
   }
 }

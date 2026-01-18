@@ -84,6 +84,18 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
   @override
   Widget build(BuildContext context) {
     final items = ref.watch(feedProvider);
+    final notifier = ref.read(feedProvider.notifier);
+
+    // Filter logic for Library tab
+    final displayItems = _tabController.index == 1 && _libraryFilter != null
+        ? items.where((i) => i.masteryLevel == _libraryFilter).toList()
+        : items;
+
+    // Calculate Pending in CURRENT session
+    final now = DateTime.now();
+    final pendingCount = displayItems.where((i) => 
+      i.nextReviewTime != null && i.nextReviewTime!.isBefore(now)
+    ).length;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0FDFA), // Teal-50
@@ -93,6 +105,15 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
         elevation: 0,
         centerTitle: false,
         actions: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Text(
+                '$pendingCount Pending',
+                style: const TextStyle(color: Color(0xFF0D9488), fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.settings, color: Color(0xFF134E4A)),
             onPressed: _showLimitSettings,
@@ -113,21 +134,76 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
         controller: _tabController,
         children: [
           // Tab 1: Today
-          items.isEmpty ? _buildEmptyState() : _buildList(items, isLibrary: false),
+          _buildSessionList(displayItems, notifier),
           
           // Tab 2: Library
           Column(
             children: [
               _buildFilterBar(),
               Expanded(
-                child: items.isEmpty 
+                child: displayItems.isEmpty 
                   ? const Center(child: Text('No items found')) 
-                  : _buildList(items, isLibrary: true),
+                  : _buildList(displayItems, isLibrary: true),
               ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSessionList(List<FeedItem> items, FeedNotifier notifier) {
+    if (items.isEmpty) return _buildEmptyState();
+
+    final now = DateTime.now();
+    // Sort: Due first, then Done
+    final sortedItems = List.of(items);
+    sortedItems.sort((a, b) {
+      final aDue = a.nextReviewTime != null && a.nextReviewTime!.isBefore(now);
+      final bDue = b.nextReviewTime != null && b.nextReviewTime!.isBefore(now);
+      if (aDue && !bDue) return -1;
+      if (!aDue && bDue) return 1;
+      return 0;
+    });
+
+    final pendingCount = items.where((i) => 
+      i.nextReviewTime != null && i.nextReviewTime!.isBefore(now)
+    ).length;
+    final totalPoolDue = notifier.totalDueCount;
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      // Add 1 for the "Load More" button if needed
+      itemCount: sortedItems.length + 1, 
+      itemBuilder: (context, index) {
+        if (index == sortedItems.length) {
+          // Bottom Button Logic
+          if (pendingCount == 0 && totalPoolDue > 0) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  notifier.loadDailyReviewSession();
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loaded next batch!')));
+                },
+                icon: const Icon(Icons.refresh),
+                label: Text('Load Next Batch ($totalPoolDue remaining)'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D9488),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.all(16),
+                ),
+              ),
+            );
+          }
+          return const SizedBox(height: 50); // Bottom padding
+        }
+        
+        final item = sortedItems[index];
+        final isDue = item.nextReviewTime != null && item.nextReviewTime!.isBefore(now);
+        
+        return _ReviewCard(item: item, isLibrary: false, isDone: !isDue);
+      },
     );
   }
 
@@ -199,7 +275,7 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
-        return _ReviewCard(item: item, isLibrary: isLibrary);
+        return _ReviewCard(item: item, isLibrary: isLibrary, isDone: false);
       },
     );
   }
@@ -208,8 +284,13 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
 class _ReviewCard extends StatelessWidget {
   final FeedItem item;
   final bool isLibrary;
+  final bool isDone; // New flag
 
-  const _ReviewCard({required this.item, required this.isLibrary});
+  const _ReviewCard({
+    required this.item, 
+    required this.isLibrary,
+    required this.isDone,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -219,61 +300,74 @@ class _ReviewCard extends StatelessWidget {
           MaterialPageRoute(builder: (context) => SRSReviewPage(item: item)),
         );
       },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF0D9488).withOpacity(0.08),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-          border: Border.all(color: const Color(0xFFE0F2F1)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: _getModuleColor(item.moduleId).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+      child: Opacity(
+        opacity: isDone ? 0.6 : 1.0, // Fade out if done
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDone ? Colors.grey[100] : Colors.white, // Grey bg if done
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: isDone ? [] : [
+              BoxShadow(
+                color: const Color(0xFF0D9488).withOpacity(0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
-              child: Icon(_getModuleIcon(item.moduleId), color: _getModuleColor(item.moduleId)),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
+            ],
+            border: Border.all(color: const Color(0xFFE0F2F1)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: isDone ? Colors.grey[300] : _getModuleColor(item.moduleId).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isDone ? Icons.check : _getModuleIcon(item.moduleId), 
+                  color: isDone ? Colors.grey : _getModuleColor(item.moduleId)
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDone ? Colors.grey[600] : const Color(0xFF1E293B),
+                        decoration: isDone ? TextDecoration.lineThrough : null,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      _buildMasteryBadge(item.masteryLevel),
-                      const Spacer(),
-                      if (!isLibrary)
-                         Text(
-                          'Due Today',
-                          style: TextStyle(fontSize: 12, color: Colors.orange[800], fontWeight: FontWeight.bold),
-                        ),
-                    ],
-                  )
-                ],
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        // 只有评级过的才显示 mastery badge
+                        if (item.masteryLevel != FeedItemMastery.unknown)
+                          _buildMasteryBadge(item.masteryLevel),
+                        const Spacer(),
+                        if (!isLibrary)
+                           Text(
+                            isDone ? 'Reviewed' : 'Due Today',
+                            style: TextStyle(
+                              fontSize: 12, 
+                              color: isDone ? Colors.green : Colors.orange[800], 
+                              fontWeight: FontWeight.bold
+                            ),
+                          ),
+                      ],
+                    )
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

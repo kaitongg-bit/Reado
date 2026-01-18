@@ -55,6 +55,9 @@ class FeedItem {
   
   // 掌握程度 (用于筛选和权重计算)
   final FeedItemMastery masteryLevel;
+  
+  // 收藏状态 (只有收藏过的才会进入复习池)
+  final bool isFavorited;
 
   FeedItem({
     required this.id,
@@ -64,6 +67,7 @@ class FeedItem {
     this.nextReviewTime,
     this.intervalDays = 0,
     this.masteryLevel = FeedItemMastery.unknown,
+    this.isFavorited = false,
   });
 
   /// CopyWith method to support immutability and state updates (Riverpod friendly)
@@ -75,6 +79,7 @@ class FeedItem {
     DateTime? nextReviewTime,
     int? intervalDays,
     FeedItemMastery? masteryLevel,
+    bool? isFavorited,
   }) {
     return FeedItem(
       id: id ?? this.id,
@@ -84,6 +89,7 @@ class FeedItem {
       nextReviewTime: nextReviewTime ?? this.nextReviewTime,
       intervalDays: intervalDays ?? this.intervalDays,
       masteryLevel: masteryLevel ?? this.masteryLevel,
+      isFavorited: isFavorited ?? this.isFavorited,
     );
   }
 }

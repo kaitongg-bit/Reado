@@ -237,7 +237,13 @@ class _ModuleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        context.push('/feed/$moduleId');
+        if (moduleId == 'C') {
+          context.push('/lab');
+        } else if (moduleId == 'D') {
+          context.push('/war-room');
+        } else {
+          context.push('/feed/$moduleId');
+        }
       },
       child: Container(
         decoration: BoxDecoration(

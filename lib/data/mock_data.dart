@@ -21,7 +21,7 @@ class MockData {
 3.  **用户洞察 (Research)**：数据分析、用户访谈、市场调研。
 
 ### 常见误区
-*   **PM 不是经理**：你通常没有行政权力（No Authority），必须通过**影响力**（Influence）来领导团队。
+*   **PM 不是经理**：你通常没有行政权力 (No Authority)，必须通过**影响力** (Influence) 来领导团队。
 *   **PM 不是“接需求的人”**：不要只做传声筒，要思考需求背后的价值。
 
 ### 核心能力模型
@@ -69,7 +69,7 @@ class MockData {
         ],
       ),
 
-      // Example 3: MVP Thinking
+      // Example 103: MVP Thinking
       FeedItem(
         id: '103',
         moduleId: 'A',
@@ -99,24 +99,118 @@ MVP 不是“半成品”或“烂产品”。它必须是 **Viable**（可用�
           ),
         ],
       ),
-    ];
-    
-    // Auto-generate 30 dummy items for testing
-    final dummyItems = List.generate(30, (index) {
-      final id = '90$index'; // 900, 901...
-      
-      return FeedItem(
-        id: id,
-        moduleId: 'A', // Put in "Fundamentals" module
-        title: 'Mock Item #$index: 产品经理核心技能',
+
+      // --- Module B Examples ---
+      FeedItem(
+        id: 'b01',
+        moduleId: 'B',
+        title: '案例拆解：抖音的成瘾性机制',
         pages: [
           OfficialPage(
-            '# Mock Content $index\n\nThis is a generated mock item to test the list behavior.\n\n### Section 1\nLorem ipsum dolor sit amet.',
-            flashcardQuestion: 'Question for item $index?',
-            flashcardAnswer: 'Answer for item $index.',
+            '''
+# 抖音的成瘾性机制
+
+刷抖音为什么停不下来？从心理学和产品设计的角度来看，抖音完美运用了“斯金纳箱” (Skinner Box) 理论。
+
+### 1. 变量奖励 (Variable Reward)
+你永远不知道下一个视频是什么，这种不确定性带来了多巴胺的爆发。
+
+### 2. 极低的操作成本
+单手竖划。没有“选择”的负担。在其他平台你还要想看哪个，在抖音你只需要“跳过”不喜欢的。
+
+### 3. 被动式沉浸
+全屏显示，隐藏状态栏。让用户失去时间感。
+
+### 4. 算法的冷启动
+抖音通过前 10 个视频快速建立你的兴趣画像，不仅看你点什么，还看你的**完播率**。
+            ''',
+            flashcardQuestion: '为什么“竖划切换”比“瀑布流选择”更有助于沉浸？',
+            flashcardAnswer: '因为它将用户的认知成本降到了最低。瀑布流需要用户进行“选择决策”，而竖划让用户进入“被动接受”状态，减少了思考中断。',
+          ),
+        ],
+      ),
+
+      // --- Module C: Lab Items ---
+      FeedItem(
+        id: 'c01',
+        moduleId: 'C',
+        title: '实操：使用 Coze 搭建你的第一个 AI Bot',
+        pages: [
+          OfficialPage(
+            '''
+# 实操：使用 Coze 搭建 AI Bot
+
+在本教程中，我们将使用字节跳动旗下的 Coze (扣子) 平台，在 10 分钟内搭建一个“产品经理面试助手”。
+
+### Step 1: 注册与创建
+1. 访问 [coze.cn](https://www.coze.cn)。
+2. 点击“创建 Bot”，给它起个名字叫“Offer 收割机”。
+
+### Step 2: 编写提示词 (Prompt)
+在左侧的人设与回复逻辑中输入：
+> 你是一个资深的产品经理面试官，擅长用 5 Whys 和 STAR 法则拆解问题。你的目标是指出用户回答中的逻辑漏洞。
+
+### Step 3: 添加插件
+点击“插件” -> “添加工具”，搜索并添加“Google Search”或“新闻搜索”，让你的 Bot 具备实时搜索能力。
+
+### 💻 移动端用户注意
+建议在电脑端打开 Coze 进行操作，本页面仅提供图文指引。
+            ''',
+            flashcardQuestion: '在 Coze 中，决定 Bot 行为逻辑的核心部分是什么？',
+            flashcardAnswer: '提示词 (Prompt / Role Description)。它定义了 AI 的性格、知识背景和回复限制。',
+          ),
+        ],
+      ),
+
+      // --- Module D: War Room Items ---
+      FeedItem(
+        id: 'd01',
+        moduleId: 'D',
+        title: '【金标准】STAR 法则回答：请介绍一次你最有成就感的项目',
+        pages: [
+          OfficialPage(
+            '''
+# 面试金指标：STAR 法则
+
+当你被问到“最有成就感的项目”时，千万不要记流水账。使用 STAR 法则结构化你的回答。
+
+### 1. Situation (情景)
+当时公司面临什么挑战？（例：APP 转化率在 3 个月内下降了 20%）。
+
+### 2. Task (任务)
+你的具体目标是什么？（例：在 1 个月内修复核心漏斗，将转化率提升回原水平）。
+
+### 3. Action (行动) - 重点
+**你**做了什么？（例：通过 SQL 分析发现支付页跳出率最高，进行了 3 组 A/B 测试，优化了三步支付流程为一键内购）。
+
+### 4. Result (结果)
+最终量化的产出。（例：支付转化率提升了 15%，带动月流水增加 50 万）。
+
+---
+### ⚔️ 专属功能
+点击下方的“克隆”，AI 将引导你将这个模板转化为你的真实简历项目。
+            ''',
+            flashcardQuestion: 'STAR 法则中的 R 代表什么，为什么重要？',
+            flashcardAnswer: 'Result (结果)。面试官通过量化的结果来判断你的工作价值和对业务的实际贡献。',
+          ),
+        ],
+      ),
+    ];
+    
+    // Auto-generate some more dummy items for variety
+    final dummyItems = List.generate(20, (index) {
+      final module = index % 4 == 0 ? 'A' : (index % 4 == 1 ? 'B' : (index % 4 == 2 ? 'C' : 'D'));
+      return FeedItem(
+        id: '90$index',
+        moduleId: module,
+        title: '[$module模块] 进阶知识点 #$index',
+        pages: [
+          OfficialPage(
+            '# 进阶内容 $index\n\n此处为 $module 模块的内容占位。\n\n### 关键点\n1. 持续学习\n2. 深度思考',
+            flashcardQuestion: '模块 $module 的核心精神？',
+            flashcardAnswer: '不断迭代，快速反馈。',
           )
         ],
-        // 不预设复习时间和难度，等用户收藏后才设置
       );
     });
 

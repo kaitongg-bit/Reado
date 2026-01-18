@@ -8,7 +8,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'features/onboarding/presentation/onboarding_page.dart';
 import 'features/home/presentation/home_page.dart';
 import 'features/feed/presentation/feed_page.dart';
-// Note: Actual imports would be added as files are created.
+import 'features/lab/presentation/lab_page.dart';
+import 'features/war_room/presentation/war_room_page.dart';
 
 void main() {
   runApp(const ProviderScope(child: QuickPMApp()));
@@ -32,6 +33,14 @@ final _router = GoRouter(
         final moduleId = state.pathParameters['moduleId']!;
         return FeedPage(moduleId: moduleId);
       },
+    ),
+    GoRoute(
+      path: '/lab',
+      builder: (context, state) => const LabPage(),
+    ),
+    GoRoute(
+      path: '/war-room',
+      builder: (context, state) => const WarRoomPage(),
     ),
     GoRoute(
       path: '/search',

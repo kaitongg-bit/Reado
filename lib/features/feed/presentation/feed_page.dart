@@ -206,7 +206,11 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                       style: TextStyle(fontSize: 10, color: Colors.grey[500]),
                     ),
                     const Spacer(),
-                    Icon(Icons.favorite_border, size: 14, color: Colors.grey[400]),
+                    Icon(
+                      item.isFavorited ? Icons.favorite : Icons.favorite_border, 
+                      size: 14, 
+                      color: item.isFavorited ? Colors.redAccent : Colors.grey[400]
+                    ),
                   ],
                 )
               ],

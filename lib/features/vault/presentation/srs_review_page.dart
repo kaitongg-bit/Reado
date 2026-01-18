@@ -4,12 +4,17 @@ import '../../feed/presentation/widgets/feed_item_view.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../../models/feed_item.dart';
 
-class SRSReviewPage extends ConsumerWidget {
+class SRSReviewPage extends ConsumerStatefulWidget {
   final FeedItem item;
 
   const SRSReviewPage({super.key, required this.item});
 
-  void _handleReview(BuildContext context, WidgetRef ref, int intervalDays, FeedItemMastery mastery) {
+  @override
+  ConsumerState<SRSReviewPage> createState() => _SRSReviewPageState();
+}
+
+class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
+  void _handleReview(FeedItem currentItem, int intervalDays, FeedItemMastery mastery) {
     // 1. Calculate new review time
     final now = DateTime.now();
     DateTime nextReview;
@@ -21,8 +26,8 @@ class SRSReviewPage extends ConsumerWidget {
       nextReview = now.add(Duration(days: intervalDays));
     }
 
-    // 2. Create updated item
-    final updatedItem = item.copyWith(
+    // 2. Create updated item (using currentItem to preserve favorite state)
+    final updatedItem = currentItem.copyWith(
       nextReviewTime: nextReview,
       intervalDays: intervalDays,
       masteryLevel: mastery,
@@ -44,7 +49,14 @@ class SRSReviewPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    // Watch the provider to get the latest state
+    final items = ref.watch(feedProvider);
+    final currentItem = items.firstWhere(
+      (i) => i.id == widget.item.id,
+      orElse: () => widget.item, // Fallback to original if not found
+    );
+    
     return Scaffold(
       body: Stack(
         children: [
@@ -52,7 +64,10 @@ class SRSReviewPage extends ConsumerWidget {
           // We wrap it in a SafeArea to avoid overlap
           Positioned.fill(
             bottom: 100, // Leave space for SRS Bar
-            child: FeedItemView(feedItem: item),
+            child: FeedItemView(
+              feedItem: currentItem, // Use the latest state
+              isReviewMode: true,
+            ),
           ),
           
           // 2. Custom Back Button (since FeedItemView might hide AppBar)
@@ -93,19 +108,19 @@ class SRSReviewPage extends ConsumerWidget {
                     label: 'Forgot', 
                     color: const Color(0xFFEF4444), 
                     icon: Icons.refresh,
-                    onTap: () => _handleReview(context, ref, 0, FeedItemMastery.hard),
+                    onTap: () => _handleReview(currentItem, 0, FeedItemMastery.hard),
                   ),
                   _SRSButton(
                     label: 'Hazy', 
                     color: const Color(0xFFF59E0B), 
                     icon: Icons.sentiment_neutral,
-                    onTap: () => _handleReview(context, ref, 1, FeedItemMastery.medium),
+                    onTap: () => _handleReview(currentItem, 1, FeedItemMastery.medium),
                   ),
                   _SRSButton(
                     label: 'Easy', 
                     color: const Color(0xFF10B981), 
                     icon: Icons.check_circle,
-                    onTap: () => _handleReview(context, ref, 3, FeedItemMastery.easy),
+                    onTap: () => _handleReview(currentItem, 3, FeedItemMastery.easy),
                   ),
                 ],
               ),

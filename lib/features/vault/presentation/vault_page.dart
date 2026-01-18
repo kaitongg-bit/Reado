@@ -243,6 +243,8 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
   }
 
   Widget _buildEmptyState() {
+    final notifier = ref.read(feedProvider.notifier);
+    
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -264,10 +266,33 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
             'All Clear!',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF134E4A)),
           ),
+          const SizedBox(height: 12),
+          const Text(
+            '今天没有到期的复习任务',
+            style: TextStyle(fontSize: 14, color: Colors.grey),
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: () {
+              notifier.loadPracticeSession();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('💪 加载练习题成功！开始复习吧')),
+              );
+            },
+            icon: const Icon(Icons.fitness_center),
+            label: const Text('我想主动练习'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D9488),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
         ],
       ),
     );
   }
+
 
   Widget _buildList(List<FeedItem> items, {required bool isLibrary}) {
     return ListView.builder(

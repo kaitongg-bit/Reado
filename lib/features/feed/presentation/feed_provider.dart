@@ -105,6 +105,64 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     state = session;
   }
 
+  /// 主动练习模式：加载一批已收藏的知识点（即使还没到复习时间）
+  /// 用于用户想要额外复习的场景
+  void loadPracticeSession() {
+    final now = DateTime.now();
+    
+    // 获取所有已收藏的知识点，但排除今天已经复习过的
+    // (nextReviewTime在未来 = 今天已复习过，设置了下次复习时间)
+    final favoritedItems = _allItems.where((item) {
+      if (!item.isFavorited) return false;
+      // 允许：1) 没有复习时间的（新收藏） 2) 已经到期的
+      if (item.nextReviewTime == null) return true;
+      return item.nextReviewTime!.isBefore(now);
+    }).toList();
+    
+    if (favoritedItems.isEmpty) {
+      state = [];
+      return;
+    }
+
+    // 如果已收藏的不够每日限额，就全部加载
+    if (favoritedItems.length <= _dailyLimit) {
+      favoritedItems.shuffle();
+      state = favoritedItems;
+      return;
+    }
+
+    // 按权重分配（类似每日复习）
+    final hardItems = favoritedItems.where((i) => i.masteryLevel == FeedItemMastery.hard).toList();
+    final mediumItems = favoritedItems.where((i) => i.masteryLevel == FeedItemMastery.medium).toList();
+    final easyItems = favoritedItems.where((i) => i.masteryLevel == FeedItemMastery.easy || i.masteryLevel == FeedItemMastery.unknown).toList();
+
+    hardItems.shuffle();
+    mediumItems.shuffle();
+    easyItems.shuffle();
+
+    final hardCount = (_dailyLimit * 0.5).ceil();
+    final mediumCount = (_dailyLimit * 0.3).ceil();
+    final easyCount = _dailyLimit - hardCount - mediumCount;
+
+    List<FeedItem> session = [];
+    session.addAll(hardItems.take(hardCount));
+    session.addAll(mediumItems.take(mediumCount));
+    session.addAll(easyItems.take(easyCount));
+
+    // 如果不够，从剩余中补充
+    if (session.length < _dailyLimit) {
+      final remainingNeeded = _dailyLimit - session.length;
+      final usedIds = session.map((e) => e.id).toSet();
+      final others = favoritedItems.where((i) => !usedIds.contains(i.id)).toList();
+      others.shuffle();
+      session.addAll(others.take(remainingNeeded));
+    }
+
+    session.shuffle();
+    state = session;
+  }
+
+
   /// 更新单个 Item (用于 SRS 算法更新 或 Pin 笔记)
   void updateItem(FeedItem newItem) {
     // 1. Update Source of Truth

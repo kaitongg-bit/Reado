@@ -12,7 +12,10 @@ class FeedItemView extends ConsumerStatefulWidget {
     super.key, 
     required this.feedItem,
     this.isReviewMode = false,
+    this.onNextTap,
   });
+
+  final VoidCallback? onNextTap;
 
   @override
   ConsumerState<FeedItemView> createState() => _FeedItemViewState();
@@ -172,8 +175,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
             child: Center(
               child: GestureDetector(
                 onTap: () {
-                  // Ideally this interacts with parent PageView. 
-                  // For now, it's a visual cue.
+                  widget.onNextTap?.call();
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

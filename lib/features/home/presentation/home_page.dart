@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../vault/presentation/vault_page.dart';
+import '../../profile/presentation/profile_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -19,7 +20,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final screens = [
       const _HomeBody(),
       const VaultPage(),
-      const Center(child: Text('Profile Page (Coming Soon)')),
+      const ProfilePage(),
     ];
 
     return Scaffold(

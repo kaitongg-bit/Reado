@@ -11,7 +11,28 @@ import 'features/feed/presentation/feed_page.dart';
 import 'features/lab/presentation/lab_page.dart';
 import 'features/war_room/presentation/war_room_page.dart';
 
-void main() {
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_options.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+     options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
+  // Anonymous Auth Logic (Step 2)
+  // We do this before running app so user is signed in
+  final auth = FirebaseAuth.instance;
+  if (auth.currentUser == null) {
+    try {
+      await auth.signInAnonymously();
+      debugPrint("Signed in anonymously: ${auth.currentUser?.uid}");
+    } catch (e) {
+      debugPrint("Error signing in anonymously: $e");
+    }
+  }
+
   runApp(const ProviderScope(child: QuickPMApp()));
 }
 

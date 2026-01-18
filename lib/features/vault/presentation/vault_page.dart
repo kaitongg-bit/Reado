@@ -33,21 +33,12 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
         final ids = notifier.getDailyReviewIds();
         ref.read(reviewSessionIdsProvider.notifier).state = ids;
       }
+      // Force refresh library on init too
+      ref.read(libraryIdsProvider.notifier).state = notifier.getLibraryIds(filter: _libraryFilter);
     });
 
     _tabController.addListener(() {
-      if (_tabController.indexIsChanging) {
-        final notifier = ref.read(feedProvider.notifier);
-        if (_tabController.index == 0) {
-          // Only auto-load if empty
-          if (ref.read(reviewSessionIdsProvider).isEmpty) {
-            ref.read(reviewSessionIdsProvider.notifier).state = notifier.getDailyReviewIds();
-          }
-        } else {
-          // Always refresh library list when clicking tab, but into its own provider
-          ref.read(libraryIdsProvider.notifier).state = notifier.getLibraryIds(filter: _libraryFilter);
-        }
-      }
+      // Logic handled in build/listener below now
     });
   }
 
@@ -61,6 +52,7 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
     setState(() {
       _libraryFilter = filter;
     });
+    // Trigger update logic
     final notifier = ref.read(feedProvider.notifier);
     ref.read(libraryIdsProvider.notifier).state = notifier.getLibraryIds(filter: filter);
   }
@@ -99,8 +91,13 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    final notifier = ref.watch(feedProvider.notifier);
-    final allItems = notifier.allItems;
+    // Listen to Feed Changes -> Auto Refresh Library
+    ref.listen<List<FeedItem>>(feedProvider, (previous, next) {
+       final notifier = ref.read(feedProvider.notifier);
+       ref.read(libraryIdsProvider.notifier).state = notifier.getLibraryIds(filter: _libraryFilter);
+    });
+
+    final allItems = ref.watch(feedProvider);
     
     // Get items for current tab from their respective ID providers
     final sessionIds = ref.watch(reviewSessionIdsProvider);
@@ -156,7 +153,7 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
         controller: _tabController,
         children: [
           // Tab 1: Today
-          _buildSessionList(sessionItems, notifier),
+          _buildSessionList(sessionItems, ref.read(feedProvider.notifier)),
           
           // Tab 2: Library
           Column(

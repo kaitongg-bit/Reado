@@ -29,7 +29,7 @@ class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
     // 2. Create updated item (using currentItem to preserve favorite state)
     final updatedItem = currentItem.copyWith(
       nextReviewTime: nextReview,
-      intervalDays: intervalDays,
+      interval: intervalDays,
       masteryLevel: mastery,
     );
 

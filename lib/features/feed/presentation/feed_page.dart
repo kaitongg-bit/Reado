@@ -111,7 +111,15 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
-        return FeedItemView(feedItem: item);
+        return FeedItemView(
+          feedItem: item,
+          onNextTap: () {
+            _verticalController.nextPage(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          },
+        );
       },
     );
   }

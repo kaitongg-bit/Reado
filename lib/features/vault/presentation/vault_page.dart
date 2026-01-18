@@ -16,6 +16,10 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
   
   // Library Filter State
   FeedItemMastery? _libraryFilter;
+  
+  // Track reviewed items in current session (global provider)
+  // Removed local Set<String> _reviewedInSession;
+
 
   @override
   void initState() {
@@ -23,14 +27,25 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
     _tabController = TabController(length: 2, vsync: this);
     
     // Initial Load: Today's Session
-    Future.microtask(() => ref.read(feedProvider.notifier).loadDailyReviewSession());
+    Future.microtask(() {
+      final notifier = ref.read(feedProvider.notifier);
+      if (ref.read(reviewSessionIdsProvider).isEmpty) {
+        final ids = notifier.getDailyReviewIds();
+        ref.read(reviewSessionIdsProvider.notifier).state = ids;
+      }
+    });
 
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) {
+        final notifier = ref.read(feedProvider.notifier);
         if (_tabController.index == 0) {
-          ref.read(feedProvider.notifier).loadDailyReviewSession();
+          // Only auto-load if empty
+          if (ref.read(reviewSessionIdsProvider).isEmpty) {
+            ref.read(reviewSessionIdsProvider.notifier).state = notifier.getDailyReviewIds();
+          }
         } else {
-          ref.read(feedProvider.notifier).loadLibraryItems(filter: _libraryFilter);
+          // Always refresh library list when clicking tab, but into its own provider
+          ref.read(libraryIdsProvider.notifier).state = notifier.getLibraryIds(filter: _libraryFilter);
         }
       }
     });
@@ -46,7 +61,8 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
     setState(() {
       _libraryFilter = filter;
     });
-    ref.read(feedProvider.notifier).loadLibraryItems(filter: filter);
+    final notifier = ref.read(feedProvider.notifier);
+    ref.read(libraryIdsProvider.notifier).state = notifier.getLibraryIds(filter: filter);
   }
 
   void _showLimitSettings() {
@@ -83,19 +99,25 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    final items = ref.watch(feedProvider);
-    final notifier = ref.read(feedProvider.notifier);
+    final notifier = ref.watch(feedProvider.notifier);
+    final allItems = notifier.allItems;
+    
+    // Get items for current tab from their respective ID providers
+    final sessionIds = ref.watch(reviewSessionIdsProvider);
+    final libraryIds = ref.watch(libraryIdsProvider);
+    
+    final sessionItems = sessionIds
+        .map((id) => allItems.firstWhere((i) => i.id == id, orElse: () => allItems.first))
+        .toList();
+    
+    final libraryItems = libraryIds
+        .map((id) => allItems.firstWhere((i) => i.id == id, orElse: () => allItems.first))
+        .toList();
 
-    // Filter logic for Library tab
-    final displayItems = _tabController.index == 1 && _libraryFilter != null
-        ? items.where((i) => i.masteryLevel == _libraryFilter).toList()
-        : items;
-
-    // Calculate Pending in CURRENT session
-    final now = DateTime.now();
-    final pendingCount = displayItems.where((i) => 
-      i.nextReviewTime != null && i.nextReviewTime!.isBefore(now)
-    ).length;
+    final reviewedSet = ref.watch(reviewedSessionProvider);
+    
+    // Pending in today's session
+    final pendingCount = sessionItems.where((i) => !reviewedSet.contains(i.id)).length;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0FDFA), // Teal-50
@@ -134,16 +156,16 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
         controller: _tabController,
         children: [
           // Tab 1: Today
-          _buildSessionList(displayItems, notifier),
+          _buildSessionList(sessionItems, notifier),
           
           // Tab 2: Library
           Column(
             children: [
               _buildFilterBar(),
               Expanded(
-                child: displayItems.isEmpty 
+                child: libraryItems.isEmpty 
                   ? const Center(child: Text('No items found')) 
-                  : _buildList(displayItems, isLibrary: true),
+                  : _buildList(libraryItems, isLibrary: true),
               ),
             ],
           ),
@@ -156,34 +178,46 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
     if (items.isEmpty) return _buildEmptyState();
 
     final now = DateTime.now();
-    // Sort: Due first, then Done
+    
+    // Pending = 未复习的 + 到期的（排除session中已复习的）
+    final reviewedSet = ref.watch(reviewedSessionProvider);
+    final pendingCount = items.where((i) {
+      if (reviewedSet.contains(i.id)) return false; // 已复习
+      return true;
+    }).length;
+    
+    // Sort: 已复习的排到后面，未复习的按到期时间排序
     final sortedItems = List.of(items);
     sortedItems.sort((a, b) {
-      final aDue = a.nextReviewTime != null && a.nextReviewTime!.isBefore(now);
-      final bDue = b.nextReviewTime != null && b.nextReviewTime!.isBefore(now);
-      if (aDue && !bDue) return -1;
-      if (!aDue && bDue) return 1;
+      final aReviewed = reviewedSet.contains(a.id);
+      final bReviewed = reviewedSet.contains(b.id);
+      if (!aReviewed && bReviewed) return -1;
+      if (aReviewed && !bReviewed) return 1;
+      // Both unreviewed: sort by due time
+      if (!aReviewed && !bReviewed) {
+        final aDue = a.nextReviewTime != null && a.nextReviewTime!.isBefore(now);
+        final bDue = b.nextReviewTime != null && b.nextReviewTime!.isBefore(now);
+        if (aDue && !bDue) return -1;
+        if (!aDue && bDue) return 1;
+      }
       return 0;
     });
 
-    final pendingCount = items.where((i) => 
-      i.nextReviewTime != null && i.nextReviewTime!.isBefore(now)
-    ).length;
     final totalPoolDue = notifier.totalDueCount;
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      // Add 1 for the "Load More" button if needed
-      itemCount: sortedItems.length + 1, 
+      itemCount: sortedItems.length + 1,
       itemBuilder: (context, index) {
         if (index == sortedItems.length) {
-          // Bottom Button Logic
           if (pendingCount == 0 && totalPoolDue > 0) {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: ElevatedButton.icon(
                 onPressed: () {
-                  notifier.loadDailyReviewSession();
+                  final newIds = notifier.getDailyReviewIds();
+                  // Append or replace? Usually load more means adding to existing
+                  ref.read(reviewSessionIdsProvider.notifier).update((state) => [...state, ...newIds]);
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loaded next batch!')));
                 },
                 icon: const Icon(Icons.refresh),
@@ -196,13 +230,18 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
               ),
             );
           }
-          return const SizedBox(height: 50); // Bottom padding
+          return const SizedBox(height: 50);
         }
-        
         final item = sortedItems[index];
-        final isDue = item.nextReviewTime != null && item.nextReviewTime!.isBefore(now);
-        
-        return _ReviewCard(item: item, isLibrary: false, isDone: !isDue);
+        final isDone = reviewedSet.contains(item.id);
+        return _ReviewCard(
+          item: item,
+          isLibrary: false,
+          isDone: isDone,
+          onReviewed: () {
+            ref.read(reviewedSessionProvider.notifier).update((state) => {...state, item.id});
+          },
+        );
       },
     );
   }
@@ -263,24 +302,42 @@ class _VaultPageState extends ConsumerState<VaultPage> with SingleTickerProvider
           ),
           const SizedBox(height: 24),
           const Text(
-            'All Clear!',
+            '今日待复习已完成！',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF134E4A)),
           ),
           const SizedBox(height: 12),
           const Text(
-            '今天没有到期的复习任务',
+            '想继续复习？加载所有收藏的题目',
             style: TextStyle(fontSize: 14, color: Colors.grey),
           ),
           const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: () {
-              notifier.loadPracticeSession();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('💪 加载练习题成功！开始复习吧')),
-              );
+              // 1. Get the IDs from notifier
+              final ids = notifier.getPracticeSessionIds();
+              // 2. Update the dedicated provider
+              ref.read(reviewSessionIdsProvider.notifier).state = ids;
+              
+              Future.microtask(() {
+                if (ids.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('📚 还没有收藏的知识点哦，先去学习流收藏一些内容吧！'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('💪 加载了 ${ids.length} 个题目供复习！'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              });
             },
-            icon: const Icon(Icons.fitness_center),
-            label: const Text('我想主动练习'),
+            icon: const Icon(Icons.library_books),
+            label: const Text('加载全部收藏'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0D9488),
               foregroundColor: Colors.white,
@@ -310,20 +367,24 @@ class _ReviewCard extends StatelessWidget {
   final FeedItem item;
   final bool isLibrary;
   final bool isDone; // New flag
+  final VoidCallback? onReviewed; // Callback when reviewed
 
   const _ReviewCard({
     required this.item, 
     required this.isLibrary,
     required this.isDone,
+    this.onReviewed,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
+      onTap: () async {
+        await Navigator.of(context).push(
           MaterialPageRoute(builder: (context) => SRSReviewPage(item: item)),
         );
+        // 返回后调用回调（如果有）
+        onReviewed?.call();
       },
       child: Opacity(
         opacity: isDone ? 0.6 : 1.0, // Fade out if done
@@ -482,8 +543,11 @@ class _LimitOption extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        ref.read(feedProvider.notifier).setDailyLimit(value);
-        ref.read(feedProvider.notifier).loadDailyReviewSession(); // Reload
+        final notifier = ref.read(feedProvider.notifier);
+        notifier.setDailyLimit(value);
+        // Refresh the session IDs in the dedicated provider
+        ref.read(reviewSessionIdsProvider.notifier).state = notifier.getDailyReviewIds();
+        
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Daily limit set to $value')));
       },

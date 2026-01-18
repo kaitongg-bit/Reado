@@ -2,97 +2,38 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class HomePage extends ConsumerWidget {
+import '../../vault/presentation/vault_page.dart';
+
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F7), // Apple-like grey
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Header / Dashboard
-              const _HeaderSection(),
-              const SizedBox(height: 24),
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
 
-              // 2. Search Bar
-              TextField(
-                decoration: InputDecoration(
-                  hintText: '搜索知识点 (例如: 产品, 用户)',
-                  prefixIcon: const Icon(Icons.search),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                ),
-                onSubmitted: (value) {
-                  // 这里我们复用 FeedPage 来显示搜索结果，只需要传一个特殊的 moduleId 并在 FeedPage 里处理
-                  // 或者我们定义一个新的路由。这里为了最快实现，我们用 'SEARCH_$value' 作为 ID 传递
-                  if (value.isNotEmpty) {
-                    context.push('/search?q=$value');
-                  }
-                },
-              ),
-              const SizedBox(height: 32),
-              
-              // 3. Modules Grid
-              const Text(
-                '核心模块',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              
-              GridView.count(
-                shrinkWrap: true, // Important for usage inside SingleChildScrollView
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.85,
-                children: [
-                  _ModuleCard(
-                    title: '硬核基础',
-                    subtitle: 'AI 时代产品力',
-                    moduleId: 'A',
-                    color: Colors.blueAccent,
-                    icon: Icons.auto_awesome,
-                  ),
-                  _ModuleCard(
-                    title: '拆解案例',
-                    subtitle: '提升 Product Sense',
-                    moduleId: 'B',
-                    color: Colors.orangeAccent,
-                    icon: Icons.lightbulb,
-                  ),
-                  _ModuleCard(
-                    title: '全栈实操',
-                    subtitle: 'Hands-on Lab',
-                    moduleId: 'C',
-                    color: Colors.purpleAccent,
-                    icon: Icons.science,
-                  ),
-                  _ModuleCard(
-                    title: '面经军火库',
-                    subtitle: '模拟面试 & 题库',
-                    moduleId: 'D',
-                    color: Colors.redAccent,
-                    icon: Icons.gavel,
-                  ),
-                ],
-              )
-            ],
-          ),
-        ),
+class _HomePageState extends ConsumerState<HomePage> {
+  int _selectedIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final screens = [
+      const _HomeBody(),
+      const VaultPage(),
+      const Center(child: Text('Profile Page (Coming Soon)')),
+    ];
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F7),
+      body: SafeArea(
+        child: screens[_selectedIndex],
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: 0,
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
         backgroundColor: Colors.white,
         destinations: const [
           NavigationDestination(
@@ -110,6 +51,92 @@ class HomePage extends ConsumerWidget {
             selectedIcon: Icon(Icons.person),
             label: '我的',
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeBody extends StatelessWidget {
+  const _HomeBody();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Header / Dashboard
+          const _HeaderSection(),
+          const SizedBox(height: 24),
+
+          // 2. Search Bar
+          TextField(
+            decoration: InputDecoration(
+              hintText: '搜索知识点 (例如: 产品, 用户)',
+              prefixIcon: const Icon(Icons.search),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            ),
+            onSubmitted: (value) {
+              if (value.isNotEmpty) {
+                context.push('/search?q=$value');
+              }
+            },
+          ),
+          const SizedBox(height: 32),
+          
+          // 3. Modules Grid
+          const Text(
+            '核心模块',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          
+          GridView.count(
+            shrinkWrap: true, 
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 0.85,
+            children: [
+              _ModuleCard(
+                title: '硬核基础',
+                subtitle: 'AI 时代产品力',
+                moduleId: 'A',
+                color: Colors.blueAccent,
+                icon: Icons.auto_awesome,
+              ),
+              _ModuleCard(
+                title: '拆解案例',
+                subtitle: '提升 Product Sense',
+                moduleId: 'B',
+                color: Colors.orangeAccent,
+                icon: Icons.lightbulb,
+              ),
+              _ModuleCard(
+                title: '全栈实操',
+                subtitle: 'Hands-on Lab',
+                moduleId: 'C',
+                color: Colors.purpleAccent,
+                icon: Icons.science,
+              ),
+              _ModuleCard(
+                title: '面经军火库',
+                subtitle: '模拟面试 & 题库',
+                moduleId: 'D',
+                color: Colors.redAccent,
+                icon: Icons.gavel,
+              ),
+            ],
+          )
         ],
       ),
     );

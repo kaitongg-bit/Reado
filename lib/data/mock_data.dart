@@ -67,6 +67,9 @@ class MockData {
             flashcardAnswer: '更高的通勤效率（更短的时间到达目的地），而不是对“马”这种生物的执着。',
           ),
         ],
+        // Make this item due for review
+        nextReviewTime: DateTime.now().subtract(const Duration(hours: 1)),
+        intervalDays: 1,
       ),
 
       // Example 3: MVP Thinking

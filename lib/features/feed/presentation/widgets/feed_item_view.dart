@@ -6,8 +6,13 @@ import '../feed_provider.dart';
 
 class FeedItemView extends ConsumerStatefulWidget {
   final FeedItem feedItem;
+  final bool isReviewMode;
 
-  const FeedItemView({super.key, required this.feedItem});
+  const FeedItemView({
+    super.key, 
+    required this.feedItem,
+    this.isReviewMode = false,
+  });
 
   @override
   ConsumerState<FeedItemView> createState() => _FeedItemViewState();
@@ -158,35 +163,36 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           ),
         ),
 
-        // 4. "Next / Prev" Hint Button (Bottom Center)
-        Positioned(
-          bottom: 20,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: GestureDetector(
-              onTap: () {
-                // Ideally this interacts with parent PageView. 
-                // For now, it's a visual cue.
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Next Topic', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                    SizedBox(width: 4),
-                    Icon(Icons.keyboard_arrow_down, color: Colors.white70, size: 16),
-                  ],
+        // 4. "Next / Prev" Hint Button (Bottom Center) - Hide in Review Mode
+        if (!widget.isReviewMode)
+          Positioned(
+            bottom: 20,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: GestureDetector(
+                onTap: () {
+                  // Ideally this interacts with parent PageView. 
+                  // For now, it's a visual cue.
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Next Topic', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      SizedBox(width: 4),
+                      Icon(Icons.keyboard_arrow_down, color: Colors.white70, size: 16),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
       ],
     );
   }

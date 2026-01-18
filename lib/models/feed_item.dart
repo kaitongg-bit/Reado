@@ -33,6 +33,13 @@ class UserNotePage extends CardPageContent {
   }) : super(type: 'user_note');
 }
 
+enum FeedItemMastery {
+  unknown,
+  hard,   // 对应 "Forgot" / "Complex"
+  medium, // 对应 "Hazy"
+  easy,   // 对应 "熟练"
+}
+
 /// 核心知识点容器
 class FeedItem {
   final String id;
@@ -45,6 +52,9 @@ class FeedItem {
   // SRS 算法数据
   final DateTime? nextReviewTime;
   final int intervalDays;
+  
+  // 掌握程度 (用于筛选和权重计算)
+  final FeedItemMastery masteryLevel;
 
   FeedItem({
     required this.id,
@@ -53,6 +63,7 @@ class FeedItem {
     required this.pages,
     this.nextReviewTime,
     this.intervalDays = 0,
+    this.masteryLevel = FeedItemMastery.unknown,
   });
 
   /// CopyWith method to support immutability and state updates (Riverpod friendly)
@@ -63,6 +74,7 @@ class FeedItem {
     List<CardPageContent>? pages,
     DateTime? nextReviewTime,
     int? intervalDays,
+    FeedItemMastery? masteryLevel,
   }) {
     return FeedItem(
       id: id ?? this.id,
@@ -71,6 +83,7 @@ class FeedItem {
       pages: pages ?? this.pages,
       nextReviewTime: nextReviewTime ?? this.nextReviewTime,
       intervalDays: intervalDays ?? this.intervalDays,
+      masteryLevel: masteryLevel ?? this.masteryLevel,
     );
   }
 }

@@ -10,8 +10,14 @@ abstract class CardPageContent {
 /// 官方内容页
 class OfficialPage extends CardPageContent {
   final String markdownContent;
+  final String? flashcardQuestion;
+  final String? flashcardAnswer;
 
-  OfficialPage(this.markdownContent) : super(type: 'text');
+  OfficialPage(
+    this.markdownContent, {
+    this.flashcardQuestion,
+    this.flashcardAnswer,
+  }) : super(type: 'text');
 }
 
 /// 用户私有笔记页 (动态生成)

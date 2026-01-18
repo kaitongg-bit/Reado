@@ -87,7 +87,9 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
 
   @override
   Widget build(BuildContext context) {
+    // 1. Simply use pages from model (Official Page + User Notes)
     final pages = widget.feedItem.pages;
+    
     // Calculate total user notes for badge
     final userNoteCount = pages.whereType<UserNotePage>().length;
 
@@ -155,9 +157,41 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
             ],
           ),
         ),
+
+        // 4. "Next / Prev" Hint Button (Bottom Center)
+        Positioned(
+          bottom: 20,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: GestureDetector(
+              onTap: () {
+                // Ideally this interacts with parent PageView. 
+                // For now, it's a visual cue.
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Next Topic', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    SizedBox(width: 4),
+                    Icon(Icons.keyboard_arrow_down, color: Colors.white70, size: 16),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
+
+
 
   Widget _buildPageContent(CardPageContent content, int noteCount) {
     if (content is OfficialPage) {
@@ -208,39 +242,15 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                       ),
                     ),
                     const SizedBox(height: 48),
-                    // Mock Flashcard Section
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.blue[100]!),
+                    // Dynamic Flashcard Section
+                    if (content.flashcardQuestion != null) ...[
+                      _FlashcardWidget(
+                        question: content.flashcardQuestion!,
+                        answer: content.flashcardAnswer ?? '',
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.psychology, color: Colors.blue[700], size: 20),
-                              const SizedBox(width: 8),
-                              Text('Quick Flashcard', style: TextStyle(color: Colors.blue[900], fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                          const Divider(),
-                          const Text('Q: 为什么“用户需求”不等于“产品需求”？', style: TextStyle(fontWeight: FontWeight.w500)),
-                          const SizedBox(height: 8),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text('Tap to reveal answer...', style: TextStyle(color: Colors.grey)),
-                          ),
-                        ],
-                      ),
-                    ),
+                      // Add some bottom padding if flashcard is present
+                      const SizedBox(height: 40),
+                    ],
                   ],
                 ),
               ),
@@ -691,6 +701,124 @@ class _AskAISheetState extends State<_AskAISheet> {
               ),
               const SizedBox(width: 8),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FlashcardWidget extends StatefulWidget {
+  final String question;
+  final String answer;
+
+  const _FlashcardWidget({required this.question, required this.answer});
+
+  @override
+  State<_FlashcardWidget> createState() => _FlashcardWidgetState();
+}
+
+class _FlashcardWidgetState extends State<_FlashcardWidget> {
+  
+  void _showAnswerSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent, // For custom rounded corners
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.lightbulb, color: Colors.amber, size: 28),
+                const SizedBox(width: 12),
+                const Text('Insight', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const Divider(height: 32),
+            Text(
+              'Q: ${widget.question}',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              widget.answer,
+              style: const TextStyle(fontSize: 18, height: 1.6, color: Colors.black87),
+            ),
+            const SizedBox(height: 48), // Bottom padding
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Got it!'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _showAnswerSheet,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.blue[50],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.blue[100]!, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.psychology, color: Colors.blue[700], size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Quick Flashcard', 
+                  style: TextStyle(color: Colors.blue[900], fontWeight: FontWeight.bold)
+                ),
+                const Spacer(),
+                const Icon(Icons.touch_app, size: 16, color: Colors.grey),
+              ],
+            ),
+            const Divider(height: 24),
+            Text(
+              'Q: ${widget.question}', 
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '(Tap to reveal answer)', 
+              style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 12),
+            ),
           ],
         ),
       ),

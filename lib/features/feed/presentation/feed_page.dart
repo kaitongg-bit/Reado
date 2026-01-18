@@ -121,21 +121,21 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       padding: const EdgeInsets.all(8),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.7, // Portrait cards
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
+        childAspectRatio: 0.8, // Slightly squarer without the large image
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
       ),
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
+        final previewText = _getPreviewText(item);
+
         return GestureDetector(
           onTap: () {
             // Click to enters Single View starting at this index
-            // Switch mode
             setState(() {
               _isSingleView = true;
             });
-            // Jump to page after build
             WidgetsBinding.instance.addPostFrameCallback((_) {
                if (_verticalController.hasClients) {
                  _verticalController.jumpToPage(index);
@@ -143,67 +143,101 @@ class _FeedPageState extends ConsumerState<FeedPage> {
             });
           },
           child: Container(
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
+                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4)),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: _getModuleColor(item.moduleId).withOpacity(0.1),
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                    ),
-                    child: Center(
-                      child: Icon(_getModuleIcon(item.moduleId), size: 40, color: _getModuleColor(item.moduleId)),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                // Header: Module Tag (Optional)
+                if (item.moduleId == 'SEARCH')
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _getModuleColor(item.moduleId).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: _getModuleColor(item.moduleId).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              _getModuleName(item.moduleId),
-                              // 搜索模式下可以高亮 Tag
-                              style: TextStyle(fontSize: 10, color: _getModuleColor(item.moduleId), fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          const Spacer(),
-                          // 这里的爱心只是装饰，暂不联动 Provider
-                          const Icon(Icons.favorite_border, size: 14, color: Colors.grey),
-                        ],
-                      )
-                    ],
+                      child: Text(
+                        _getModuleName(item.moduleId),
+                        style: TextStyle(fontSize: 10, color: _getModuleColor(item.moduleId), fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+
+                // Title
+                Text(
+                  item.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, height: 1.3),
+                ),
+                const SizedBox(height: 8),
+
+                // Preview Content
+                Expanded(
+                  child: Text(
+                    previewText,
+                    maxLines: 6, // Show more lines now
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600], height: 1.5),
                   ),
                 ),
+                
+                const SizedBox(height: 12),
+                
+                // Footer
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 8, 
+                      backgroundColor: _getModuleColor(item.moduleId).withOpacity(0.2),
+                      child: Icon(_getModuleIcon(item.moduleId), size: 10, color: _getModuleColor(item.moduleId)),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'QuickPM', 
+                      style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                    ),
+                    const Spacer(),
+                    Icon(Icons.favorite_border, size: 14, color: Colors.grey[400]),
+                  ],
+                )
               ],
             ),
           ),
         );
       },
     );
+  }
+
+  String _getPreviewText(FeedItem item) {
+    // Try to find official content
+    try {
+      final content = item.pages.firstWhere(
+        (p) => p is OfficialPage, 
+        orElse: () => item.pages.first
+      );
+      
+      if (content is OfficialPage) {
+        String text = content.markdownContent
+            .replaceAll(RegExp(r'[#*\[\]`>]'), '') // Simple Markdown stripping
+            .replaceAll(RegExp(r'\n+'), ' ')
+            .trim();
+        return text;
+      } else if (content is UserNotePage) {
+        return content.question;
+      }
+    } catch (e) {
+      return '';
+    }
+    return '';
   }
   
   IconData _getModuleIcon(String moduleId) {

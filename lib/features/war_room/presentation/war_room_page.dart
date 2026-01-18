@@ -426,7 +426,7 @@ class _WarRoomPageState extends ConsumerState<WarRoomPage> {
                            borderRadius: BorderRadius.circular(12),
                            border: isAi ? Border.all(color: Colors.grey[100]!) : null,
                          ),
-                         child: Text(msg['content'], style: const TextStyle(fontSize: 13)),
+                         child: SelectableText(msg['content'], style: const TextStyle(fontSize: 13)),
                        ),
                      ),
                    ],

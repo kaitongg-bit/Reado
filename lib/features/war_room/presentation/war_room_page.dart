@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../../models/feed_item.dart';
+import 'mock_interview_page.dart';
 
 class WarRoomPage extends ConsumerStatefulWidget {
   const WarRoomPage({super.key});
@@ -586,8 +587,11 @@ class _WarRoomPageState extends ConsumerState<WarRoomPage> {
   }
 
   void _startMockInterview(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('正在初始化模拟面试... AI 面试官即将上线！'))
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MockInterviewPage(documents: _myDocuments),
+      ),
     );
   }
 }

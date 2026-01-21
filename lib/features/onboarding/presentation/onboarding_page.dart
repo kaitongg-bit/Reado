@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
+import '../../../core/services/auth_service.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -10,12 +10,70 @@ class OnboardingPage extends StatefulWidget {
 }
 
 class _OnboardingPageState extends State<OnboardingPage> {
-  double _dailyMinutes = 30; // Default 30 mins
-  static const int totalCourseMinutes = 6000;
+  final AuthService _authService = AuthService();
+  bool _isLoading = false;
 
-  DateTime get _estimatedDate {
-    int daysNeeded = (totalCourseMinutes / _dailyMinutes).ceil();
-    return DateTime.now().add(Duration(days: daysNeeded));
+  @override
+  void initState() {
+    super.initState();
+    // 如果已登录，直接跳转
+    if (_authService.isSignedIn) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.go('/home');
+      });
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isLoading = true);
+
+    try {
+      await _authService.signInWithGoogle();
+
+      if (!mounted) return;
+
+      // 登录成功，跳转到主页
+      context.go('/home');
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('登录失败: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _continueAsGuest() async {
+    setState(() => _isLoading = true);
+
+    try {
+      await _authService.signInAnonymously();
+
+      if (!mounted) return;
+
+      // 匿名登录成功，跳转到主页
+      context.go('/home');
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('登录失败: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -24,102 +82,142 @@ class _OnboardingPageState extends State<OnboardingPage> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(32.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const Spacer(),
-              Text(
-                'Ready to become a PM?',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'How much time can you commit daily?',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
-              ),
-              const SizedBox(height: 48),
-              
-              // Dynamic Target Date Display
-              Center(
-                child: Column(
-                  children: [
-                    Text(
-                      'Predicted Offer Date',
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 12,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      DateFormat('MMM d, yyyy').format(_estimatedDate),
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            color: Theme.of(context).primaryColor,
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
-                  ],
+
+              // Logo / Icon
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.rocket_launch,
+                  size: 60,
+                  color: Colors.blue.shade700,
                 ),
               ),
-              
-              const SizedBox(height: 48),
 
-              // The Slider
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('15 min', style: TextStyle(color: Colors.grey[400])),
-                  Text('${_dailyMinutes.toInt()} min/day', 
-                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                  Text('60 min', style: TextStyle(color: Colors.grey[400])),
-                ],
+              const SizedBox(height: 32),
+
+              // Title
+              Text(
+                'QuickPM',
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                      fontSize: 36,
+                    ),
               ),
-              Slider(
-                value: _dailyMinutes,
-                min: 15,
-                max: 60,
-                divisions: 9, // Steps of 5 mins
-                label: '${_dailyMinutes.toInt()} min',
-                onChanged: (value) {
-                  setState(() {
-                    _dailyMinutes = value;
-                  });
-                },
+
+              const SizedBox(height: 12),
+
+              // Subtitle
+              Text(
+                '快速成为产品经理',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.grey[600],
+                      fontSize: 16,
+                    ),
               ),
-              
+
+              const SizedBox(height: 8),
+
+              Text(
+                'AI 驱动的个性化学习平台',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey[500],
+                      fontSize: 14,
+                    ),
+              ),
+
               const Spacer(),
-              
-              // Action Button
+
+              // Google 登录按钮
               SizedBox(
                 width: double.infinity,
                 height: 56,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // Navigate to Home
-                    context.go('/home');
-                  },
+                child: ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _signInWithGoogle,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.black54),
+                          ),
+                        )
+                      : Image.network(
+                          'https://www.google.com/favicon.ico',
+                          width: 24,
+                          height: 24,
+                        ),
+                  label: Text(
+                    _isLoading ? '登录中...' : '使用 Google 账号登录',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black87,
+                    side: const BorderSide(color: Colors.black12),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     elevation: 0,
                   ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // 访客继续按钮
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: OutlinedButton(
+                  onPressed: _isLoading ? null : _continueAsGuest,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey[700],
+                    side: BorderSide(color: Colors.grey[300]!),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                   child: const Text(
-                    'Start My Journey',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    '访客模式继续',
+                    style: TextStyle(fontSize: 16),
                   ),
                 ),
               ),
+
               const SizedBox(height: 24),
+
+              // 提示文字
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  '💡 使用 Google 账号登录可永久保存数据并跨设备同步',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 40),
             ],
           ),
         ),

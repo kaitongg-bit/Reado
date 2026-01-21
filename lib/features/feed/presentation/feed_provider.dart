@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../data/mock_data.dart';
 import '../../../models/feed_item.dart';
 import '../../../data/services/firestore_service.dart';
@@ -17,42 +18,56 @@ final dataServiceProvider = Provider<DataService>((ref) => FirestoreService());
 
 class FeedNotifier extends StateNotifier<List<FeedItem>> {
   final DataService _dataService;
-  
+
   // Source of Truth
   List<FeedItem> _allItems = [];
-  
+
   List<FeedItem> get allItems => _allItems;
 
   FeedNotifier(this._dataService) : super([]) {
-     // Trigger initial load
-     loadAllData();
+    // Trigger initial load
+    loadAllData();
   }
-  
+
   Future<void> loadAllData() async {
-    // Fetch all modules
-    // This fetches module by module. 
-    final results = await Future.wait([
+    print('🔄 开始加载所有数据...');
+
+    // 1. 获取官方内容（从 feed_items 集合）
+    final officialResults = await Future.wait([
       _dataService.fetchFeedItems('A'),
       _dataService.fetchFeedItems('B'),
       _dataService.fetchFeedItems('C'),
       _dataService.fetchFeedItems('D'),
     ]);
-    
-    _allItems = results.expand((x) => x).toList();
-    // No state update here, wait for specific loadModule call or update active view.
-    // If we want to show something initially, we might not know which module user is on.
-    // Usually Page calls loadModule on init.
+
+    final officialItems = officialResults.expand((x) => x).toList();
+    print('✅ 官方内容: ${officialItems.length} 个');
+
+    // 2. 获取用户自定义内容（从 users/{uid}/custom_items）
+    final currentUser = FirebaseAuth.instance.currentUser;
+    List<FeedItem> customItems = [];
+
+    if (currentUser != null) {
+      customItems = await _dataService.fetchCustomFeedItems(currentUser.uid);
+      print('✅ 自定义内容: ${customItems.length} 个');
+    } else {
+      print('⚠️ 用户未登录，跳过自定义内容');
+    }
+
+    // 3. 合并所有内容
+    _allItems = [...officialItems, ...customItems];
+    print('📊 总计: ${_allItems.length} 个知识点');
   }
 
   /// 加载指定模块的数据 (Feed Logic)
   void loadModule(String moduleId) {
     if (_allItems.isEmpty) {
-        // Retry logic if called too early
-        loadAllData().then((_) {
-             state = _allItems.where((item) => item.module == moduleId).toList();
-        });
-    } else {
+      // Retry logic if called too early
+      loadAllData().then((_) {
         state = _allItems.where((item) => item.module == moduleId).toList();
+      });
+    } else {
+      state = _allItems.where((item) => item.module == moduleId).toList();
     }
   }
 
@@ -66,13 +81,14 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
       return item.title.toLowerCase().contains(query.toLowerCase());
     }).toList();
   }
-  
+
   int _dailyLimit = 10;
   int get dailyLimit => _dailyLimit;
 
   void updateDailyLimit(int limit) {
     _dailyLimit = limit;
   }
+
   // Alias
   void setDailyLimit(int limit) => updateDailyLimit(limit);
 
@@ -83,16 +99,20 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     if (filter == null) {
       filtered = favoritedItems;
     } else {
-      filtered = favoritedItems.where((item) => item.masteryLevel == filter).toList();
+      filtered =
+          favoritedItems.where((item) => item.masteryLevel == filter).toList();
     }
     return filtered.map((e) => e.id).toList();
   }
 
   /// 加载“所有”卡片 (Library Mode)，支持筛选
   void loadLibraryItems({FeedItemMastery? filter}) {
-    state = _allItems.where((item) => item.isFavorited && (filter == null || item.masteryLevel == filter)).toList();
+    state = _allItems
+        .where((item) =>
+            item.isFavorited && (filter == null || item.masteryLevel == filter))
+        .toList();
   }
-  
+
   /// 获取每日复习的 ID 列表
   List<String> getDailyReviewIds() {
     final now = DateTime.now();
@@ -106,9 +126,16 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
       return dueItems.map((e) => e.id).toList();
     }
 
-    final hardItems = dueItems.where((i) => i.masteryLevel == FeedItemMastery.hard).toList();
-    final mediumItems = dueItems.where((i) => i.masteryLevel == FeedItemMastery.medium).toList();
-    final easyItems = dueItems.where((i) => i.masteryLevel == FeedItemMastery.easy || i.masteryLevel == FeedItemMastery.unknown).toList();
+    final hardItems =
+        dueItems.where((i) => i.masteryLevel == FeedItemMastery.hard).toList();
+    final mediumItems = dueItems
+        .where((i) => i.masteryLevel == FeedItemMastery.medium)
+        .toList();
+    final easyItems = dueItems
+        .where((i) =>
+            i.masteryLevel == FeedItemMastery.easy ||
+            i.masteryLevel == FeedItemMastery.unknown)
+        .toList();
 
     hardItems.shuffle();
     mediumItems.shuffle();
@@ -116,7 +143,7 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
 
     final hardCount = (_dailyLimit * 0.5).ceil();
     final mediumCount = (_dailyLimit * 0.3).ceil();
-    final easyCount = _dailyLimit - hardCount - mediumCount; 
+    final easyCount = _dailyLimit - hardCount - mediumCount;
 
     List<FeedItem> session = [];
     session.addAll(hardItems.take(hardCount));
@@ -130,13 +157,13 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
       others.shuffle();
       session.addAll(others.take(remainingNeeded));
     }
-    
+
     return session.map((e) => e.id).toList();
   }
-  
+
   // Practice Session
   List<String> getPracticeSessionIds() {
-     return getDailyReviewIds(); // Reuse for simplicity or implement shuffle logic
+    return getDailyReviewIds(); // Reuse for simplicity or implement shuffle logic
   }
 
   // --- Actions ---
@@ -147,32 +174,42 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
       final oldItem = _allItems[index];
       final newItem = oldItem.copyWith(
         isFavorited: !oldItem.isFavorited,
-        nextReviewTime: !oldItem.isFavorited ? DateTime.now().add(const Duration(days: 1)) : null,
+        nextReviewTime: !oldItem.isFavorited
+            ? DateTime.now().add(const Duration(days: 1))
+            : null,
       );
-      
+
       updateItem(newItem);
-      
+
       await _dataService.toggleFavorite(itemId, newItem.isFavorited);
     }
   }
 
   Future<void> updateMastery(String itemId, String levelStr) async {
-      FeedItemMastery level;
-      if (levelStr == 'hard') level = FeedItemMastery.hard;
-      else if (levelStr == 'medium') level = FeedItemMastery.medium;
-      else if (levelStr == 'easy') level = FeedItemMastery.easy;
-      else level = FeedItemMastery.unknown;
+    FeedItemMastery level;
+    if (levelStr == 'hard')
+      level = FeedItemMastery.hard;
+    else if (levelStr == 'medium')
+      level = FeedItemMastery.medium;
+    else if (levelStr == 'easy')
+      level = FeedItemMastery.easy;
+    else
+      level = FeedItemMastery.unknown;
 
-      final index = _allItems.indexWhere((i) => i.id == itemId);
-      if (index != -1) {
-        final oldItem = _allItems[index];
-        final newItem = oldItem.copyWith(masteryLevel: level);
-        
-        updateItem(newItem);
-        await _dataService.updateSRSStatus(itemId, newItem.nextReviewTime ?? DateTime.now(), newItem.interval, newItem.easeFactor);
-      }
+    final index = _allItems.indexWhere((i) => i.id == itemId);
+    if (index != -1) {
+      final oldItem = _allItems[index];
+      final newItem = oldItem.copyWith(masteryLevel: level);
+
+      updateItem(newItem);
+      await _dataService.updateSRSStatus(
+          itemId,
+          newItem.nextReviewTime ?? DateTime.now(),
+          newItem.interval,
+          newItem.easeFactor);
+    }
   }
-  
+
   void updateItem(FeedItem newItem) {
     _allItems = [
       for (final item in _allItems)
@@ -203,16 +240,16 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     updateItem(newItem);
     await _dataService.saveUserNote(itemId, question, answer);
   }
-  
+
   int get totalDueCount {
     final now = DateTime.now();
     return _allItems.where((item) {
-      return item.isFavorited && 
-             item.nextReviewTime != null && 
-             item.nextReviewTime!.isBefore(now);
+      return item.isFavorited &&
+          item.nextReviewTime != null &&
+          item.nextReviewTime!.isBefore(now);
     }).length;
   }
-  
+
   // Seeding
   Future<void> seedDatabase() async {
     print("Seeding DB...");

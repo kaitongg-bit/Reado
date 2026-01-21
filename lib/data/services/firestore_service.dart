@@ -4,6 +4,7 @@ import '../../models/feed_item.dart';
 // Interface for Data Service (Repo Pattern)
 abstract class DataService {
   Future<List<FeedItem>> fetchFeedItems(String moduleId);
+  Future<List<FeedItem>> fetchCustomFeedItems(String userId); // 获取用户自定义内容
   Future<void> saveUserNote(String itemId, String question, String answer);
   Future<void> updateSRSStatus(
       String itemId, DateTime nextReview, int interval, double ease);
@@ -41,6 +42,27 @@ class FirestoreService implements DataService {
       return items;
     } catch (e) {
       print('Error fetching items for module $moduleId: $e');
+      return [];
+    }
+  }
+
+  // Fetch Custom Items (User's AI-generated content)
+  @override
+  Future<List<FeedItem>> fetchCustomFeedItems(String userId) async {
+    try {
+      print('📦 获取用户自定义内容: $userId');
+      final snapshot =
+          await _usersRef.doc(userId).collection('custom_items').get();
+
+      final items = snapshot.docs.map<FeedItem>((doc) {
+        final data = doc.data();
+        return FeedItem.fromJson(data);
+      }).toList();
+
+      print('✅ 找到 ${items.length} 个自定义知识点');
+      return items;
+    } catch (e) {
+      print('❌ 获取自定义内容失败: $e');
       return [];
     }
   }

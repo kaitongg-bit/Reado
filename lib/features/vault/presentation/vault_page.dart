@@ -32,18 +32,25 @@ class _VaultPageState extends ConsumerState<VaultPage> {
 
   @override
   Widget build(BuildContext context) {
-    final allItems = ref.watch(feedProvider);
+    final allItems = ref.watch(allItemsProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Filter Logic
+    // ✅ SIMPLIFIED: Show ONLY favorited items (with optional filters)
     final filteredItems = allItems.where((item) {
+      // First check: Must be favorited
+      if (!item.isFavorited) return false;
+
+      // Then apply mastery level filter if set
       if (_libraryFilter != null && item.masteryLevel != _libraryFilter) {
         return false;
       }
+
+      // Finally apply search filter if query exists
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
         return item.title.toLowerCase().contains(query);
       }
+
       return true;
     }).toList();
 
@@ -51,7 +58,7 @@ class _VaultPageState extends ConsumerState<VaultPage> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('Your Vault',
+        title: Text('收藏', // Changed from "Your Vault" to "Favorites"
             style: TextStyle(
                 color: isDark ? Colors.white : Colors.black87,
                 fontWeight: FontWeight.bold)),
@@ -142,7 +149,8 @@ class _VaultPageState extends ConsumerState<VaultPage> {
                                   color:
                                       isDark ? Colors.white : Colors.black87),
                               decoration: InputDecoration(
-                                hintText: 'Search cards...',
+                                hintText:
+                                    '搜索收藏的卡片...', // Changed from "Search cards..."
                                 hintStyle: TextStyle(
                                     color: isDark
                                         ? Colors.grey[500]
@@ -241,17 +249,24 @@ class _VaultPageState extends ConsumerState<VaultPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search_off,
+          Icon(Icons.favorite_border, // Changed icon
               size: 64,
               color: isDark
                   ? Colors.white.withOpacity(0.2)
                   : Colors.black.withOpacity(0.1)),
           const SizedBox(height: 16),
           Text(
-            'No cards found',
+            '还没有收藏任何卡片', // Changed from "No cards found"
             style: TextStyle(
                 color: isDark ? Colors.grey[400] : Colors.grey[500],
                 fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '在“学习”中点击❤️来收藏内容', // Hint text
+            style: TextStyle(
+                color: isDark ? Colors.grey[600] : Colors.grey[400],
+                fontSize: 14),
           ),
         ],
       ),

@@ -73,9 +73,9 @@ class _HomePageState extends ConsumerState<HomePage> {
             label: '学习',
           ),
           NavigationDestination(
-            icon: Icon(Icons.inventory_2_outlined),
-            selectedIcon: Icon(Icons.inventory_2, color: Color(0xFFFF8A65)),
-            label: '复习',
+            icon: Icon(Icons.favorite_border), // Changed to heart icon
+            selectedIcon: Icon(Icons.favorite, color: Color(0xFFFF8A65)),
+            label: '收藏', // Changed from 复习 to 收藏
           ),
         ],
       ),

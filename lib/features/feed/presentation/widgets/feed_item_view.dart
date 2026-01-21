@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +10,7 @@ class FeedItemView extends ConsumerStatefulWidget {
   final bool isReviewMode;
 
   const FeedItemView({
-    super.key, 
+    super.key,
     required this.feedItem,
     this.isReviewMode = false,
     this.onNextTap,
@@ -48,9 +49,9 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                 question,
                 answer,
               );
-          
+
           Navigator.pop(context); // 关闭弹窗
-          
+
           // 动效反馈
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -65,7 +66,8 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           Future.delayed(const Duration(milliseconds: 300), () {
             if (_horizontalController.hasClients) {
               _horizontalController.animateToPage(
-                widget.feedItem.pages.length, // target last index (length because we just added one so length is new index + 1, wait logic needs care)
+                widget.feedItem.pages
+                    .length, // target last index (length because we just added one so length is new index + 1, wait logic needs care)
                 // Actually after rebuild, pages.length increased by 1. The index of new page is (length - 1).
                 // Let's safe check later.
                 duration: const Duration(milliseconds: 500),
@@ -81,7 +83,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
   void _toggleFavorite() {
     // 使用 provider 更新状态
     ref.read(feedProvider.notifier).toggleFavorite(widget.feedItem.id);
-    
+
     // 给用户反馈
     final isFavorited = !widget.feedItem.isFavorited; // 即将变成的状态
     ScaffoldMessenger.of(context).showSnackBar(
@@ -97,7 +99,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
   Widget build(BuildContext context) {
     // 1. Simply use pages from model (Official Page + User Notes)
     final pages = widget.feedItem.pages;
-    
+
     // Calculate total user notes for badge
     final userNoteCount = pages.whereType<UserNotePage>().length;
 
@@ -114,51 +116,92 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           },
           itemBuilder: (context, index) {
             final pageContent = pages[index];
-            return _buildPageContent(pageContent, userNoteCount);
+            return _buildPageContent(pageContent); // Removed noteCount arg
           },
         ),
 
-        // 2. Progress Indicator (Bottom)
+        // 2. Progress Dots (Xiaohongshu Style) - Z-INDEX: 10
         Positioned(
-          bottom: 30,
-          left: 20,
-          right: 20,
+          bottom: 35,
+          left: 0,
+          right: 0,
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(pages.length, (index) {
               final isSelected = index == _currentPageIndex;
               final isUserNote = pages[index] is UserNotePage;
-              return Expanded(
-                child: Container(
-                  height: 4,
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? (isUserNote ? Colors.amber : Colors.white)
-                        : Colors.white.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+              return Container(
+                width: isSelected ? 8 : 6,
+                height: isSelected ? 8 : 6,
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected
+                      ? (isUserNote ? Colors.amber : Colors.white)
+                      : Colors.white.withOpacity(0.35),
                 ),
               );
             }),
           ),
         ),
 
-        // 3. Action Bar (Right side)
+        // 3. User Notes Badge (if any notes exist) - Z-INDEX: 15
+        if (userNoteCount > 0)
+          Positioned(
+            top: 100, // Below header
+            right: 20,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: Colors.orange.withOpacity(0.5), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.orange.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.push_pin, size: 14, color: Colors.white),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$userNoteCount',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        // 3. Action Bar (Right side) - Z-INDEX: 20
         Positioned(
           right: 16,
-          bottom: 100,
+          bottom: 110, // Increased to avoid overlap with Next Topic button
           child: Column(
             children: [
               _buildActionButton(
-                icon: widget.feedItem.isFavorited ? Icons.favorite : Icons.favorite_border,
-                color: widget.feedItem.isFavorited ? Colors.redAccent : Colors.white,
-                label: '收藏',
+                icon: widget.feedItem.isFavorited
+                    ? Icons.favorite
+                    : Icons.favorite_border,
+                color: widget.feedItem.isFavorited
+                    ? Colors.redAccent
+                    : Colors.white,
                 onTap: _toggleFavorite,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(
+                  height: 16), // Increased from 20 for better spacing
               _buildActionButton(
                 icon: Icons.smart_toy_outlined,
-                label: 'Ask AI',
                 isPrimary: true,
                 onTap: () => _showAskAISheet(context),
               ),
@@ -166,10 +209,11 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           ),
         ),
 
-        // 4. "Next / Prev" Hint Button (Bottom Center) - Hide in Review Mode
+        // 4. "Next Topic" Button - Z-INDEX: 30 (middle layer)
         if (!widget.isReviewMode)
           Positioned(
-            bottom: 20,
+            bottom:
+                60, // Moved higher to create clear gap from progress indicator
             left: 0,
             right: 0,
             child: Center(
@@ -178,17 +222,25 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                   widget.onNextTap?.call();
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
+                      color: Colors.black.withOpacity(0.25),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                          color: Colors.white.withOpacity(0.15), width: 1)),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Next Topic', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      SizedBox(width: 4),
-                      Icon(Icons.keyboard_arrow_down, color: Colors.white70, size: 16),
+                      Text('Next Topic',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600)),
+                      SizedBox(width: 6),
+                      Icon(Icons.keyboard_arrow_down,
+                          color: Colors.white, size: 16),
                     ],
                   ),
                 ),
@@ -199,98 +251,110 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     );
   }
 
+  Widget _buildPageContent(CardPageContent content) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // Base Glass Style for the Page
+    final backgroundColor =
+        isDark ? Colors.black.withOpacity(0.3) : Colors.white.withOpacity(0.85);
 
-  Widget _buildPageContent(CardPageContent content, int noteCount) {
+    // Padding to clear the Top Header (which is in FeedPage)
+    // Header is approx 80-100px.
+    final contentPadding = const EdgeInsets.fromLTRB(24, 100, 24, 120);
+
     if (content is OfficialPage) {
       return Container(
-        color: Colors.white,
-        child: Column(
-          children: [
-            // Metadata Header
-            Container(
-              padding: const EdgeInsets.fromLTRB(24, 60, 24, 10),
-              child: Row(
-                children: [
-                  const Icon(Icons.timer_outlined, size: 14, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  const Text('3 min read', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                  const Spacer(),
-                  if (noteCount > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.amber[100],
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.amber),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.description, size: 10, color: Colors.brown),
-                          const SizedBox(width: 4),
-                          Text('$noteCount 笔记', style: const TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    MarkdownBody(
-                      data: content.markdownContent,
-                      styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                        h1: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, height: 1.5),
-                        p: const TextStyle(fontSize: 16, height: 1.6, color: Colors.black87),
-                      ),
-                    ),
-                    const SizedBox(height: 48),
-                    // Dynamic Flashcard Section
-                    if (content.flashcardQuestion != null) ...[
-                      _FlashcardWidget(
-                        question: content.flashcardQuestion!,
-                        answer: content.flashcardAnswer ?? '',
-                      ),
-                      // Add some bottom padding if flashcard is present
-                      const SizedBox(height: 40),
-                    ],
-                  ],
+        color: backgroundColor, // Semi-transparent base
+        child: SingleChildScrollView(
+          padding: contentPadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // No redundant header here
+
+              MarkdownBody(
+                data: content.markdownContent,
+                styleSheet:
+                    MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                  h1: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      height: 1.3,
+                      letterSpacing: -0.5,
+                      color: isDark ? Colors.white : const Color(0xFF1E293B)),
+                  p: TextStyle(
+                      fontSize: 18,
+                      height: 1.8,
+                      color:
+                          isDark ? Colors.grey[300] : const Color(0xFF334155),
+                      letterSpacing: 0.2),
+                  h2: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : const Color(0xFF1E293B),
+                    height: 1.5,
+                  ),
+                  listBullet: TextStyle(
+                    color: isDark ? Colors.grey[400] : const Color(0xFF334155),
+                  ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 48),
+              // Dynamic Flashcard Section
+              if (content.flashcardQuestion != null) ...[
+                _FlashcardWidget(
+                  question: content.flashcardQuestion!,
+                  answer: content.flashcardAnswer ?? '',
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 40),
+              ],
+            ],
+          ),
         ),
       );
     } else if (content is UserNotePage) {
       return Container(
-        color: const Color(0xFFFFFBEB), // Amber tint for notes
-        padding: const EdgeInsets.fromLTRB(24, 60, 24, 80),
+        color: isDark
+            ? const Color(0xFF2D2510).withOpacity(0.8)
+            : const Color(0xFFFFFBEB).withOpacity(0.95), // Amber tint for notes
+        padding: contentPadding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.push_pin, color: Colors.amber, size: 20),
-                SizedBox(width: 8),
-                Text('MY PINNED NOTE', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+                Icon(Icons.push_pin, color: Colors.amber, size: 24),
+                const SizedBox(width: 12),
+                const Text('PINNED NOTE',
+                    style: TextStyle(
+                        color: Colors.amber,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0)),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             Text(
               content.question,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87),
+              style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                  height: 1.3),
             ),
-            const Divider(height: 32),
+            const SizedBox(height: 24),
+            Divider(height: 1, color: Colors.amber.withOpacity(0.3)),
+            const SizedBox(height: 24),
             Expanded(
               child: SingleChildScrollView(
                 child: Text(
                   content.answer,
-                  style: const TextStyle(fontSize: 16, height: 1.6, color: Colors.black54),
+                  style: TextStyle(
+                      fontSize: 18,
+                      height: 1.8,
+                      color: isDark
+                          ? Colors.grey[300]
+                          : Colors.black87.withOpacity(0.8)),
                 ),
               ),
             ),
@@ -303,27 +367,30 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
 
   Widget _buildActionButton({
     required IconData icon,
-    required String label,
+    // Removed label required
     required VoidCallback onTap,
     bool isPrimary = false,
     Color color = Colors.white,
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isPrimary ? Colors.blue : Colors.black.withOpacity(0.4),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
-            ),
-            child: Icon(icon, color: color, size: 28),
-          ),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
-        ],
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+            color: isPrimary
+                ? const Color(0xFF9333EA)
+                : Colors.black.withOpacity(0.3), // Changed primary to Purple
+            shape: BoxShape.circle,
+            border:
+                Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4))
+            ]),
+        child: Icon(icon, color: color, size: 24),
       ),
     );
   }
@@ -355,7 +422,7 @@ class _AskAISheetState extends State<_AskAISheet> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<_ChatMessage> _messages = [];
-  
+
   // 多选逻辑
   final Set<int> _selectedMessageIndices = {};
   bool get _isSelectionMode => _selectedMessageIndices.isNotEmpty;
@@ -396,9 +463,9 @@ class _AskAISheetState extends State<_AskAISheet> {
 
     String aiReply = "这是一个关于“${widget.feedItem.title}”很好的问题。\n\n";
     if (_messages.length <= 2) {
-       aiReply += "深层逻辑在于用户表面需求和潜在动机的错位。建议多用 5Whys 法则去深挖。";
+      aiReply += "深层逻辑在于用户表面需求和潜在动机的错位。建议多用 5Whys 法则去深挖。";
     } else {
-       aiReply += "除此之外，我们还需要考虑到市场环境的变化。您还有其他具体场景的疑问吗？";
+      aiReply += "除此之外，我们还需要考虑到市场环境的变化。您还有其他具体场景的疑问吗？";
     }
 
     setState(() {
@@ -427,7 +494,8 @@ class _AskAISheetState extends State<_AskAISheet> {
 
     // 1. 获取选中内容
     final selectedContent = _selectedMessageIndices
-        .map((i) => "${_messages[i].isUser ? 'Q' : 'AI'}: ${_messages[i].content}")
+        .map((i) =>
+            "${_messages[i].isUser ? 'Q' : 'AI'}: ${_messages[i].content}")
         .join("\n\n");
 
     String finalQuestion = "AI Summary";
@@ -452,7 +520,8 @@ class _AskAISheetState extends State<_AskAISheet> {
     } else {
       // 多选逻辑：模拟“AI 整理”
       finalQuestion = "AI 整理笔记 (${_selectedMessageIndices.length} items)";
-      finalAnswer = "=== Context ===\n$selectedContent\n\n(Generated by QuickPM AI)";
+      finalAnswer =
+          "=== Context ===\n$selectedContent\n\n(Generated by QuickPM AI)";
     }
 
     // 3. 执行 Pin
@@ -467,158 +536,175 @@ class _AskAISheetState extends State<_AskAISheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
-      height: MediaQuery.of(context).size.height * 0.75,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        children: [
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    // Glassmorphism Sheet
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: EdgeInsets.fromLTRB(
+              16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+          height: MediaQuery.of(context).size.height * 0.75,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9), // Semi-transparent white
+          ),
+          child: Column(
             children: [
+              // Header
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.smart_toy, color: Colors.blue),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
                     children: [
-                      const Text('AI 导师',
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
-                      Text(_isSelectionMode 
-                          ? '已选 ${_selectedMessageIndices.length} 条内容' 
-                          : '长按气泡多选，点击 Pin',
-                          style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF9333EA).withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.smart_toy,
+                            color: Color(0xFF9333EA), size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('AI Mentor',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
+                          if (_isSelectionMode)
+                            Text('Selected ${_selectedMessageIndices.length}',
+                                style: const TextStyle(
+                                    fontSize: 10, color: Colors.grey)),
+                        ],
+                      ),
                     ],
                   ),
+                  if (_isSelectionMode)
+                    TextButton(
+                      onPressed: () =>
+                          setState(() => _selectedMessageIndices.clear()),
+                      child: const Text('Cancel'),
+                    )
+                  else
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, color: Colors.grey),
+                    ),
                 ],
               ),
+              Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
+
+              Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
+
+              // Message List
+              Expanded(
+                child: _messages.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.chat_bubble_outline,
+                                size: 48, color: Colors.grey[300]),
+                            const SizedBox(height: 16),
+                            Text(
+                              '关于卡片内容，尽管问我',
+                              style: TextStyle(color: Colors.grey[400]),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        itemCount: _messages.length,
+                        padding: const EdgeInsets.only(top: 16),
+                        itemBuilder: (context, index) {
+                          final msg = _messages[index];
+                          final isSelected =
+                              _selectedMessageIndices.contains(index);
+                          final isPinned =
+                              _pinnedMessageIndices.contains(index);
+                          return _buildMessageBubble(
+                              msg, index, isSelected, isPinned);
+                        },
+                      ),
+              ),
+
+              // Bottom Area: Input OR Action Button
+              const SizedBox(height: 16),
               if (_isSelectionMode)
-                TextButton(
-                  onPressed: () => setState(() => _selectedMessageIndices.clear()),
-                  child: const Text('取消'),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: _handlePinAction,
+                    icon: const Icon(Icons.push_pin),
+                    label: Text(_selectedMessageIndices.length > 1
+                        ? 'AI 整理并 Pin (${_selectedMessageIndices.length})'
+                        : 'Pin to Note'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF9333EA),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
                 )
               else
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close, color: Colors.grey),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        decoration: InputDecoration(
+                          hintText: 'Ask AI...',
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 12),
+                        ),
+                        minLines: 1,
+                        maxLines: 3,
+                        onSubmitted: (_) => _handleSend(),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: _isLoading ? null : _handleSend,
+                      child: CircleAvatar(
+                        radius: 20,
+                        backgroundColor:
+                            _isLoading ? Colors.grey : const Color(0xFF9333EA),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2))
+                            : const Icon(Icons.arrow_upward,
+                                color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ],
                 ),
             ],
           ),
-          const Divider(height: 1),
-
-          // Message List
-          Expanded(
-            child: _messages.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.chat_bubble_outline,
-                            size: 48, color: Colors.grey[300]),
-                        const SizedBox(height: 16),
-                        Text(
-                          '关于卡片内容，尽管问我',
-                          style: TextStyle(color: Colors.grey[400]),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    itemCount: _messages.length,
-                    padding: const EdgeInsets.only(top: 16),
-                    itemBuilder: (context, index) {
-                      final msg = _messages[index];
-                      final isSelected = _selectedMessageIndices.contains(index);
-                      final isPinned = _pinnedMessageIndices.contains(index);
-                      return _buildMessageBubble(msg, index, isSelected, isPinned);
-                    },
-                  ),
-          ),
-
-          // Bottom Area: Input OR Action Button
-          const SizedBox(height: 16),
-          if (_isSelectionMode)
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                onPressed: _handlePinAction,
-                icon: const Icon(Icons.push_pin),
-                label: Text(_selectedMessageIndices.length > 1 
-                  ? 'AI 整理并 Pin (${_selectedMessageIndices.length})' 
-                  : 'Pin to Note'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.amber,
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            )
-          else
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: InputDecoration(
-                      hintText: '输入你的问题...',
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
-                    ),
-                    minLines: 1,
-                    maxLines: 3,
-                    onSubmitted: (_) => _handleSend(),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                GestureDetector(
-                  onTap: _isLoading ? null : _handleSend,
-                  child: CircleAvatar(
-                    radius: 24,
-                    backgroundColor: _isLoading ? Colors.grey : Colors.black,
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.arrow_upward, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildMessageBubble(_ChatMessage msg, int index, bool isSelected, bool isPinned) {
-    final bubbleColor = isSelected 
-        ? Colors.amber[100] 
+  Widget _buildMessageBubble(
+      _ChatMessage msg, int index, bool isSelected, bool isPinned) {
+    final bubbleColor = isSelected
+        ? Colors.amber[100]
         : (msg.isUser ? Colors.black : Colors.grey[100]);
-    final textColor = isSelected 
-        ? Colors.black 
+    final textColor = isSelected
+        ? Colors.black
         : (msg.isUser ? Colors.white : Colors.black87);
 
     return GestureDetector(
@@ -631,16 +717,17 @@ class _AskAISheetState extends State<_AskAISheet> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         child: Row(
-          mainAxisAlignment: msg.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+          mainAxisAlignment:
+              msg.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
             if (!msg.isUser && _isSelectionMode) ...[
               Checkbox(
-                value: isSelected, 
+                value: isSelected,
                 onChanged: (v) => _toggleSelection(index),
                 shape: const CircleBorder(),
                 activeColor: Colors.amber,
               ),
-            ] else 
+            ] else
               const SizedBox(width: 16),
 
             Flexible(
@@ -648,13 +735,14 @@ class _AskAISheetState extends State<_AskAISheet> {
                 children: [
                   Container(
                     margin: EdgeInsets.only(
-                      right: msg.isUser ? 16 : 40, 
-                      left: msg.isUser ? 40 : 0
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        right: msg.isUser ? 16 : 40, left: msg.isUser ? 40 : 0),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: bubbleColor,
-                      border: isSelected ? Border.all(color: Colors.amber, width: 2) : null,
+                      border: isSelected
+                          ? Border.all(color: Colors.amber, width: 2)
+                          : null,
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(20),
                         topRight: const Radius.circular(20),
@@ -682,29 +770,27 @@ class _AskAISheetState extends State<_AskAISheet> {
                           color: Colors.amber,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.push_pin, size: 10, color: Colors.black),
+                        child: const Icon(Icons.push_pin,
+                            size: 10, color: Colors.black),
                       ),
                     ),
                 ],
               ),
             ),
-            
+
             // Single Action Button (Only show for AI when not in selection mode)
             if (!msg.isUser && !_isSelectionMode) ...[
               const SizedBox(width: 8),
               IconButton(
-                icon: Icon(
-                  isPinned ? Icons.push_pin : Icons.push_pin_outlined, 
-                  size: 20, 
-                  color: isPinned ? Colors.amber : Colors.grey
-                ),
+                icon: Icon(isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                    size: 20, color: isPinned ? Colors.amber : Colors.grey),
                 onPressed: () {
-                   // Quick single pin
-                   setState(() {
-                     _selectedMessageIndices.clear();
-                     _selectedMessageIndices.add(index);
-                   });
-                   _handlePinAction();
+                  // Quick single pin
+                  setState(() {
+                    _selectedMessageIndices.clear();
+                    _selectedMessageIndices.add(index);
+                  });
+                  _handlePinAction();
                 },
               ),
               const SizedBox(width: 8),
@@ -719,24 +805,25 @@ class _AskAISheetState extends State<_AskAISheet> {
 class _FlashcardWidget extends StatefulWidget {
   final String question;
   final String answer;
+  final bool isDark;
 
-  const _FlashcardWidget({required this.question, required this.answer});
+  const _FlashcardWidget(
+      {required this.question, required this.answer, required this.isDark});
 
   @override
   State<_FlashcardWidget> createState() => _FlashcardWidgetState();
 }
 
 class _FlashcardWidgetState extends State<_FlashcardWidget> {
-  
   void _showAnswerSheet() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent, // For custom rounded corners
       builder: (context) => Container(
         padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: widget.isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -746,7 +833,11 @@ class _FlashcardWidgetState extends State<_FlashcardWidget> {
               children: [
                 const Icon(Icons.lightbulb, color: Colors.amber, size: 28),
                 const SizedBox(width: 12),
-                const Text('Insight', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text('Insight',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: widget.isDark ? Colors.white : Colors.black87)),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.grey),
@@ -757,12 +848,18 @@ class _FlashcardWidgetState extends State<_FlashcardWidget> {
             const Divider(height: 32),
             Text(
               'Q: ${widget.question}',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.grey),
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                  color: Colors.grey),
             ),
             const SizedBox(height: 16),
             Text(
               widget.answer,
-              style: const TextStyle(fontSize: 18, height: 1.6, color: Colors.black87),
+              style: TextStyle(
+                  fontSize: 18,
+                  height: 1.6,
+                  color: widget.isDark ? Colors.grey[200] : Colors.black87),
             ),
             const SizedBox(height: 48), // Bottom padding
             SizedBox(
@@ -771,9 +868,10 @@ class _FlashcardWidgetState extends State<_FlashcardWidget> {
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  backgroundColor: widget.isDark ? Colors.white : Colors.black,
+                  foregroundColor: widget.isDark ? Colors.black : Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 child: const Text('Got it!'),
               ),
@@ -791,41 +889,53 @@ class _FlashcardWidgetState extends State<_FlashcardWidget> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.blue[50],
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.blue[100]!, width: 2),
+          color: Colors.blueAccent.withOpacity(widget.isDark ? 0.1 : 0.05),
+          borderRadius: BorderRadius.circular(20),
+          border:
+              Border.all(color: Colors.blueAccent.withOpacity(0.2), width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.blueAccent.withOpacity(0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              children: [
-                Icon(Icons.psychology, color: Colors.blue[700], size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Quick Flashcard', 
-                  style: TextStyle(color: Colors.blue[900], fontWeight: FontWeight.bold)
-                ),
-                const Spacer(),
-                const Icon(Icons.touch_app, size: 16, color: Colors.grey),
-              ],
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blueAccent.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.touch_app,
+                  color: Colors.blueAccent, size: 20),
             ),
-            const Divider(height: 24),
-            Text(
-              'Q: ${widget.question}', 
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16, height: 1.4),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              '(Tap to reveal answer)', 
-              style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 12),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Quick Flashcard',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blueAccent.shade200),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Q: ${widget.question}',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: widget.isDark ? Colors.white : Colors.black87),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

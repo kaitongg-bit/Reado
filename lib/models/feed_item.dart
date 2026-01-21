@@ -45,10 +45,11 @@ class FeedItem {
   final String id;
   final String moduleId; // 'A', 'B', 'C', 'D'
   final String title;
-  
+
   // New Fields
   final String category;
   final String difficulty;
+  final int readingTimeMinutes; // Reading time in minutes
 
   // 页面列表
   final List<CardPageContent> pages;
@@ -57,10 +58,10 @@ class FeedItem {
   final DateTime? nextReviewTime;
   final int interval; // Changed from intervalDays to interval (SRS standard)
   final double easeFactor; // Added for SRS
-  
+
   // 掌握程度
   final FeedItemMastery masteryLevel;
-  
+
   // 收藏状态
   final bool isFavorited;
 
@@ -73,6 +74,7 @@ class FeedItem {
     required this.title,
     this.category = 'General',
     this.difficulty = 'Normal',
+    this.readingTimeMinutes = 3, // Default 3 minutes
     required this.pages,
     this.nextReviewTime,
     this.interval = 0,
@@ -88,6 +90,7 @@ class FeedItem {
     String? title,
     String? category,
     String? difficulty,
+    int? readingTimeMinutes,
     List<CardPageContent>? pages,
     DateTime? nextReviewTime,
     int? interval,
@@ -101,6 +104,7 @@ class FeedItem {
       title: title ?? this.title,
       category: category ?? this.category,
       difficulty: difficulty ?? this.difficulty,
+      readingTimeMinutes: readingTimeMinutes ?? this.readingTimeMinutes,
       pages: pages ?? this.pages,
       nextReviewTime: nextReviewTime ?? this.nextReviewTime,
       interval: interval ?? this.interval,
@@ -118,6 +122,7 @@ class FeedItem {
       'title': title,
       'category': category,
       'difficulty': difficulty,
+      'readingTimeMinutes': readingTimeMinutes,
       'nextReviewTime': nextReviewTime?.toIso8601String(),
       'interval': interval,
       'easeFactor': easeFactor,
@@ -125,19 +130,19 @@ class FeedItem {
       'isFavorited': isFavorited,
       'pages': pages.map((p) {
         if (p is OfficialPage) {
-           return {
-             'type': 'text',
-             'markdownContent': p.markdownContent,
-             'flashcardQuestion': p.flashcardQuestion,
-             'flashcardAnswer': p.flashcardAnswer,
-           };
+          return {
+            'type': 'text',
+            'markdownContent': p.markdownContent,
+            'flashcardQuestion': p.flashcardQuestion,
+            'flashcardAnswer': p.flashcardAnswer,
+          };
         } else if (p is UserNotePage) {
-           return {
-             'type': 'user_note',
-             'question': p.question,
-             'answer': p.answer,
-             'createdAt': p.createdAt.toIso8601String(),
-           };
+          return {
+            'type': 'user_note',
+            'question': p.question,
+            'answer': p.answer,
+            'createdAt': p.createdAt.toIso8601String(),
+          };
         }
         return {'type': 'unknown'};
       }).toList(),
@@ -159,7 +164,9 @@ class FeedItem {
           pageList.add(UserNotePage(
             question: p['question'] ?? 'Q',
             answer: p['answer'] ?? 'A',
-            createdAt: p['createdAt'] != null ? DateTime.parse(p['createdAt']) : DateTime.now(),
+            createdAt: p['createdAt'] != null
+                ? DateTime.parse(p['createdAt'])
+                : DateTime.now(),
           ));
         }
       }
@@ -169,7 +176,8 @@ class FeedItem {
     FeedItemMastery mastery = FeedItemMastery.unknown;
     if (json['masteryLevel'] != null) {
       try {
-        mastery = FeedItemMastery.values.firstWhere((e) => e.name == json['masteryLevel']);
+        mastery = FeedItemMastery.values
+            .firstWhere((e) => e.name == json['masteryLevel']);
       } catch (_) {}
     }
 
@@ -179,8 +187,11 @@ class FeedItem {
       title: json['title'] ?? 'Untitled',
       category: json['category'] ?? 'General',
       difficulty: json['difficulty'] ?? 'Normal',
+      readingTimeMinutes: json['readingTimeMinutes'] ?? 3,
       pages: pageList,
-      nextReviewTime: json['nextReviewTime'] != null ? DateTime.parse(json['nextReviewTime']) : null,
+      nextReviewTime: json['nextReviewTime'] != null
+          ? DateTime.parse(json['nextReviewTime'])
+          : null,
       interval: json['interval'] ?? 0,
       easeFactor: (json['easeFactor'] ?? 2.5).toDouble(),
       masteryLevel: mastery,

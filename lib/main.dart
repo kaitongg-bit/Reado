@@ -3,7 +3,7 @@ import 'package:flutter/material.dart' hide ThemeMode;
 import 'package:flutter/material.dart' as flutter show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
+// actually the lint said unused so I can remove google_fonts.
 
 // Import features
 import 'features/onboarding/presentation/onboarding_page.dart';
@@ -11,6 +11,7 @@ import 'features/home/presentation/home_page.dart';
 import 'features/feed/presentation/feed_page.dart';
 import 'features/lab/presentation/lab_page.dart';
 import 'features/war_room/presentation/war_room_page.dart';
+import 'features/profile/presentation/profile_page.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -26,7 +27,7 @@ void main() async {
   runApp(const ProviderScope(child: QuickPMApp()));
 }
 
-/// Router Configuration
+// Router Configuration
 final _router = GoRouter(
   initialLocation: '/onboarding',
   routes: [
@@ -60,7 +61,10 @@ final _router = GoRouter(
         return FeedPage(moduleId: 'SEARCH', searchQuery: query);
       },
     ),
-    // Define other routes here
+    GoRoute(
+      path: '/profile',
+      builder: (context, state) => const ProfilePage(),
+    ),
   ],
 );
 

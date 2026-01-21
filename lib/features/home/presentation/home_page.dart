@@ -55,23 +55,25 @@ class _HomePageState extends ConsumerState<HomePage> {
             if (index == 0) _activeModule = null; // 返回主页时清除模块
           });
         },
-        backgroundColor: Colors.black,
-        indicatorColor: const Color(0xFFFF8A65).withOpacity(0.3), // 增加不透明度
-        height: 70, // 增加高度
-        elevation: 8, // 添加阴影
+        backgroundColor:
+            Theme.of(context).bottomNavigationBarTheme.backgroundColor,
+        indicatorColor:
+            const Color(0xFFFF8A65).withOpacity(0.3), // Keeping accent color
+        height: 70,
+        elevation: 8,
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined, color: Colors.grey),
+            icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home, color: Color(0xFFFF8A65)),
             label: '主页',
           ),
           NavigationDestination(
-            icon: Icon(Icons.school_outlined, color: Colors.grey),
+            icon: Icon(Icons.school_outlined),
             selectedIcon: Icon(Icons.school, color: Color(0xFFFF8A65)),
             label: '学习',
           ),
           NavigationDestination(
-            icon: Icon(Icons.inventory_2_outlined, color: Colors.grey),
+            icon: Icon(Icons.inventory_2_outlined),
             selectedIcon: Icon(Icons.inventory_2, color: Color(0xFFFF8A65)),
             label: '复习',
           ),

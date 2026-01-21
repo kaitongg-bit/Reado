@@ -5,9 +5,12 @@ import '../../models/feed_item.dart';
 abstract class DataService {
   Future<List<FeedItem>> fetchFeedItems(String moduleId);
   Future<void> saveUserNote(String itemId, String question, String answer);
-  Future<void> updateSRSStatus(String itemId, DateTime nextReview, int interval, double ease);
+  Future<void> updateSRSStatus(
+      String itemId, DateTime nextReview, int interval, double ease);
   Future<void> toggleFavorite(String itemId, bool isFavorited);
   Future<void> seedInitialData(List<FeedItem> items); // For migration
+  Future<void> saveCustomFeedItem(
+      FeedItem item, String userId); // 保存AI生成的自定义知识点
 }
 
 class FirestoreService implements DataService {
@@ -34,7 +37,7 @@ class FirestoreService implements DataService {
         if (item.isFavorited) print('🔥 Found Favorite from DB: ${item.id}');
         return item;
       }).toList();
-      
+
       return items;
     } catch (e) {
       print('Error fetching items for module $moduleId: $e');
@@ -44,18 +47,20 @@ class FirestoreService implements DataService {
 
   // Save User Note
   @override
-  Future<void> saveUserNote(String itemId, String question, String answer) async {
-     print('TODO: Save note to users/{uid}/notes/$itemId');
+  Future<void> saveUserNote(
+      String itemId, String question, String answer) async {
+    print('TODO: Save note to users/{uid}/notes/$itemId');
   }
 
   // Update SRS
   @override
-  Future<void> updateSRSStatus(String itemId, DateTime nextReview, int interval, double ease) async {
-     try {
-       print('Updating SRS for $itemId: $nextReview');
-     } catch (e) {
-       print('Error updating SRS: $e');
-     }
+  Future<void> updateSRSStatus(
+      String itemId, DateTime nextReview, int interval, double ease) async {
+    try {
+      print('Updating SRS for $itemId: $nextReview');
+    } catch (e) {
+      print('Error updating SRS: $e');
+    }
   }
 
   @override
@@ -79,18 +84,40 @@ class FirestoreService implements DataService {
     // Safety Check: Don't overwrite if data exists!
     final snapshot = await _feedRef.limit(1).get();
     if (snapshot.docs.isNotEmpty) {
-      print('⚠️ Database already has data. Skipping Seed to prevent overwrite.');
-      return; 
+      print(
+          '⚠️ Database already has data. Skipping Seed to prevent overwrite.');
+      return;
     }
 
     final batch = _db.batch();
-    
+
     for (var item in items) {
       final docRef = _feedRef.doc(item.id);
       batch.set(docRef, item.toJson());
     }
-    
+
     await batch.commit();
     print('Seeding completed: ${items.length} items.');
+  }
+
+  // 保存AI生成的自定义知识点
+  @override
+  Future<void> saveCustomFeedItem(FeedItem item, String userId) async {
+    try {
+      print('💾 保存自定义知识点到 Firestore...');
+      print('   用户ID: $userId');
+      print('   知识点: ${item.title}');
+
+      await _usersRef
+          .doc(userId)
+          .collection('custom_items')
+          .doc(item.id)
+          .set(item.toJson());
+
+      print('✅ 保存成功');
+    } catch (e) {
+      print('❌ 保存失败: $e');
+      rethrow;
+    }
   }
 }

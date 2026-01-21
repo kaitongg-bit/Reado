@@ -6,21 +6,29 @@ import '../../../../models/feed_item.dart';
 import '../../../lab/presentation/add_material_modal.dart';
 
 class HomeTab extends ConsumerWidget {
-  const HomeTab({super.key});
+  final Function(String moduleId)? onLoadModule; // 加载模块的回调
+
+  const HomeTab({super.key, this.onLoadModule});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Dynamic Stats Calculation
-    final feedItems = ref.watch(feedProvider);
+    // 🔥 使用 allItemsProvider 获取完整数据（不受 loadModule 影响）
+    final feedItems = ref.watch(allItemsProvider);
     final hardcoreItems = feedItems.where((i) => i.moduleId == 'A').toList();
-    final pmItems = feedItems.where((i) => i.moduleId == 'B').toList(); // Assuming B is PM Foundation
-    
+    final pmItems = feedItems
+        .where((i) => i.moduleId == 'B')
+        .toList(); // Assuming B is PM Foundation
+
     final hardcoreCount = hardcoreItems.length;
-    final hardcoreLearned = hardcoreItems.where((i) => i.masteryLevel != FeedItemMastery.unknown).length;
-    final hardcoreProgress = hardcoreCount == 0 ? 0.0 : hardcoreLearned / hardcoreCount;
+    final hardcoreLearned = hardcoreItems
+        .where((i) => i.masteryLevel != FeedItemMastery.unknown)
+        .length;
+    final hardcoreProgress =
+        hardcoreCount == 0 ? 0.0 : hardcoreLearned / hardcoreCount;
 
     final pmCount = pmItems.length;
-    final pmLearned = pmItems.where((i) => i.masteryLevel != FeedItemMastery.unknown).length;
+    final pmLearned =
+        pmItems.where((i) => i.masteryLevel != FeedItemMastery.unknown).length;
     final pmProgress = pmCount == 0 ? 0.0 : pmLearned / pmCount;
 
     return Scaffold(
@@ -35,7 +43,7 @@ class HomeTab extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                   const Text(
+                  const Text(
                     'QuickPM',
                     style: TextStyle(
                       color: Colors.white,
@@ -78,7 +86,8 @@ class HomeTab extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(30),
                     borderSide: const BorderSide(color: Colors.orangeAccent),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 ),
                 onSubmitted: (value) {
                   if (value.isNotEmpty) {
@@ -87,6 +96,87 @@ class HomeTab extends ConsumerWidget {
                 },
               ),
               const SizedBox(height: 32),
+
+              // 初始化数据库按钮（显眼位置）
+              if (pmCount == 0 && hardcoreCount == 0)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1E1E),
+                    borderRadius: BorderRadius.circular(12),
+                    border:
+                        Border.all(color: Colors.orangeAccent.withOpacity(0.5)),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.cloud_download,
+                          color: Colors.orangeAccent, size: 40),
+                      const SizedBox(height: 12),
+                      const Text(
+                        '数据库为空',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '点击下方按钮初始化 30 个官方知识点',
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            messenger.showSnackBar(const SnackBar(
+                              content: Text('🔄 正在初始化数据库...'),
+                              duration: Duration(seconds: 2),
+                            ));
+
+                            try {
+                              await ref
+                                  .read(feedProvider.notifier)
+                                  .seedDatabase();
+                              await ref
+                                  .read(feedProvider.notifier)
+                                  .loadAllData();
+
+                              messenger.showSnackBar(const SnackBar(
+                                content: Text('✅ 数据初始化成功！已导入 30 个知识点'),
+                                backgroundColor: Colors.green,
+                                duration: Duration(seconds: 3),
+                              ));
+                            } catch (e) {
+                              messenger.showSnackBar(SnackBar(
+                                content: Text('❌ 初始化失败: $e'),
+                                backgroundColor: Colors.red,
+                              ));
+                            }
+                          },
+                          icon: const Icon(Icons.rocket_launch),
+                          label: const Text('初始化数据库',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orangeAccent,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              if (pmCount == 0 && hardcoreCount == 0)
+                const SizedBox(height: 24),
 
               // 3. Knowledge Spaces Section
               const Text(
@@ -103,26 +193,23 @@ class HomeTab extends ConsumerWidget {
               _KnowledgeSpaceCard(
                 title: '产品经理基础',
                 description: '从零开始学习产品经理核心技能',
-                cardCount: pmCount > 0 ? pmCount : 24, // Fallback if mock empty
-                progress: pmCount > 0 ? pmProgress : 0.45,
+                cardCount: pmCount,
+                progress: pmProgress,
                 color: const Color(0xFF252525),
-                badgeText: 'Official', 
-                onLoad: () => context.push('/feed/B'),
+                badgeText: 'Official',
+                onLoad: () => onLoadModule?.call('B'),
               ),
               const SizedBox(height: 16),
-              
+
               // Knowledge Card: Hardcore (Module A)
-             _KnowledgeSpaceCard(
+              _KnowledgeSpaceCard(
                 title: '硬核基础',
                 description: '计算机科学与编程基础知识',
-                cardCount: hardcoreCount > 0 ? hardcoreCount : 18,
-                progress: hardcoreCount > 0 ? hardcoreProgress : 0.20,
+                cardCount: hardcoreCount,
+                progress: hardcoreProgress,
                 color: const Color(0xFF252525),
-                badgeText: 'Official', 
-                onLoad: () => context.push('/feed/A'), // Navigate to Learn tab content directly using push for now
-                // Since Learn tab IS Module A, we can switch tab, or just push feed A
-                // But context.go('/home') might reset state. 
-                // Let's just push feed for now to be safe, or user 'onDestinationSelected' logic if we had access.
+                badgeText: 'Official',
+                onLoad: () => onLoadModule?.call('A'),
               ),
 
               const SizedBox(height: 80), // Bottom padding for FAB
@@ -240,11 +327,13 @@ class _KnowledgeSpaceCard extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFF8A65),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     elevation: 0,
                   ),
-                  child: const Text('Load', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text('Load',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -259,10 +348,12 @@ class _KnowledgeSpaceCard extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFFFF8A65)),
                     foregroundColor: const Color(0xFFFF8A65),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: const Text('+ Add Material', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text('+ Add Material',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
             ],

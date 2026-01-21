@@ -263,3 +263,8 @@ final feedProvider = StateNotifierProvider<FeedNotifier, List<FeedItem>>((ref) {
   final dataService = ref.watch(dataServiceProvider);
   return FeedNotifier(dataService);
 });
+
+// 🔥 新增：提供对完整数据列表的访问（不受 state 变化影响）
+final allItemsProvider = Provider<List<FeedItem>>((ref) {
+  return ref.watch(feedProvider.notifier).allItems;
+});

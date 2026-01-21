@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../vault/presentation/vault_page.dart';
 import '../../feed/presentation/feed_page.dart';
-import 'widgets/home_tab.dart'; // New Home Tab
+import 'widgets/home_tab.dart';
 
 class HomePage extends ConsumerStatefulWidget {
-  const HomePage({super.key});
+  final String? initialModule; // 用于从外部指定初始模块
+
+  const HomePage({super.key, this.initialModule});
 
   @override
   ConsumerState<HomePage> createState() => _HomePageState();
@@ -15,13 +17,32 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage> {
   int _selectedIndex = 0;
+  String? _activeModule; // 当前激活的模块
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialModule != null) {
+      _selectedIndex = 1; // 切换到学习 tab
+      _activeModule = widget.initialModule;
+    }
+  }
+
+  void _loadModule(String moduleId) {
+    setState(() {
+      _selectedIndex = 1; // 切换到学习 tab
+      _activeModule = moduleId;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final screens = [
-      const HomeTab(),
-      const FeedPage(moduleId: 'A'), // Learn Tab: Hardcore logic
-      const VaultPage(), // Review Tab: Library/Search logic
+      HomeTab(onLoadModule: _loadModule), // 传递回调
+      _activeModule != null
+          ? FeedPage(moduleId: _activeModule!)
+          : const FeedPage(moduleId: 'A'), // 默认显示 Module A
+      const VaultPage(),
     ];
 
     return Scaffold(
@@ -31,12 +52,13 @@ class _HomePageState extends ConsumerState<HomePage> {
         onDestinationSelected: (index) {
           setState(() {
             _selectedIndex = index;
+            if (index == 0) _activeModule = null; // 返回主页时清除模块
           });
         },
-        backgroundColor: Colors.black, // Dark per design
-        indicatorColor: const Color(0xFFFF8A65).withOpacity(0.2), // Matches accent
-        height: 65,
-        elevation: 0,
+        backgroundColor: Colors.black,
+        indicatorColor: const Color(0xFFFF8A65).withOpacity(0.3), // 增加不透明度
+        height: 70, // 增加高度
+        elevation: 8, // 添加阴影
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined, color: Colors.grey),
@@ -58,4 +80,3 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 }
-

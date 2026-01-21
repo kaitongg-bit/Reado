@@ -1,10 +1,11 @@
 import 'dart:ui';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide ThemeMode;
+import 'package:flutter/material.dart' as flutter show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// Import features (Placeholders for now, will create files next)
+// Import features
 import 'features/onboarding/presentation/onboarding_page.dart';
 import 'features/home/presentation/home_page.dart';
 import 'features/feed/presentation/feed_page.dart';
@@ -13,6 +14,8 @@ import 'features/war_room/presentation/war_room_page.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'core/theme/theme_provider.dart';
+import 'core/theme/theme_provider.dart' as core show ThemeMode;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,21 +64,20 @@ final _router = GoRouter(
   ],
 );
 
-class QuickPMApp extends StatelessWidget {
+class QuickPMApp extends ConsumerWidget {
   const QuickPMApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeProvider);
+    final isDark =
+        themeMode == core.ThemeMode.dark || themeMode == core.ThemeMode.system;
+
     return MaterialApp.router(
       title: 'QuickPM',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2563EB), // Professional Blue
-          brightness: Brightness.light,
-        ),
-        textTheme: GoogleFonts.interTextTheme(),
-      ),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: isDark ? flutter.ThemeMode.dark : flutter.ThemeMode.light,
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         dragDevices: {
           PointerDeviceKind.mouse,

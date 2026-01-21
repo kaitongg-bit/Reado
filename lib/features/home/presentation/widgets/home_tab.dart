@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../feed/presentation/feed_provider.dart';
 import '../../../../models/feed_item.dart';
 import '../../../lab/presentation/add_material_modal.dart';
+import '../../../../core/theme/theme_provider.dart';
 
 class HomeTab extends ConsumerWidget {
   final Function(String moduleId)? onLoadModule; // 加载模块的回调
@@ -32,34 +33,92 @@ class HomeTab extends ConsumerWidget {
     final pmProgress = pmCount == 0 ? 0.0 : pmLearned / pmCount;
 
     return Scaffold(
-      backgroundColor: Colors.black, // Dark mode as per request/image
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Top Bar: Title & Avatar
+              // 1. Top Bar: Title & Avatar Menu
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'QuickPM',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black87,
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () {
-                      // Navigate to settings or profile details if needed
-                    },
-                    child: const CircleAvatar(
+                  PopupMenuButton(
+                    offset: const Offset(0, 50),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF1E1E1E)
+                        : Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: CircleAvatar(
                       radius: 20,
-                      backgroundColor: Colors.grey,
-                      child: Icon(Icons.person, color: Colors.white),
+                      backgroundColor:
+                          Theme.of(context).brightness == Brightness.dark
+                              ? Colors.grey
+                              : Colors.grey[300],
+                      child: Icon(Icons.person,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : Colors.black87),
                     ),
+                    itemBuilder: (context) => <PopupMenuEntry>[
+                      PopupMenuItem(
+                        child: ListTile(
+                          leading: const Icon(Icons.person, size: 20),
+                          title: const Text('个人主页'),
+                          contentPadding: EdgeInsets.zero,
+                          onTap: () {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('个人主页功能开发中...')));
+                          },
+                        ),
+                      ),
+                      PopupMenuItem(
+                        child: ListTile(
+                          leading: const Icon(Icons.settings, size: 20),
+                          title: const Text('设置'),
+                          contentPadding: EdgeInsets.zero,
+                          onTap: () {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('设置功能开发中...')));
+                          },
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      PopupMenuItem(
+                        child: Consumer(
+                          builder: (context, ref, _) {
+                            final isDark =
+                                ref.watch(themeProvider) != ThemeMode.light;
+                            return ListTile(
+                              leading: Icon(
+                                  isDark ? Icons.light_mode : Icons.dark_mode,
+                                  size: 20),
+                              title: Text(isDark ? '浅色模式' : '深色模式'),
+                              contentPadding: EdgeInsets.zero,
+                              onTap: () {
+                                ref.read(themeProvider.notifier).setTheme(
+                                    isDark ? ThemeMode.light : ThemeMode.dark);
+                                Navigator.pop(context);
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

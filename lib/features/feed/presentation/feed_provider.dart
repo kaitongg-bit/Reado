@@ -63,6 +63,14 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     state = [...state];
   }
 
+  /// 动态添加自定义内容 (用于 AddMaterialModal)
+  void addCustomItems(List<FeedItem> newItems) {
+    if (newItems.isEmpty) return;
+    _allItems = [..._allItems, ...newItems];
+    // 直接追加到当前视图 (假设当前就在该 Module)
+    state = [...state, ...newItems];
+  }
+
   /// 加载指定模块的数据 (Feed Logic)
   void loadModule(String moduleId) {
     if (_allItems.isEmpty) {

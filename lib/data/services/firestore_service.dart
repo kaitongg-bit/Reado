@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../../models/feed_item.dart';
+import '../../models/knowledge_module.dart';
 
 // Interface for Data Service (Repo Pattern)
 abstract class DataService {
@@ -15,6 +16,10 @@ abstract class DataService {
   Future<void> seedInitialData(List<FeedItem> items); // For migration
   Future<void> saveCustomFeedItem(
       FeedItem item, String userId); // 保存AI生成的自定义知识点
+  Future<List<KnowledgeModule>> fetchUserModules(String userId);
+  Future<KnowledgeModule> createModule(
+      String userId, String title, String description);
+  Future<int> fixOrphanItems(String userId, String targetModuleId);
 }
 
 class FirestoreService implements DataService {
@@ -173,6 +178,91 @@ class FirestoreService implements DataService {
     }
   }
 
+  // 保存AI生成的自定义知识点
+  @override
+  Future<void> saveCustomFeedItem(FeedItem item, String userId) async {
+    try {
+      print('💾 Saving AI Custom Item to Firestore...');
+      await _usersRef
+          .doc(userId)
+          .collection('custom_items')
+          .doc(item.id)
+          .set(item.toJson());
+      print('✅ Saved AI Custom Item: ${item.id}');
+    } catch (e) {
+      print('❌ Error saving custom item: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<KnowledgeModule>> fetchUserModules(String userId) async {
+    try {
+      final snapshot = await _usersRef
+          .doc(userId)
+          .collection('modules')
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => KnowledgeModule.fromJson(
+              doc.data() as Map<String, dynamic>, doc.id))
+          .toList();
+    } catch (e) {
+      print('Error fetching modules: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<KnowledgeModule> createModule(
+      String userId, String title, String description) async {
+    try {
+      final docRef = await _usersRef.doc(userId).collection('modules').add({
+        'title': title,
+        'description': description,
+        'ownerId': userId,
+        'isOfficial': false,
+        'createdAt': Timestamp.now(),
+      });
+
+      return KnowledgeModule(
+        id: docRef.id,
+        title: title,
+        description: description,
+        ownerId: userId,
+        isOfficial: false,
+      );
+    } catch (e) {
+      print('Error creating module: $e');
+      rethrow;
+    }
+  }
+
+  // 🛠️ 修复数据：将所有 module='custom' 的孤儿数据移动到指定 module
+  Future<int> fixOrphanItems(String userId, String targetModuleId) async {
+    try {
+      final snapshot = await _usersRef
+          .doc(userId)
+          .collection('custom_items')
+          .where('module', isEqualTo: 'custom')
+          .get();
+
+      if (snapshot.docs.isEmpty) return 0;
+
+      final batch = _db.batch();
+      for (var doc in snapshot.docs) {
+        batch.update(doc.reference, {'module': targetModuleId});
+      }
+      await batch.commit();
+
+      print('✅ Fixed ${snapshot.docs.length} orphan items -> $targetModuleId');
+      return snapshot.docs.length;
+    } catch (e) {
+      print('Error fixing orphans: $e');
+      return 0;
+    }
+  }
+
   // Update SRS
   @override
   Future<void> updateSRSStatus(
@@ -214,13 +304,31 @@ class FirestoreService implements DataService {
   @override
   Future<void> toggleFavorite(String itemId, bool isFavorited) async {
     try {
-      print('☁️ Syncing Favorite: $itemId -> $isFavorited');
-      await _feedRef.doc(itemId).update({
+      final user = FirebaseAuth.instance.currentUser;
+
+      // Data to update
+      final updateData = {
         'isFavorited': isFavorited,
-        // Optional: Update review time if favoring
         if (isFavorited) 'nextReviewTime': DateTime.now().toIso8601String(),
-      });
-      print('✅ Sync Success');
+      };
+
+      print('☁️ Syncing Favorite: $itemId -> $isFavorited');
+
+      // 1️⃣ Try updating Custom Item first (since we know the current user)
+      if (user != null) {
+        final customRef =
+            _usersRef.doc(user.uid).collection('custom_items').doc(itemId);
+        final customDoc = await customRef.get();
+        if (customDoc.exists) {
+          await customRef.update(updateData);
+          print('✅ Sync Success (Custom Item)');
+          return;
+        }
+      }
+
+      // 2️⃣ Fallback to Official Feed Item
+      await _feedRef.doc(itemId).update(updateData);
+      print('✅ Sync Success (Official Item)');
     } catch (e) {
       print('Error toggling favorite: $e');
     }
@@ -246,26 +354,5 @@ class FirestoreService implements DataService {
 
     await batch.commit();
     print('Seeding completed: ${items.length} items.');
-  }
-
-  // 保存AI生成的自定义知识点
-  @override
-  Future<void> saveCustomFeedItem(FeedItem item, String userId) async {
-    try {
-      print('💾 保存自定义知识点到 Firestore...');
-      print('   用户ID: $userId');
-      print('   知识点: ${item.title}');
-
-      await _usersRef
-          .doc(userId)
-          .collection('custom_items')
-          .doc(item.id)
-          .set(item.toJson());
-
-      print('✅ 保存成功');
-    } catch (e) {
-      print('❌ 保存失败: $e');
-      rethrow;
-    }
   }
 }

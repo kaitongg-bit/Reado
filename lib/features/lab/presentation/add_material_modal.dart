@@ -23,7 +23,8 @@ final contentGeneratorProvider = Provider((ref) {
 });
 
 class AddMaterialModal extends ConsumerStatefulWidget {
-  const AddMaterialModal({super.key});
+  final String? targetModuleId;
+  const AddMaterialModal({super.key, this.targetModuleId});
 
   @override
   ConsumerState<AddMaterialModal> createState() => _AddMaterialModalState();
@@ -44,20 +45,125 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     });
 
     try {
-      final service = ref.read(contentGeneratorProvider);
-      final items = await service.generateFromText(_textController.text);
+      final generator = ref.read(contentGeneratorProvider);
+      final newItems = await generator.generateFromText(_textController.text);
+
+      // Override module ID immediately so preview is correct
+      final correctedItems = newItems.map((item) {
+        return widget.targetModuleId != null
+            ? item.copyWith(moduleId: widget.targetModuleId!)
+            : item;
+      }).toList();
+
+      if (!mounted) return;
+
       setState(() {
-        _generatedItems = items;
+        _generatedItems = correctedItems;
+        _isGenerating = false;
       });
     } catch (e) {
+      if (!mounted) return;
+
       setState(() {
-        _error = '生成失败，请重试。\n错误信息: $e';
-      });
-    } finally {
-      setState(() {
+        _error = e.toString();
         _isGenerating = false;
       });
     }
+  }
+
+  void _parseLocally() {
+    if (_textController.text.trim().isEmpty) return;
+
+    final text = _textController.text;
+    final List<FeedItem> items = [];
+    final lines = text.split('\n');
+
+    List<String> headerStack = [];
+    StringBuffer currentContent = StringBuffer();
+    String? activeTitle; // 当前正在积累内容的标题
+
+    void saveCurrent() {
+      final contentStr = currentContent.toString().trim();
+      if (contentStr.isNotEmpty) {
+        String title = activeTitle ?? 'Overview';
+
+        // 智能优化：如果由于层级深导致标题只有"场景题"这种简单词，尝试拼接上一级
+        // 比如: "Redis > 场景题"
+        if (headerStack.length > 1 && title.length < 5) {
+          final parent = headerStack[headerStack.length - 2];
+          title = '$parent > $title';
+        }
+
+        // 尝试提取分类
+        String category = 'Note';
+        if (headerStack.isNotEmpty) {
+          category = headerStack.first; // 最高层级作为分类
+        }
+
+        items.add(FeedItem(
+          id: DateTime.now().millisecondsSinceEpoch.toString() +
+              items.length.toString(),
+          moduleId: widget.targetModuleId ?? 'custom',
+          title: title,
+          pages: [OfficialPage(contentStr)],
+          category: category,
+          masteryLevel: FeedItemMastery.unknown,
+        ));
+      }
+    }
+
+    final headerRegex = RegExp(r'^(#+)\s+(.*)');
+
+    for (var line in lines) {
+      final match = headerRegex.firstMatch(line);
+
+      // 忽略代码块中的 # (简单处理，不完美但有效)
+      // 如果正处于代码块中... 这里暂时不搞那么复杂，假设 # 开头就是标题
+
+      if (match != null) {
+        // === 遇到新标题 ===
+        // 1. 先结算上一段内容
+        saveCurrent();
+
+        // 2. 解析新标题信息
+        final level = match.group(1)!.length;
+        final titleRaw = match.group(2)!.trim();
+
+        // 3. 维护标题栈
+        if (level <= headerStack.length) {
+          // 回退栈：保留 0 到 level-1
+          headerStack = headerStack.sublist(0, level - 1);
+        }
+        headerStack.add(titleRaw);
+
+        activeTitle = titleRaw;
+        currentContent = StringBuffer(); // 重置正文缓冲
+      } else {
+        // === 遇到正文 ===
+        currentContent.writeln(line);
+      }
+    }
+    // 循环结束，结算最后一张
+    saveCurrent();
+
+    // Fallback: 全文无标题
+    if (items.isEmpty && text.trim().isNotEmpty) {
+      final firstLine = text.trim().split('\n').first;
+      items.add(FeedItem(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        moduleId: widget.targetModuleId ?? 'custom',
+        title: firstLine.length > 30
+            ? '${firstLine.substring(0, 30)}...'
+            : firstLine,
+        pages: [OfficialPage(text)],
+        category: 'Manual',
+        masteryLevel: FeedItemMastery.unknown,
+      ));
+    }
+
+    setState(() {
+      _generatedItems = items;
+    });
   }
 
   void _saveAll() async {
@@ -72,15 +178,15 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       // 保存到 Firestore
       final service = ref.read(dataServiceProvider);
       for (var item in _generatedItems!) {
-        await service.saveCustomFeedItem(item, currentUser.uid);
+        // 如果指定了 module，则覆盖
+        final itemToSave = widget.targetModuleId != null
+            ? item.copyWith(moduleId: widget.targetModuleId!)
+            : item;
+        await service.saveCustomFeedItem(itemToSave, currentUser.uid);
       }
 
       // 同时添加到内存 Provider（用于即时显示）
-      final currentItems = ref.read(feedProvider);
-      ref.read(feedProvider.notifier).state = [
-        ...currentItems,
-        ..._generatedItems!
-      ];
+      ref.read(feedProvider.notifier).addCustomItems(_generatedItems!);
 
       if (!mounted) return;
 
@@ -147,22 +253,42 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                 ),
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _isGenerating ? null : _generate,
-                  icon: _isGenerating
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.auto_awesome),
-                  label: Text(_isGenerating ? 'AI 正在拆解知识点...' : '生成知识卡片'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF8A65),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: _isGenerating ? null : _parseLocally,
+                        icon: const Icon(Icons.description_outlined),
+                        label: const Text('直接/Markdown导入'),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          foregroundColor: Colors.grey[800],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        onPressed: _isGenerating ? null : _generate,
+                        icon: _isGenerating
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.auto_awesome),
+                        label: Text(_isGenerating ? 'AI 解析中...' : 'AI 智能拆解'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF8A65),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ] else ...[

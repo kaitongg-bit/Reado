@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/feed_item.dart';
+import '../../../models/feed_item.dart';
+import '../../home/presentation/module_provider.dart';
+import '../../lab/presentation/add_material_modal.dart';
 import 'feed_provider.dart';
 import 'widgets/feed_item_view.dart';
 
@@ -48,21 +51,66 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   int _focusedItemIndex = 0;
 
   @override
+  @override
   Widget build(BuildContext context) {
     final feedItems = ref.watch(feedProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final moduleState = ref.watch(moduleProvider);
+    final currentModule =
+        moduleState.all.where((m) => m.id == widget.moduleId).firstOrNull;
+
+    final title = widget.moduleId == 'SEARCH'
+        ? '搜索结果'
+        : (currentModule?.title ?? 'Module ${widget.moduleId}');
 
     if (feedItems.isEmpty) {
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          title: Text(widget.moduleId == 'SEARCH'
-              ? '搜索结果'
-              : 'Module ${widget.moduleId}'),
+          title: Text(title,
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
           backgroundColor: Colors.transparent,
           elevation: 0,
+          iconTheme:
+              IconThemeData(color: isDark ? Colors.white : Colors.black87),
         ),
-        body: const Center(child: Text('没有找到相关内容')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                widget.moduleId == 'SEARCH'
+                    ? '没有找到相关内容'
+                    : 'Knowledge Space Empty',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+              if (currentModule != null && !currentModule.isOfficial) ...[
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) =>
+                          AddMaterialModal(targetModuleId: widget.moduleId),
+                    );
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Material'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF8A65),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
+                  ),
+                ),
+              ]
+            ],
+          ),
+        ),
       );
     }
 
@@ -72,7 +120,6 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       appBar: _isSingleView
           ? null
           : AppBar(
-              // Keep AppBar only for Grid View
               backgroundColor: Colors.transparent,
               elevation: 0,
               flexibleSpace: ClipRRect(
@@ -84,7 +131,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                 ),
               ),
               title: Text(
-                widget.moduleId == 'SEARCH' ? '搜索结果' : 'Knowledge Stream',
+                title,
                 style: TextStyle(
                   color: isDark ? Colors.white : Colors.black87,
                   fontWeight: FontWeight.bold,
@@ -93,7 +140,6 @@ class _FeedPageState extends ConsumerState<FeedPage> {
               iconTheme:
                   IconThemeData(color: isDark ? Colors.white : Colors.black87),
               actions: [
-                // Replace icon with Text button
                 Padding(
                   padding: const EdgeInsets.only(right: 8.0),
                   child: TextButton(

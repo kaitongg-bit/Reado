@@ -3,8 +3,9 @@ import 'package:flutter/material.dart' hide ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../feed/presentation/feed_provider.dart';
-import '../../../feed/presentation/feed_provider.dart';
 import '../../../../models/feed_item.dart';
+import '../../../../models/knowledge_module.dart';
+import '../module_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../lab/presentation/add_material_modal.dart';
 import '../../../../core/theme/theme_provider.dart';
@@ -34,6 +35,8 @@ class HomeTab extends ConsumerWidget {
     final pmLearned =
         pmItems.where((i) => i.masteryLevel != FeedItemMastery.unknown).length;
     final pmProgress = pmCount == 0 ? 0.0 : pmLearned / pmCount;
+
+    final moduleState = ref.watch(moduleProvider); // 🔥 Watch module state
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -309,8 +312,53 @@ class HomeTab extends ConsumerWidget {
                     const SizedBox(height: 32),
 
                   // 3. Knowledge Spaces Section
+                  // -> Official Spaces
+                  if (moduleState.officials.isNotEmpty) ...[
+                    Text(
+                      'Official Spaces',
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ...moduleState.officials.map((m) {
+                      // Calculate stats (Mock logic for now based on ID, ideally should be in Module object)
+                      // Keep existing logic for A/B for now to preserve stats
+                      int count = 0;
+                      double progress = 0.0;
+
+                      // TODO: Refactor statistics calculation to be cleaner
+                      if (m.id == 'A') {
+                        count = hardcoreCount;
+                        progress = hardcoreProgress;
+                      } else if (m.id == 'B') {
+                        count = pmCount;
+                        progress = pmProgress;
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: _KnowledgeSpaceCard(
+                          title: m.title,
+                          description: m.description,
+                          cardCount: count,
+                          progress: progress,
+                          color: Colors.transparent,
+                          badgeText: 'Official',
+                          onLoad: () => onLoadModule?.call(m.id),
+                        ),
+                      );
+                    }).toList(),
+                  ],
+
+                  const SizedBox(height: 12),
+
+                  // -> User Spaces
                   Text(
-                    'Knowledge Spaces',
+                    'My Knowledge Spaces',
                     style: TextStyle(
                       color: isDark ? Colors.white : Colors.black87,
                       fontSize: 22,
@@ -318,31 +366,66 @@ class HomeTab extends ConsumerWidget {
                       letterSpacing: -0.5,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-                  // Knowledge Card: Product Manager (Module B)
-                  _KnowledgeSpaceCard(
-                    title: 'Product Management',
-                    description:
-                        'Zero to Hero: Essential PM skills & frameworks',
-                    cardCount: pmCount,
-                    progress: pmProgress,
-                    color: Colors.transparent, // Using glassmorphism now
-                    badgeText: 'Official',
-                    onLoad: () => onLoadModule?.call('B'),
-                  ),
-                  const SizedBox(height: 20),
+                  if (moduleState.custom.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(32),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withOpacity(0.05)
+                              : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.white.withOpacity(0.1)
+                                : Colors.grey[300]!,
+                            style: BorderStyle.solid,
+                          )),
+                      child: Column(
+                        children: [
+                          Icon(Icons.add_circle_outline,
+                              size: 48,
+                              color:
+                                  isDark ? Colors.grey[600] : Colors.grey[400]),
+                          const SizedBox(height: 12),
+                          Text(
+                            "Create your first space",
+                            style: TextStyle(
+                              fontSize: 16,
+                              color:
+                                  isDark ? Colors.grey[400] : Colors.grey[600],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ...moduleState.custom.map((m) {
+                      final mItems =
+                          feedItems.where((i) => i.moduleId == m.id).toList();
+                      final count = mItems.length;
+                      final learned = mItems
+                          .where(
+                              (i) => i.masteryLevel != FeedItemMastery.unknown)
+                          .length;
+                      final progress = count > 0 ? learned / count : 0.0;
 
-                  // Knowledge Card: Hardcore (Module A)
-                  _KnowledgeSpaceCard(
-                    title: 'CS Fundamentals',
-                    description: 'Data structures, algorithms & system design',
-                    cardCount: hardcoreCount,
-                    progress: hardcoreProgress,
-                    color: Colors.transparent,
-                    badgeText: 'Technical',
-                    onLoad: () => onLoadModule?.call('A'),
-                  ),
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: _KnowledgeSpaceCard(
+                          title: m.title,
+                          description: m.description,
+                          cardCount: count,
+                          progress: progress,
+                          color: Colors.transparent,
+                          badgeText: 'Private',
+                          onLoad: () => onLoadModule?.call(m.id),
+                        ),
+                      );
+                    }).toList(),
 
                   const SizedBox(height: 100), // Bottom padding for FAB
                 ],
@@ -352,16 +435,89 @@ class HomeTab extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) => const AddMaterialModal(),
-          );
-        },
+        onPressed: () => _showCreateModuleDialog(context, ref),
         backgroundColor: const Color(0xFFFF8A65), // Coral color
         child: const Icon(Icons.add, color: Colors.white),
         elevation: 8,
         highlightElevation: 12,
+      ),
+    );
+  }
+
+  void _showCreateModuleDialog(BuildContext context, WidgetRef ref) {
+    final titleController = TextEditingController();
+    final descController = TextEditingController(); // Simple controller
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF1E1E1E)
+            : Colors.white,
+        title: const Text('Create Knowledge Space'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Title',
+                hintText: 'e.g., Interview Prep',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descController,
+              decoration: const InputDecoration(
+                labelText: 'Description (Optional)',
+                hintText: 'What is this space for?',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final title = titleController.text.trim();
+              if (title.isNotEmpty) {
+                Navigator.pop(context); // Close dialog
+                try {
+                  await ref.read(moduleProvider.notifier).createModule(
+                        title,
+                        descController.text.trim(),
+                      );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Space "$title" created!'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF8A65),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Create'),
+          ),
+        ],
       ),
     );
   }

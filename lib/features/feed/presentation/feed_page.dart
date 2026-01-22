@@ -20,7 +20,7 @@ class FeedPage extends ConsumerStatefulWidget {
 }
 
 class _FeedPageState extends ConsumerState<FeedPage> {
-  final PageController _verticalController = PageController();
+  late PageController _verticalController;
 
   // View Mode: true = Single (Full Page), false = Grid (2 Columns)
   late bool _isSingleView;
@@ -29,6 +29,13 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   void initState() {
     super.initState();
     bool isSearch = widget.moduleId == 'SEARCH';
+
+    // Restore index per module
+    final progressMap = ref.read(feedProgressProvider);
+    final savedIndex = progressMap[widget.moduleId] ?? 0;
+
+    _focusedItemIndex = savedIndex;
+    _verticalController = PageController(initialPage: savedIndex);
 
     // Default: Search -> Grid, Normal -> Single
     _isSingleView = !isSearch;
@@ -51,9 +58,35 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   int _focusedItemIndex = 0;
 
   @override
-  @override
   Widget build(BuildContext context) {
     final feedItems = ref.watch(feedProvider);
+
+    // 🛡️ Guard: Check for stale data from previous module to avoid index resets
+    if (widget.moduleId != 'SEARCH' && feedItems.isNotEmpty) {
+      if (feedItems.first.moduleId != widget.moduleId) {
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: const Center(child: CircularProgressIndicator()),
+        );
+      }
+    }
+
+    if (feedItems.isNotEmpty && _isSingleView) {
+      // Safety check: Ensure index is valid for current data
+      if (_focusedItemIndex >= feedItems.length) {
+        _focusedItemIndex = 0;
+        _verticalController = PageController(initialPage: 0);
+        // Update provider to 0 safely
+        Future.microtask(() {
+          final currentMap = ref.read(feedProgressProvider);
+          ref.read(feedProgressProvider.notifier).state = {
+            ...currentMap,
+            widget.moduleId: 0
+          };
+        });
+      }
+    }
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final moduleState = ref.watch(moduleProvider);
@@ -325,6 +358,10 @@ class _FeedPageState extends ConsumerState<FeedPage> {
         setState(() {
           _focusedItemIndex = index;
         });
+        // 💾 Persist reading position per module
+        final currentMap = ref.read(feedProgressProvider);
+        final newMap = {...currentMap, widget.moduleId: index};
+        ref.read(feedProgressProvider.notifier).state = newMap;
       },
       itemBuilder: (context, index) {
         final item = items[index];
@@ -371,6 +408,11 @@ class _FeedPageState extends ConsumerState<FeedPage> {
 
         return GestureDetector(
           onTap: () {
+            // 💾 Explicitly save index on tap from Grid
+            final currentMap = ref.read(feedProgressProvider);
+            final newMap = {...currentMap, widget.moduleId: index};
+            ref.read(feedProgressProvider.notifier).state = newMap;
+
             setState(() {
               _isSingleView = true;
             });

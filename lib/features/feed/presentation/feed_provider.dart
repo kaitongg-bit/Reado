@@ -17,6 +17,10 @@ final libraryIdsProvider = StateProvider<List<String>>((ref) => []);
 // Loading state for feed data
 final feedLoadingProvider = StateProvider<bool>((ref) => true);
 
+// Provider to persist the last focused item index PER MODULE
+// Key: moduleId, Value: index
+final feedProgressProvider = StateProvider<Map<String, int>>((ref) => {});
+
 // DATA SOURCE PROVIDER
 final dataServiceProvider = Provider<DataService>((ref) => FirestoreService());
 

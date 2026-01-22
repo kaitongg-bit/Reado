@@ -59,7 +59,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         onDestinationSelected: (index) {
           setState(() {
             _selectedIndex = index;
-            if (index == 0) _activeModule = null; // 返回主页时清除模块
           });
         },
         backgroundColor:

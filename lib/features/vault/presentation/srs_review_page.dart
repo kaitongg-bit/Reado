@@ -148,6 +148,7 @@ class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
             left: 0,
             right: 0,
             child: Container(
+              color: isDark ? const Color(0xFF121212) : Colors.white,
               padding: EdgeInsets.only(
                   top: MediaQuery.of(context).padding.top + 10,
                   bottom: 10,

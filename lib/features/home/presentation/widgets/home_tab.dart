@@ -15,12 +15,39 @@ class HomeTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 🔥 使用 allItemsProvider 获取完整数据（不受 loadModule 影响）
+    final isFeedLoading = ref.watch(feedLoadingProvider);
+    final moduleState = ref.watch(moduleProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // 1. Loading State
+    if (isFeedLoading || moduleState.isLoading) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(color: Color(0xFFFF8A65)),
+              const SizedBox(height: 16),
+              Text(
+                'Preparing your knowledge base...',
+                style: TextStyle(
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 2. Data Preparation
     final feedItems = ref.watch(allItemsProvider);
+
+    // Calculate stats for Official Modules (Legacy A/B logic)
     final hardcoreItems = feedItems.where((i) => i.moduleId == 'A').toList();
-    final pmItems = feedItems
-        .where((i) => i.moduleId == 'B')
-        .toList(); // Assuming B is PM Foundation
+    final pmItems = feedItems.where((i) => i.moduleId == 'B').toList();
 
     final hardcoreCount = hardcoreItems.length;
     final hardcoreLearned = hardcoreItems
@@ -34,15 +61,12 @@ class HomeTab extends ConsumerWidget {
         pmItems.where((i) => i.masteryLevel != FeedItemMastery.unknown).length;
     final pmProgress = pmCount == 0 ? 0.0 : pmLearned / pmCount;
 
-    final moduleState = ref.watch(moduleProvider); // 🔥 Watch module state
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
+    // 3. Main Content
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
-          // Ambient Background - Top Left (Review)
+          // Ambient Background - Top Left
           Positioned(
             top: -100,
             left: -100,
@@ -64,7 +88,7 @@ class HomeTab extends ConsumerWidget {
             ),
           ),
 
-          // Ambient Background - Bottom Right (Review)
+          // Ambient Background - Bottom Right
           Positioned(
             bottom: 50,
             right: -50,

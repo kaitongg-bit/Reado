@@ -13,54 +13,66 @@ final reviewSessionIdsProvider = StateProvider<List<String>>((ref) => []);
 // Provider for the library item IDs
 final libraryIdsProvider = StateProvider<List<String>>((ref) => []);
 
+// Loading state for feed data
+final feedLoadingProvider = StateProvider<bool>((ref) => true);
+
 // DATA SOURCE PROVIDER
 final dataServiceProvider = Provider<DataService>((ref) => FirestoreService());
 
 class FeedNotifier extends StateNotifier<List<FeedItem>> {
   final DataService _dataService;
+  final Ref _ref;
 
   // Source of Truth
   List<FeedItem> _allItems = [];
 
   List<FeedItem> get allItems => _allItems;
 
-  FeedNotifier(this._dataService) : super([]) {
+  FeedNotifier(this._dataService, this._ref) : super([]) {
     // Trigger initial load
     loadAllData();
   }
 
   Future<void> loadAllData() async {
     print('🔄 开始加载所有数据...');
+    _ref.read(feedLoadingProvider.notifier).state = true;
 
-    // 1. 获取官方内容（从 feed_items 集合）
-    final officialResults = await Future.wait([
-      _dataService.fetchFeedItems('A'),
-      _dataService.fetchFeedItems('B'),
-      _dataService.fetchFeedItems('C'),
-      _dataService.fetchFeedItems('D'),
-    ]);
+    try {
+      // 1. 获取官方内容（从 feed_items 集合）
+      final officialResults = await Future.wait([
+        _dataService.fetchFeedItems('A'),
+        _dataService.fetchFeedItems('B'),
+        _dataService.fetchFeedItems('C'),
+        _dataService.fetchFeedItems('D'),
+      ]);
 
-    final officialItems = officialResults.expand((x) => x).toList();
-    print('✅ 官方内容: ${officialItems.length} 个');
+      final officialItems = officialResults.expand((x) => x).toList();
+      print('✅ 官方内容: ${officialItems.length} 个');
 
-    // 2. 获取用户自定义内容（从 users/{uid}/custom_items）
-    final currentUser = FirebaseAuth.instance.currentUser;
-    List<FeedItem> customItems = [];
+      // 2. 获取用户自定义内容（从 users/{uid}/custom_items）
+      final currentUser = FirebaseAuth.instance.currentUser;
+      List<FeedItem> customItems = [];
 
-    if (currentUser != null) {
-      customItems = await _dataService.fetchCustomFeedItems(currentUser.uid);
-      print('✅ 自定义内容: ${customItems.length} 个');
-    } else {
-      print('⚠️ 用户未登录，跳过自定义内容');
+      if (currentUser != null) {
+        customItems = await _dataService.fetchCustomFeedItems(currentUser.uid);
+        print('✅ 自定义内容: ${customItems.length} 个');
+      } else {
+        print('⚠️ 用户未登录，跳过自定义内容');
+      }
+
+      // 3. 合并所有内容
+      _allItems = [...officialItems, ...customItems];
+      print('📊 总计: ${_allItems.length} 个知识点');
+
+      // 🔔 关键修复：强制更新 state 以通知 allItemsProvider
+      // 即使 state 内容不变，重新赋值也会触发 notifyListeners
+      state = [...state];
+    } catch (e) {
+      print('Basic load failed: $e');
+    } finally {
+      print('🏁 加载状态结束');
+      _ref.read(feedLoadingProvider.notifier).state = false;
     }
-
-    // 3. 合并所有内容
-    _allItems = [...officialItems, ...customItems];
-    print('📊 总计: ${_allItems.length} 个知识点');
-
-    // 🔔 关键修复：强制更新 state 以通知 allItemsProvider
-    // 即使 state 内容不变，重新赋值也会触发 notifyListeners
-    state = [...state];
   }
 
   /// 动态添加自定义内容 (用于 AddMaterialModal)
@@ -271,7 +283,7 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
 
 final feedProvider = StateNotifierProvider<FeedNotifier, List<FeedItem>>((ref) {
   final dataService = ref.watch(dataServiceProvider);
-  return FeedNotifier(dataService);
+  return FeedNotifier(dataService, ref);
 });
 
 // 🔥 修复：提供对完整数据列表的访问，并在数据变化时触发rebuild

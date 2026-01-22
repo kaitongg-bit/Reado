@@ -32,6 +32,24 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(FeedItemView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Detect if a new page was added (e.g. Note pinned)
+    if (widget.feedItem.pages.length > oldWidget.feedItem.pages.length) {
+      // Scroll to the new page
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_horizontalController.hasClients) {
+          _horizontalController.animateToPage(
+            widget.feedItem.pages.length - 1,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      });
+    }
+  }
+
   void _showAskAISheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -61,20 +79,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
             ),
           );
 
-          // 自动滚动到新添加的页面
-          // 稍微延迟等待 Widget 重建
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (_horizontalController.hasClients) {
-              _horizontalController.animateToPage(
-                widget.feedItem.pages
-                    .length, // target last index (length because we just added one so length is new index + 1, wait logic needs care)
-                // Actually after rebuild, pages.length increased by 1. The index of new page is (length - 1).
-                // Let's safe check later.
-                duration: const Duration(milliseconds: 500),
-                curve: Curves.easeOutCubic,
-              );
-            }
-          });
+          // Auto-scroll is now handled in didUpdateWidget
         },
       ),
     );

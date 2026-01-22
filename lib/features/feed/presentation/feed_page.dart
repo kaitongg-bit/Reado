@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/feed_item.dart';
-import '../../../models/feed_item.dart';
 import '../../home/presentation/module_provider.dart';
 import '../../lab/presentation/add_material_modal.dart';
 import 'feed_provider.dart';
@@ -329,6 +328,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       itemBuilder: (context, index) {
         final item = items[index];
         return FeedItemView(
+          key: ValueKey(item.id),
           feedItem: item,
           onNextTap: () {
             _verticalController.nextPage(

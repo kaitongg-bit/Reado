@@ -4,11 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../feed/presentation/feed_provider.dart';
 import '../../../../models/feed_item.dart';
-import '../../../../models/knowledge_module.dart';
 import '../module_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../lab/presentation/add_material_modal.dart';
-import '../../../../core/theme/theme_provider.dart';
 
 class HomeTab extends ConsumerWidget {
   final Function(String moduleId)? onLoadModule; // 加载模块的回调
@@ -344,6 +342,7 @@ class HomeTab extends ConsumerWidget {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 20),
                         child: _KnowledgeSpaceCard(
+                          moduleId: m.id, // Pass ID
                           title: m.title,
                           description: m.description,
                           cardCount: count,
@@ -419,6 +418,7 @@ class HomeTab extends ConsumerWidget {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 20),
                         child: _KnowledgeSpaceCard(
+                          moduleId: m.id, // Pass ID
                           title: m.title,
                           description: m.description,
                           cardCount: count,
@@ -528,6 +528,7 @@ class HomeTab extends ConsumerWidget {
 }
 
 class _KnowledgeSpaceCard extends StatelessWidget {
+  final String moduleId; // Added moduleId
   final String title;
   final String description;
   final int cardCount;
@@ -538,6 +539,7 @@ class _KnowledgeSpaceCard extends StatelessWidget {
   final VoidCallback? onLoad;
 
   const _KnowledgeSpaceCard({
+    required this.moduleId,
     required this.title,
     required this.description,
     required this.cardCount,
@@ -702,7 +704,9 @@ class _KnowledgeSpaceCard extends StatelessWidget {
                         onPressed: () {
                           showDialog(
                             context: context,
-                            builder: (context) => const AddMaterialModal(),
+                            builder: (context) => AddMaterialModal(
+                                targetModuleId:
+                                    moduleId), // FIXED: Pass moduleId
                           );
                         },
                         style: OutlinedButton.styleFrom(

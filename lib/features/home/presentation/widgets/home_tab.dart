@@ -339,12 +339,15 @@ class HomeTab extends ConsumerWidget {
                         progress = pmProgress;
                       }
 
+                      final mastered = (progress * count).toInt();
+
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 20),
                         child: _KnowledgeSpaceCard(
                           title: m.title,
                           description: m.description,
                           cardCount: count,
+                          masteredCount: mastered,
                           progress: progress,
                           color: Colors.transparent,
                           badgeText: 'Official',
@@ -423,6 +426,7 @@ class HomeTab extends ConsumerWidget {
                           color: Colors.transparent,
                           badgeText: 'Private',
                           onLoad: () => onLoadModule?.call(m.id),
+                          masteredCount: learned,
                         ),
                       );
                     }).toList(),
@@ -527,6 +531,7 @@ class _KnowledgeSpaceCard extends StatelessWidget {
   final String title;
   final String description;
   final int cardCount;
+  final int masteredCount;
   final double progress; // 0.0 to 1.0
   final Color color;
   final String badgeText;
@@ -536,6 +541,7 @@ class _KnowledgeSpaceCard extends StatelessWidget {
     required this.title,
     required this.description,
     required this.cardCount,
+    required this.masteredCount,
     required this.progress,
     required this.color,
     required this.badgeText,
@@ -659,7 +665,7 @@ class _KnowledgeSpaceCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '$cardCount cards mastered',
+                  '$masteredCount / $cardCount cards mastered',
                   style: TextStyle(
                     color: isDark ? Colors.grey[500] : Colors.grey[500],
                     fontSize: 13,

@@ -26,10 +26,7 @@ class DefaultFirebaseOptions {
           'you can reconfigure this by running the FlutterFire CLI again.',
         );
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for macos - '
@@ -61,4 +58,15 @@ class DefaultFirebaseOptions {
     storageBucket: 'quickpm-8f9c9.firebasestorage.app',
     measurementId: 'G-R19RZYENY9',
   );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyAEel3CbUOOl2ViY5AYjPD-lphtmalgpyc',
+    appId: '1:645063695535:ios:eac242a8a98e924062c85a',
+    messagingSenderId: '645063695535',
+    projectId: 'quickpm-8f9c9',
+    storageBucket: 'quickpm-8f9c9.firebasestorage.app',
+    iosClientId: '645063695535-qlvij3ld97okog0fqf3noa7ur0jbhht4.apps.googleusercontent.com',
+    iosBundleId: 'com.example.quickPm',
+  );
+
 }

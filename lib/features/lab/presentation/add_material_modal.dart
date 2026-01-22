@@ -105,7 +105,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
               items.length.toString(),
           moduleId: widget.targetModuleId ?? 'custom',
           title: title,
-          pages: [OfficialPage(contentStr)],
+          pages: [OfficialPage("# $title\n\n$contentStr")],
           category: category,
           masteryLevel: FeedItemMastery.unknown,
         ));

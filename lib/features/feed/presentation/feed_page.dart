@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -351,6 +352,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
 
   Widget _buildSingleView(List<FeedItem> items) {
     return PageView.builder(
+      physics: const NeverScrollableScrollPhysics(), // 🔒 Disable default swipe
       controller: _verticalController,
       scrollDirection: Axis.vertical,
       itemCount: items.length,
@@ -365,15 +367,31 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       },
       itemBuilder: (context, index) {
         final item = items[index];
-        return FeedItemView(
-          key: ValueKey(item.id),
-          feedItem: item,
-          onNextTap: () {
-            _verticalController.nextPage(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
+        return _OverscrollNavigatable(
+          hasPrev: index > 0,
+          hasNext: index < items.length - 1,
+          onTriggerPrev: () {
+            _verticalController.previousPage(
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOutCubic,
             );
           },
+          onTriggerNext: () {
+            _verticalController.nextPage(
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOutCubic,
+            );
+          },
+          child: FeedItemView(
+            key: ValueKey(item.id),
+            feedItem: item,
+            onNextTap: () {
+              _verticalController.nextPage(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+              );
+            },
+          ),
         );
       },
     );
@@ -607,5 +625,215 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       default:
         return 'Knowledge Space';
     }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Overscroll Navigation Logic ("The Mud Effect")
+// -----------------------------------------------------------------------------
+
+class _OverscrollNavigatable extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTriggerPrev;
+  final VoidCallback? onTriggerNext;
+  final bool hasPrev;
+  final bool hasNext;
+
+  const _OverscrollNavigatable({
+    required this.child,
+    this.onTriggerPrev,
+    this.onTriggerNext,
+    this.hasPrev = false,
+    this.hasNext = false,
+  });
+
+  @override
+  State<_OverscrollNavigatable> createState() => _OverscrollNavigatableState();
+}
+
+class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
+    with SingleTickerProviderStateMixin {
+  double _dragOffset = 0.0;
+  bool _isDragging = false;
+  late AnimationController _resetController;
+  late Animation<double> _resetAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _resetController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _resetController.addListener(() {
+      setState(() {
+        _dragOffset = _resetAnimation.value;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _resetController.dispose();
+    super.dispose();
+  }
+
+  void _handleScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollUpdateNotification) {
+      // 1. Damping & Drag Logic
+      // Only process overscroll if user is actually dragging (avoid high velocity flings triggering)
+      if (notification.dragDetails != null) {
+        if (notification.metrics.extentBefore == 0 &&
+            notification.scrollDelta! < 0) {
+          // Pulling Down (at Top)
+          if (widget.hasPrev) {
+            _handleOverscroll(notification.scrollDelta!);
+          }
+        } else if (notification.metrics.extentAfter == 0 &&
+            notification.scrollDelta! > 0) {
+          // Pulling Up (at Bottom)
+          if (widget.hasNext) {
+            _handleOverscroll(notification.scrollDelta!);
+          }
+        }
+      }
+    } else if (notification is OverscrollNotification) {
+      // Catch pure overscroll events too
+      if (notification.dragDetails != null) {
+        if (widget.hasPrev && notification.overscroll < 0) {
+          _handleOverscroll(notification.overscroll);
+        } else if (widget.hasNext && notification.overscroll > 0) {
+          _handleOverscroll(notification.overscroll);
+        }
+      }
+    } else if (notification is ScrollEndNotification) {
+      // 2. Action or Reset
+      _handleDragEnd();
+    }
+  }
+
+  void _handleOverscroll(double delta) {
+    setState(() {
+      _isDragging = true;
+      // Damping formula: Reduce delta impact as offset grows (Mud Effect)
+      // Simple non-linear damping:
+      // Real movement = delta * (1 / (1 + abs(offset) / 200))
+      // But standard rubber banding is cleaner:
+      double damping = 0.8 * (1.0 - (_dragOffset.abs() / 1500).clamp(0.0, 1.0));
+      _dragOffset -= delta * damping;
+    });
+
+    // Haptic: Hit Edge
+    if (_dragOffset.abs() < 10 && delta.abs() > 0) {
+      // Just started overscroll
+      // HapticFeedback.lightImpact(); // Too frequent? Move simple check
+    }
+
+    // Threshold Check for Haptic
+    final threshold = 120.0; // Fixed pixels or ratio
+    if ((_dragOffset.abs() - threshold).abs() < 5) {
+      // Just crossed threshold
+      HapticFeedback.lightImpact();
+    }
+  }
+
+  void _handleDragEnd() {
+    final threshold = MediaQuery.of(context).size.height * 0.15;
+
+    // Check if we crossed threshold
+    if (_dragOffset.abs() > threshold) {
+      // Action!
+      HapticFeedback.mediumImpact();
+      if (_dragOffset > 0 && widget.onTriggerPrev != null) {
+        widget.onTriggerPrev!();
+      } else if (_dragOffset < 0 && widget.onTriggerNext != null) {
+        widget.onTriggerNext!();
+      }
+    }
+
+    // Always reset visual offset
+    _resetAnimation = Tween<double>(begin: _dragOffset, end: 0.0).animate(
+      CurvedAnimation(parent: _resetController, curve: Curves.easeOutBack),
+    );
+    _resetController.forward(from: 0);
+    setState(() {
+      _isDragging = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final threshold = MediaQuery.of(context).size.height * 0.15;
+    final progress = (_dragOffset.abs() / threshold).clamp(0.0, 1.0);
+    final isTriggerReady = _dragOffset.abs() > threshold;
+
+    String? textAlert;
+    if (_dragOffset > 0 && widget.hasPrev) {
+      textAlert = isTriggerReady ? "释放切换到上一篇" : "继续下拉回到上一篇";
+    } else if (_dragOffset < 0 && widget.hasNext) {
+      textAlert = isTriggerReady ? "释放进入下一篇" : "继续上拉进入下一篇";
+    }
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        _handleScrollNotification(notification);
+        return false; // Allow bubbling
+      },
+      child: Stack(
+        children: [
+          Transform.translate(
+            offset: Offset(0, _dragOffset),
+            child: widget.child,
+          ),
+
+          // Visual Indicators
+          if (_dragOffset != 0 && textAlert != null)
+            Positioned(
+              top: _dragOffset > 0 ? 60 : null,
+              bottom: _dragOffset < 0 ? 60 : null,
+              left: 0,
+              right: 0,
+              child: Opacity(
+                opacity: progress,
+                child: Center(
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 4,
+                              offset: const Offset(0, 2))
+                        ]),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _dragOffset > 0
+                              ? Icons.arrow_upward
+                              : Icons.arrow_downward,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          textAlert,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

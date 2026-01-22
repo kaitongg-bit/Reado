@@ -153,7 +153,27 @@ class FirestoreService implements DataService {
         return;
       }
 
-      // Save to: users/{uid}/notes/{itemId}
+      final notePage = {
+        'type': 'user_note',
+        'question': question,
+        'answer': answer,
+        'createdAt': DateTime.now().toIso8601String(),
+      };
+
+      // 1️⃣ Custom Item: Embed note directly into the item's pages
+      final customRef =
+          _usersRef.doc(user.uid).collection('custom_items').doc(itemId);
+      final customDoc = await customRef.get();
+
+      if (customDoc.exists) {
+        await customRef.update({
+          'pages': FieldValue.arrayUnion([notePage])
+        });
+        debugPrint('✅ User note embedded in custom item: itemId=$itemId');
+        return;
+      }
+
+      // 2️⃣ Official Item: Save to separate notes collection (Side-car)
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -162,16 +182,14 @@ class FirestoreService implements DataService {
           .set({
         'pages': FieldValue.arrayUnion([
           {
-            'type': 'user_note',
-            'question': question,
-            'answer': answer,
-            'createdAt':
-                Timestamp.now(), // ✅ Fixed: use Timestamp.now() instead
+            ...notePage,
+            'createdAt': Timestamp.now(), // Official side uses Timestamp
           }
         ])
       }, SetOptions(merge: true));
 
-      debugPrint('✅ User note saved: itemId=$itemId, user=${user.uid}');
+      debugPrint(
+          '✅ User note saved (Official): itemId=$itemId, user=${user.uid}');
     } catch (e) {
       debugPrint('❌ Error saving user note: $e');
       rethrow;

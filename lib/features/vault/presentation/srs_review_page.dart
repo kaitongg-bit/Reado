@@ -38,6 +38,23 @@ class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
     // 3. Update Provider
     ref.read(feedProvider.notifier).updateItem(updatedItem);
 
+    // ✅ 保存mastery到Firestore
+    String masteryStr;
+    switch (mastery) {
+      case FeedItemMastery.hard:
+        masteryStr = 'hard';
+        break;
+      case FeedItemMastery.medium:
+        masteryStr = 'medium';
+        break;
+      case FeedItemMastery.easy:
+        masteryStr = 'easy';
+        break;
+      default:
+        masteryStr = 'unknown';
+    }
+    ref.read(feedProvider.notifier).updateMastery(currentItem.id, masteryStr);
+
     // 4. Feedback & Close
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/theme_provider.dart' as custom_theme;
 import '../../../core/theme/theme_provider.dart' show themeProvider;
+import '../../../core/widgets/auth_status_checker.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -82,6 +83,10 @@ class ProfilePage extends ConsumerWidget {
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
+                  // 🔍 登录状态检查器（调试工具）
+                  const AuthStatusChecker(),
+                  const SizedBox(height: 16),
+
                   // Avatar & Info
                   Center(
                     child: Column(

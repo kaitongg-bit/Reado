@@ -202,11 +202,9 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
       final newItem = oldItem.copyWith(masteryLevel: level);
 
       updateItem(newItem);
-      await _dataService.updateSRSStatus(
-          itemId,
-          newItem.nextReviewTime ?? DateTime.now(),
-          newItem.interval,
-          newItem.easeFactor);
+
+      // ✅ 修复：保存mastery到Firestore
+      await _dataService.updateMasteryLevel(itemId, levelStr);
     }
   }
 

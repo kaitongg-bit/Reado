@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../vault/presentation/vault_page.dart';
 import '../../feed/presentation/feed_page.dart';
+import '../../feed/presentation/feed_provider.dart';
 import 'widgets/home_tab.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -22,6 +23,12 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   void initState() {
     super.initState();
+
+    // ✅ 修复：首次进入时加载所有数据
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(feedProvider.notifier).loadAllData();
+    });
+
     if (widget.initialModule != null) {
       _selectedIndex = 1; // 切换到学习 tab
       _activeModule = widget.initialModule;

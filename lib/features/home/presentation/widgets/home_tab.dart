@@ -3,7 +3,9 @@ import 'package:flutter/material.dart' hide ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../feed/presentation/feed_provider.dart';
+import '../../../feed/presentation/feed_provider.dart';
 import '../../../../models/feed_item.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../lab/presentation/add_material_modal.dart';
 import '../../../../core/theme/theme_provider.dart';
 
@@ -104,13 +106,11 @@ class HomeTab extends ConsumerWidget {
                           letterSpacing: -0.5,
                         ),
                       ),
-                      PopupMenuButton(
-                        offset: const Offset(0, 50),
-                        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                        elevation: 8,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16)),
+                      GestureDetector(
+                        onTap: () => context.push('/profile'),
                         child: Container(
+                          width: 44,
+                          height: 44,
                           padding: const EdgeInsets.all(2),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
@@ -121,70 +121,35 @@ class HomeTab extends ConsumerWidget {
                               width: 1,
                             ),
                           ),
-                          child: CircleAvatar(
-                            radius: 20,
-                            backgroundColor:
-                                isDark ? Colors.grey[800] : Colors.grey[100],
-                            child: Icon(Icons.person,
-                                color: isDark ? Colors.white : Colors.black87),
+                          child: ClipOval(
+                            child: FirebaseAuth
+                                        .instance.currentUser?.photoURL !=
+                                    null
+                                ? Image.network(
+                                    FirebaseAuth
+                                        .instance.currentUser!.photoURL!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => CircleAvatar(
+                                      backgroundColor: isDark
+                                          ? Colors.grey[800]
+                                          : Colors.grey[100],
+                                      child: Icon(Icons.person,
+                                          color: isDark
+                                              ? Colors.white
+                                              : Colors.black87),
+                                    ),
+                                  )
+                                : CircleAvatar(
+                                    backgroundColor: isDark
+                                        ? Colors.grey[800]
+                                        : Colors.grey[100],
+                                    child: Icon(Icons.person,
+                                        color: isDark
+                                            ? Colors.white
+                                            : Colors.black87),
+                                  ),
                           ),
                         ),
-                        // Explicitly typed to avoid List<StatefulWidget> error
-                        itemBuilder: (context) => <PopupMenuEntry>[
-                          PopupMenuItem(
-                            child: ListTile(
-                              leading:
-                                  const Icon(Icons.person_outline, size: 22),
-                              title: const Text('Profile'),
-                              contentPadding: EdgeInsets.zero,
-                              onTap: () {
-                                Navigator.pop(context);
-                                context.push('/profile');
-                              },
-                            ),
-                          ),
-                          PopupMenuItem(
-                            child: ListTile(
-                              leading:
-                                  const Icon(Icons.settings_outlined, size: 22),
-                              title: const Text('Settings'),
-                              contentPadding: EdgeInsets.zero,
-                              onTap: () {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content:
-                                            Text('Settings coming soon...')));
-                              },
-                            ),
-                          ),
-                          const PopupMenuDivider(),
-                          PopupMenuItem(
-                            child: Consumer(
-                              builder: (context, ref, _) {
-                                final isDark =
-                                    ref.watch(themeProvider) != ThemeMode.light;
-                                return ListTile(
-                                  leading: Icon(
-                                      isDark
-                                          ? Icons.light_mode_outlined
-                                          : Icons.dark_mode_outlined,
-                                      size: 22),
-                                  title:
-                                      Text(isDark ? 'Light Mode' : 'Dark Mode'),
-                                  contentPadding: EdgeInsets.zero,
-                                  onTap: () {
-                                    ref.read(themeProvider.notifier).setTheme(
-                                        isDark
-                                            ? ThemeMode.light
-                                            : ThemeMode.dark);
-                                    Navigator.pop(context);
-                                  },
-                                );
-                              },
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),

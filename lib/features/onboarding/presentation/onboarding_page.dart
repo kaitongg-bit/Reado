@@ -142,13 +142,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
                                 AlwaysStoppedAnimation<Color>(Colors.black54),
                           ),
                         )
-                      : Image.network(
-                          'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/480px-Google_%22G%22_logo.svg.png',
-                          width: 24,
-                          height: 24,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Icon(Icons.login,
-                                  color: Colors.blue, size: 24),
+                      : const Icon(
+                          Icons
+                              .g_mobiledata, // 或者 Icons.account_circle, 既然flutter没有专门的G标，用这个模拟或者文本
+                          color: Colors.blue,
+                          size: 32, // 大一点
                         ),
                   label: Text(
                     _isLoading ? '登录中...' : '使用 Google 账号登录',

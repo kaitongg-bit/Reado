@@ -57,6 +57,10 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     // 3. 合并所有内容
     _allItems = [...officialItems, ...customItems];
     print('📊 总计: ${_allItems.length} 个知识点');
+
+    // 🔔 关键修复：强制更新 state 以通知 allItemsProvider
+    // 即使 state 内容不变，重新赋值也会触发 notifyListeners
+    state = [...state];
   }
 
   /// 加载指定模块的数据 (Feed Logic)

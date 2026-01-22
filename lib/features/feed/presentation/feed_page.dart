@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/feed_item.dart';
-import '../../../models/knowledge_module.dart';
+
 import '../../home/presentation/module_provider.dart';
 import '../../lab/presentation/add_material_modal.dart';
 import 'feed_provider.dart';
@@ -382,6 +382,11 @@ class _FeedPageState extends ConsumerState<FeedPage> {
               curve: Curves.easeOutCubic,
             );
           },
+          onTriggerBack: () {
+            setState(() {
+              _isSingleView = false;
+            });
+          },
           child: FeedItemView(
             key: ValueKey(item.id),
             feedItem: item,
@@ -414,15 +419,18 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       itemBuilder: (context, index) {
         final item = items[index];
         final previewText = _getPreviewText(item);
+        final isFocused = index == _focusedItemIndex;
 
         // Glassmorphism Card Style
         final backgroundColor = isDark
             ? Colors.white.withOpacity(0.08)
             : Colors.white.withOpacity(0.65);
 
-        final borderColor = isDark
-            ? Colors.white.withOpacity(0.1)
-            : Colors.white.withOpacity(0.5);
+        final borderColor = isFocused
+            ? Colors.blueAccent
+            : (isDark
+                ? Colors.white.withOpacity(0.1)
+                : Colors.white.withOpacity(0.5));
 
         return GestureDetector(
           onTap: () {
@@ -432,6 +440,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
             ref.read(feedProgressProvider.notifier).state = newMap;
 
             setState(() {
+              _focusedItemIndex = index; // Ensure we sync before switching
               _isSingleView = true;
             });
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -440,115 +449,151 @@ class _FeedPageState extends ConsumerState<FeedPage> {
               }
             });
           },
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: backgroundColor,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: borderColor),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isDark
-                          ? Colors.black.withOpacity(0.2)
-                          : Colors.grey.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header: Module Tag
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        if (item.moduleId == 'SEARCH')
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: _getModuleColor(item.moduleId)
-                                  .withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(4),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: backgroundColor,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: borderColor, width: isFocused ? 2 : 1),
+                        boxShadow: [
+                          BoxShadow(
+                            color: isDark
+                                ? Colors.black.withOpacity(0.2)
+                                : Colors.grey.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header: Module Tag
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              if (item.moduleId == 'SEARCH')
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: _getModuleColor(item.moduleId)
+                                        .withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    _getModuleName(item.moduleId),
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        color: _getModuleColor(item.moduleId),
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              const Spacer(),
+                              if (item.isFavorited)
+                                const Icon(Icons.favorite,
+                                    size: 16, color: Colors.redAccent)
+                            ],
+                          ),
+
+                          if (item.moduleId == 'SEARCH')
+                            const SizedBox(height: 8),
+
+                          // Title
+                          Text(
+                            item.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              height: 1.2,
+                              color: isDark ? Colors.white : Colors.black87,
                             ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Preview Content
+                          Expanded(
                             child: Text(
-                              _getModuleName(item.moduleId),
+                              previewText,
+                              maxLines: 5,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                  fontSize: 10,
-                                  color: _getModuleColor(item.moduleId),
-                                  fontWeight: FontWeight.bold),
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? Colors.grey[400]
+                                      : Colors.grey[600],
+                                  height: 1.4),
                             ),
                           ),
-                        const Spacer(),
-                        if (item.isFavorited)
-                          const Icon(Icons.favorite,
-                              size: 16, color: Colors.redAccent)
-                      ],
-                    ),
 
-                    if (item.moduleId == 'SEARCH') const SizedBox(height: 8),
+                          const SizedBox(height: 12),
 
-                    // Title
-                    Text(
-                      item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        height: 1.2,
-                        color: isDark ? Colors.white : Colors.black87,
+                          // Footer
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: _getModuleColor(item.moduleId)
+                                      .withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(_getModuleIcon(item.moduleId),
+                                    size: 10,
+                                    color: _getModuleColor(item.moduleId)),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'QuickPM',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: isDark
+                                        ? Colors.grey[500]
+                                        : Colors.grey[500]),
+                              ),
+                            ],
+                          )
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-
-                    // Preview Content
-                    Expanded(
-                      child: Text(
-                        previewText,
-                        maxLines: 5,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? Colors.grey[400] : Colors.grey[600],
-                            height: 1.4),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Footer
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color:
-                                _getModuleColor(item.moduleId).withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(_getModuleIcon(item.moduleId),
-                              size: 10, color: _getModuleColor(item.moduleId)),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'QuickPM',
-                          style: TextStyle(
-                              fontSize: 10,
-                              color:
-                                  isDark ? Colors.grey[500] : Colors.grey[500]),
-                        ),
-                      ],
-                    )
-                  ],
+                  ),
                 ),
               ),
-            ),
+              if (isFocused)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 4,
+                            offset: Offset(0, 2))
+                      ],
+                    ),
+                    child: const Text("在看",
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                ),
+            ],
           ),
         );
       },
@@ -636,6 +681,7 @@ class _OverscrollNavigatable extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTriggerPrev;
   final VoidCallback? onTriggerNext;
+  final VoidCallback? onTriggerBack; // Trigger for "Back to Grid"
   final bool hasPrev;
   final bool hasNext;
 
@@ -643,6 +689,7 @@ class _OverscrollNavigatable extends StatefulWidget {
     required this.child,
     this.onTriggerPrev,
     this.onTriggerNext,
+    this.onTriggerBack,
     this.hasPrev = false,
     this.hasNext = false,
   });
@@ -653,10 +700,10 @@ class _OverscrollNavigatable extends StatefulWidget {
 
 class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
     with SingleTickerProviderStateMixin {
-  double _dragOffset = 0.0;
-  bool _isDragging = false;
+  Offset _dragOffset = Offset.zero;
+
   late AnimationController _resetController;
-  late Animation<double> _resetAnimation;
+  late Animation<Offset> _resetAnimation;
 
   @override
   void initState() {
@@ -680,98 +727,142 @@ class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
 
   void _handleScrollNotification(ScrollNotification notification) {
     if (notification is ScrollUpdateNotification) {
-      // 1. Damping & Drag Logic
-      // Only process overscroll if user is actually dragging (avoid high velocity flings triggering)
       if (notification.dragDetails != null) {
-        if (notification.metrics.extentBefore == 0 &&
-            notification.scrollDelta! < 0) {
-          // Pulling Down (at Top)
-          if (widget.hasPrev) {
-            _handleOverscroll(notification.scrollDelta!);
+        // Vertical Logic
+        if (notification.metrics.axis == Axis.vertical) {
+          if (notification.metrics.extentBefore == 0 &&
+              notification.scrollDelta! < 0) {
+            if (widget.hasPrev) {
+              _handleOverscroll(Offset(0, notification.scrollDelta!));
+            }
+          } else if (notification.metrics.extentAfter == 0 &&
+              notification.scrollDelta! > 0) {
+            if (widget.hasNext) {
+              _handleOverscroll(Offset(0, notification.scrollDelta!));
+            }
           }
-        } else if (notification.metrics.extentAfter == 0 &&
-            notification.scrollDelta! > 0) {
-          // Pulling Up (at Bottom)
-          if (widget.hasNext) {
-            _handleOverscroll(notification.scrollDelta!);
+        }
+        // Horizontal Logic (Swipe Right to Back)
+        // Check for Left Edge Pull (pixels <= 0) and Delta < 0 (moving finger right)
+        if (notification.metrics.axis == Axis.horizontal) {
+          if (notification.metrics.pixels <= 0 &&
+              notification.scrollDelta! < 0) {
+            _handleOverscroll(Offset(notification.scrollDelta!, 0));
           }
         }
       }
     } else if (notification is OverscrollNotification) {
-      // Catch pure overscroll events too
       if (notification.dragDetails != null) {
-        if (widget.hasPrev && notification.overscroll < 0) {
-          _handleOverscroll(notification.overscroll);
-        } else if (widget.hasNext && notification.overscroll > 0) {
-          _handleOverscroll(notification.overscroll);
+        // Vertical
+        if (notification.metrics.axis == Axis.vertical) {
+          if (widget.hasPrev && notification.overscroll < 0) {
+            _handleOverscroll(Offset(0, notification.overscroll));
+          } else if (widget.hasNext && notification.overscroll > 0) {
+            _handleOverscroll(Offset(0, notification.overscroll));
+          }
+        }
+        // Horizontal (Left Override) -> Swipe Right (negative overscroll)
+        if (notification.metrics.axis == Axis.horizontal) {
+          // If we are at the first page (index 0) and trying to swipe right
+          if (notification.overscroll < 0) {
+            _handleOverscroll(Offset(notification.overscroll, 0));
+          }
         }
       }
     } else if (notification is ScrollEndNotification) {
-      // 2. Action or Reset
       _handleDragEnd();
     }
   }
 
-  void _handleOverscroll(double delta) {
+  void _handleOverscroll(Offset delta) {
     setState(() {
-      _isDragging = true;
-      // Damping formula: Reduce delta impact as offset grows (Mud Effect)
-      // Simple non-linear damping:
-      // Real movement = delta * (1 / (1 + abs(offset) / 200))
-      // But standard rubber banding is cleaner:
-      double damping = 0.8 * (1.0 - (_dragOffset.abs() / 1500).clamp(0.0, 1.0));
-      _dragOffset -= delta * damping;
+      // Damping
+      double dampingX = 1.0;
+      double dampingY =
+          0.8 * (1.0 - (_dragOffset.dy.abs() / 1500).clamp(0.0, 1.0));
+
+      // If we are dragging horizontal, we want 1:1 feel initially for "Back"
+      if (delta.dx != 0) {
+        dampingX = 1.0;
+      }
+
+      double newX = _dragOffset.dx - delta.dx * dampingX;
+      double newY = _dragOffset.dy - delta.dy * dampingY;
+
+      // Axis Lock: If we started vertical, stick to vertical. If horizontal, stick to horizontal.
+      // Allow slight diagonal but prioritize dominant axis
+      if (_dragOffset.dy.abs() > 5 && _dragOffset.dx.abs() < 20) newX = 0;
+      if (_dragOffset.dx.abs() > 5 && _dragOffset.dy.abs() < 20) newY = 0;
+
+      _dragOffset = Offset(newX, newY);
     });
 
-    // Haptic: Hit Edge
-    if (_dragOffset.abs() < 10 && delta.abs() > 0) {
-      // Just started overscroll
-      // HapticFeedback.lightImpact(); // Too frequent? Move simple check
-    }
-
-    // Threshold Check for Haptic
-    final threshold = 120.0; // Fixed pixels or ratio
-    if ((_dragOffset.abs() - threshold).abs() < 5) {
-      // Just crossed threshold
+    final threshold = 100.0;
+    // Haptic
+    if ((_dragOffset.distance - threshold).abs() < 5) {
       HapticFeedback.lightImpact();
     }
   }
 
   void _handleDragEnd() {
     final threshold = MediaQuery.of(context).size.height * 0.15;
+    final backThreshold =
+        MediaQuery.of(context).size.width * 0.25; // Needs more distance usually
 
-    // Check if we crossed threshold
-    if (_dragOffset.abs() > threshold) {
-      // Action!
+    bool triggered = false;
+
+    // Vertical Trigger
+    if (_dragOffset.dy.abs() > threshold) {
       HapticFeedback.mediumImpact();
-      if (_dragOffset > 0 && widget.onTriggerPrev != null) {
+      if (_dragOffset.dy > 0 && widget.onTriggerPrev != null) {
         widget.onTriggerPrev!();
-      } else if (_dragOffset < 0 && widget.onTriggerNext != null) {
+        triggered = true;
+      } else if (_dragOffset.dy < 0 && widget.onTriggerNext != null) {
         widget.onTriggerNext!();
+        triggered = true;
       }
     }
 
-    // Always reset visual offset
-    _resetAnimation = Tween<double>(begin: _dragOffset, end: 0.0).animate(
+    // Horizontal Trigger (Back)
+    if (!triggered && _dragOffset.dx > backThreshold) {
+      HapticFeedback.mediumImpact();
+      if (widget.onTriggerBack != null) {
+        widget.onTriggerBack!();
+      }
+    }
+
+    // Reset
+    _resetAnimation =
+        Tween<Offset>(begin: _dragOffset, end: Offset.zero).animate(
       CurvedAnimation(parent: _resetController, curve: Curves.easeOutBack),
     );
     _resetController.forward(from: 0);
-    setState(() {
-      _isDragging = false;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     final threshold = MediaQuery.of(context).size.height * 0.15;
-    final progress = (_dragOffset.abs() / threshold).clamp(0.0, 1.0);
-    final isTriggerReady = _dragOffset.abs() > threshold;
-
+    double progress = 0.0;
     String? textAlert;
-    if (_dragOffset > 0 && widget.hasPrev) {
-      textAlert = isTriggerReady ? "释放切换到上一篇" : "继续下拉回到上一篇";
-    } else if (_dragOffset < 0 && widget.hasNext) {
-      textAlert = isTriggerReady ? "释放进入下一篇" : "继续上拉进入下一篇";
+    IconData? icon;
+
+    // Determine UI State based on dragging axis
+    if (_dragOffset.dy > 0 && widget.hasPrev) {
+      progress = (_dragOffset.dy.abs() / threshold).clamp(0.0, 1.0);
+      bool isReady = _dragOffset.dy.abs() > threshold;
+      textAlert = isReady ? "释放切换到上一篇" : "继续下拉回到上一篇";
+      icon = Icons.arrow_upward;
+    } else if (_dragOffset.dy < 0 && widget.hasNext) {
+      progress = (_dragOffset.dy.abs() / threshold).clamp(0.0, 1.0);
+      bool isReady = _dragOffset.dy.abs() > threshold;
+      textAlert = isReady ? "释放进入下一篇" : "继续上拉进入下一篇";
+      icon = Icons.arrow_downward;
+    } else if (_dragOffset.dx > 0 && widget.onTriggerBack != null) {
+      final backThreshold = MediaQuery.of(context).size.width * 0.25;
+      progress = (_dragOffset.dx.abs() / backThreshold).clamp(0.0, 1.0);
+      bool isReady = _dragOffset.dx.abs() > backThreshold;
+      textAlert = isReady ? "释放返回列表" : "左滑返回";
+      icon = Icons.grid_view;
     }
 
     return NotificationListener<ScrollNotification>(
@@ -782,17 +873,23 @@ class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
       child: Stack(
         children: [
           Transform.translate(
-            offset: Offset(0, _dragOffset),
+            offset: _dragOffset,
             child: widget.child,
           ),
 
           // Visual Indicators
-          if (_dragOffset != 0 && textAlert != null)
+          if ((_dragOffset.dx.abs() > 1 || _dragOffset.dy.abs() > 1) &&
+              textAlert != null &&
+              icon != null)
             Positioned(
-              top: _dragOffset > 0 ? 60 : null,
-              bottom: _dragOffset < 0 ? 60 : null,
-              left: 0,
-              right: 0,
+              top: _dragOffset.dy > 0
+                  ? 60
+                  : (_dragOffset.dx > 0
+                      ? MediaQuery.of(context).size.height / 2 - 20
+                      : null),
+              bottom: _dragOffset.dy < 0 ? 60 : null,
+              left: _dragOffset.dx > 0 ? 20 : 0,
+              right: _dragOffset.dx > 0 ? null : 0,
               child: Opacity(
                 opacity: progress,
                 child: Center(
@@ -812,9 +909,7 @@ class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          _dragOffset > 0
-                              ? Icons.arrow_upward
-                              : Icons.arrow_downward,
+                          icon,
                           color: Colors.white,
                           size: 16,
                         ),

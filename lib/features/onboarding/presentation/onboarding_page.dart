@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/services/auth_service.dart';
@@ -13,15 +15,25 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final AuthService _authService = AuthService();
   bool _isLoading = false;
 
+  StreamSubscription<User?>? _authSub;
+
   @override
   void initState() {
     super.initState();
-    // 如果已登录，直接跳转
-    if (_authService.isSignedIn) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    // 监听 auth 状态变化，处理刷新后的自动登录
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null && mounted) {
+        // 只有当当前还在 onboarding 页面时才跳转，避免循环跳转
+        // GoRouter 的 context.go 会处理去重
         context.go('/home');
-      });
-    }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _signInWithGoogle() async {
@@ -33,32 +45,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
       if (!mounted) return;
 
       // 登录成功，跳转到主页
-      context.go('/home');
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('登录失败: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _continueAsGuest() async {
-    setState(() => _isLoading = true);
-
-    try {
-      await _authService.signInAnonymously();
-
-      if (!mounted) return;
-
-      // 匿名登录成功，跳转到主页
       context.go('/home');
     } catch (e) {
       if (!mounted) return;
@@ -157,9 +143,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           ),
                         )
                       : Image.network(
-                          'https://www.google.com/favicon.ico',
+                          'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/480px-Google_%22G%22_logo.svg.png',
                           width: 24,
                           height: 24,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(Icons.login,
+                                  color: Colors.blue, size: 24),
                         ),
                   label: Text(
                     _isLoading ? '登录中...' : '使用 Google 账号登录',
@@ -180,44 +169,22 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ),
               ),
 
-              const SizedBox(height: 16),
-
-              // 访客继续按钮
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: OutlinedButton(
-                  onPressed: _isLoading ? null : _continueAsGuest,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.grey[700],
-                    side: BorderSide(color: Colors.grey[300]!),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    '访客模式继续',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-              ),
-
               const SizedBox(height: 24),
 
-              // 提示文字
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  '💡 使用 Google 账号登录可永久保存数据并跨设备同步',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[500],
+              // 底部提示
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('💡 '),
+                  Text(
+                    '使用 Google 账号登录可永久保存数据并跨设备同步',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[500],
+                        ),
                   ),
-                ),
+                ],
               ),
-
-              const SizedBox(height: 40),
+              const SizedBox(height: 16),
             ],
           ),
         ),

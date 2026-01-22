@@ -126,10 +126,18 @@ class AuthService {
   Future<void> signOut() async {
     try {
       debugPrint('👋 退出登录...');
-      await Future.wait([
-        _auth.signOut(),
-        _googleSignIn.signOut(),
-      ]);
+      await _auth.signOut();
+
+      // Web 端使用 Firebase Auth 的 Popup 登录，不需要 (也不能) 调用 GoogleSignIn 插件的 signOut，
+      // 因为如果没有配置 Client ID 会报错。
+      if (!kIsWeb) {
+        try {
+          await _googleSignIn.signOut();
+        } catch (e) {
+          debugPrint('⚠️ Google Sign In signOut error (safe to ignore): $e');
+        }
+      }
+
       debugPrint('✅ 已退出登录');
     } catch (e) {
       debugPrint('❌ 退出失败: $e');

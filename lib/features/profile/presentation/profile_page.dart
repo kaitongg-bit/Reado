@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/theme_provider.dart' as custom_theme;
 import '../../../core/theme/theme_provider.dart' show themeProvider;
-import '../../../core/widgets/auth_status_checker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../feed/presentation/feed_provider.dart';
+import '../../../models/feed_item.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -12,6 +14,15 @@ class ProfilePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final user = FirebaseAuth.instance.currentUser;
+    final items = ref.watch(allItemsProvider);
+    final masteredCount =
+        items.where((i) => i.masteryLevel != FeedItemMastery.unknown).length;
+
+    void handleLogout() async {
+      await FirebaseAuth.instance.signOut();
+      if (context.mounted) context.go('/onboarding');
+    }
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -83,10 +94,6 @@ class ProfilePage extends ConsumerWidget {
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  // 🔍 登录状态检查器（调试工具）
-                  const AuthStatusChecker(),
-                  const SizedBox(height: 16),
-
                   // Avatar & Info
                   Center(
                     child: Column(
@@ -106,16 +113,32 @@ class ProfilePage extends ConsumerWidget {
                               )
                             ],
                           ),
-                          child: CircleAvatar(
-                            radius: 50,
-                            backgroundColor: Colors.grey[200],
-                            backgroundImage: const NetworkImage(
-                                'https://api.dicebear.com/7.x/avataaars/png?seed=Felix'), // Mock avatar
+                          child: ClipOval(
+                            child: SizedBox(
+                              width: 100,
+                              height: 100,
+                              child: user?.photoURL != null
+                                  ? Image.network(
+                                      user!.photoURL!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        return Image.network(
+                                          'https://api.dicebear.com/7.x/avataaars/png?seed=${user?.uid ?? "Guest"}',
+                                          fit: BoxFit.cover,
+                                        );
+                                      },
+                                    )
+                                  : Image.network(
+                                      'https://api.dicebear.com/7.x/avataaars/png?seed=Guest',
+                                      fit: BoxFit.cover,
+                                    ),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Learning User',
+                          user?.displayName ?? 'Guest User',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -123,23 +146,11 @@ class ProfilePage extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.white.withOpacity(0.1)
-                                : Colors.black.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            'Level 5 Explorer',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color:
-                                  isDark ? Colors.grey[300] : Colors.grey[600],
-                              fontWeight: FontWeight.w600,
-                            ),
+                        Text(
+                          user?.email ?? '',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
                           ),
                         ),
                       ],
@@ -149,20 +160,13 @@ class ProfilePage extends ConsumerWidget {
                   const SizedBox(height: 40),
 
                   // Stats Grid
+                  // Stats Grid
                   Row(
                     children: [
                       Expanded(
                           child: _StatCard(
-                              label: 'Streak',
-                              value: '7 Days',
-                              icon: Icons.local_fire_department,
-                              color: Colors.orange,
-                              isDark: isDark)),
-                      const SizedBox(width: 16),
-                      Expanded(
-                          child: _StatCard(
-                              label: 'Mastered',
-                              value: '12 Cards',
+                              label: 'Knowledge Points',
+                              value: '$masteredCount Mastered',
                               icon: Icons.school,
                               color: Colors.blue,
                               isDark: isDark)),
@@ -191,35 +195,62 @@ class ProfilePage extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
+
+                  // Pro (Coming Soon)
                   _GlassTile(
-                    icon: Icons.notifications_none,
-                    title: 'Notifications',
-                    subtitle: 'Daily reminders',
+                    icon: Icons.workspace_premium,
+                    title: 'Upgrade to Pro',
+                    subtitle: 'Unlock advanced AI features',
                     isDark: isDark,
-                    trailing: Icon(Icons.chevron_right,
-                        color: isDark ? Colors.grey : Colors.grey[400]),
-                    onTap: () {},
+                    trailing: _ComingSoonBadge(isDark: isDark),
                   ),
                   const SizedBox(height: 12),
+
+                  // Language
+                  // Language
                   _GlassTile(
                     icon: Icons.language,
                     title: 'Language',
-                    subtitle: 'English',
+                    subtitle: 'English (US)',
                     isDark: isDark,
-                    trailing: Icon(Icons.chevron_right,
-                        color: isDark ? Colors.grey : Colors.grey[400]),
-                    onTap: () {},
+                    trailing: _ComingSoonBadge(isDark: isDark),
                   ),
+                  const SizedBox(height: 12),
 
-                  const SizedBox(height: 32),
+                  // Contact Us
                   _GlassTile(
-                    icon: Icons.logout,
-                    title: 'Log Out',
-                    subtitle: '',
+                    icon: Icons.support_agent,
+                    title: 'Contact Support',
+                    subtitle: 'Get help with issues',
                     isDark: isDark,
-                    iconColor: Colors.redAccent,
-                    textColor: Colors.redAccent,
-                    onTap: () {},
+                    trailing: _ComingSoonBadge(isDark: isDark),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Log Out
+                  InkWell(
+                    onTap: handleLogout,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                            color: Colors.red.withOpacity(0.3), width: 1),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Log Out',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -388,6 +419,33 @@ class _GlassTile extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ComingSoonBadge extends StatelessWidget {
+  final bool isDark;
+  const _ComingSoonBadge({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.blue.withOpacity(0.2)
+            : Colors.blue.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+      ),
+      child: const Text(
+        'Coming Soon',
+        style: TextStyle(
+          color: Colors.blue,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );

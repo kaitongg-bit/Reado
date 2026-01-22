@@ -268,7 +268,33 @@ class FirestoreService implements DataService {
   Future<void> updateSRSStatus(
       String itemId, DateTime nextReview, int interval, double ease) async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final updateData = {
+        'nextReviewTime': nextReview.toIso8601String(),
+        'interval': interval,
+        'easeFactor': ease,
+        'lastReviewed': DateTime.now().toIso8601String(),
+      };
+
       print('Updating SRS for $itemId: $nextReview');
+
+      // 1️⃣ Custom Item
+      final customRef =
+          _usersRef.doc(user.uid).collection('custom_items').doc(itemId);
+      final customDoc = await customRef.get();
+      if (customDoc.exists) {
+        await customRef.update(updateData);
+        return;
+      }
+
+      // 2️⃣ Official Item -> Save to separate progress collection
+      await _usersRef
+          .doc(user.uid)
+          .collection('progress')
+          .doc(itemId)
+          .set(updateData, SetOptions(merge: true));
     } catch (e) {
       print('Error updating SRS: $e');
     }
@@ -284,7 +310,18 @@ class FirestoreService implements DataService {
         return;
       }
 
-      // Save to: users/{uid}/mastery/{itemId}
+      // 1️⃣ Custom Item: Update directly
+      final customRef =
+          _usersRef.doc(user.uid).collection('custom_items').doc(itemId);
+      final customDoc = await customRef.get();
+      if (customDoc.exists) {
+        await customRef.update({'masteryLevel': masteryLevel});
+        if (kDebugMode)
+          print('✅ Mastery saved (Custom): $itemId -> $masteryLevel');
+        return;
+      }
+
+      // 2️⃣ Official Item: Save to side-car collection
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -295,7 +332,8 @@ class FirestoreService implements DataService {
         'updatedAt': Timestamp.now(),
       }, SetOptions(merge: true));
 
-      if (kDebugMode) print('✅ Mastery saved: $itemId -> $masteryLevel');
+      if (kDebugMode)
+        print('✅ Mastery saved (Official): $itemId -> $masteryLevel');
     } catch (e) {
       if (kDebugMode) print('❌ Error saving mastery: $e');
     }

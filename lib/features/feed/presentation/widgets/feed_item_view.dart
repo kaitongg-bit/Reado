@@ -265,7 +265,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
 
     // Padding to clear the Top Header (which is in FeedPage)
     // Header is approx 80-100px.
-    final contentPadding = const EdgeInsets.fromLTRB(24, 100, 24, 120);
+    final contentPadding = const EdgeInsets.fromLTRB(24, 130, 24, 120);
 
     if (content is OfficialPage) {
       return Container(

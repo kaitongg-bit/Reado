@@ -344,8 +344,11 @@ class _FeedPageState extends ConsumerState<FeedPage> {
 
   Widget _buildGridView(List<FeedItem> items, bool isDark) {
     return GridView.builder(
-      padding:
-          const EdgeInsets.fromLTRB(16, 16, 16, 100), // More bottom padding
+      padding: EdgeInsets.fromLTRB(
+          16,
+          MediaQuery.of(context).padding.top + kToolbarHeight + 16,
+          16,
+          100), // More bottom padding
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         childAspectRatio: 0.8,

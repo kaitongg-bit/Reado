@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/feed_item.dart';
+import '../../../models/knowledge_module.dart';
 import '../../home/presentation/module_provider.dart';
 import '../../lab/presentation/add_material_modal.dart';
 import 'feed_provider.dart';
@@ -543,6 +544,12 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   }
 
   String _getModuleName(String moduleId) {
+    // 1. Try to find in loaded modules (Official + Custom)
+    final allModules = ref.read(moduleProvider).all;
+    final module = allModules.where((m) => m.id == moduleId).firstOrNull;
+    if (module != null) return module.title;
+
+    // 2. Fallback for hardcoded constants if not in list yet
     switch (moduleId) {
       case 'A':
         return '硬核基础';
@@ -553,7 +560,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       case 'D':
         return '面经军火库';
       default:
-        return '未知模块';
+        return 'Knowledge Space';
     }
   }
 }

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../data/mock_data.dart';
 import '../../../models/feed_item.dart';
 import '../../../data/services/firestore_service.dart';
+import '../../../core/services/content_generator_service.dart';
 
 // Global provider to track reviewed items in the current session (persist across navigation)
 final reviewedSessionProvider = StateProvider<Set<String>>((ref) => {});
@@ -18,6 +19,15 @@ final feedLoadingProvider = StateProvider<bool>((ref) => true);
 
 // DATA SOURCE PROVIDER
 final dataServiceProvider = Provider<DataService>((ref) => FirestoreService());
+
+// Content Generator Provider
+final contentGeneratorProvider = Provider((ref) {
+  const apiKey = String.fromEnvironment('GEMINI_API_KEY');
+  if (apiKey.isEmpty) {
+    print('⚠️ Gemini API Key missing via --dart-define');
+  }
+  return ContentGeneratorService(apiKey: apiKey);
+});
 
 class FeedNotifier extends StateNotifier<List<FeedItem>> {
   final DataService _dataService;

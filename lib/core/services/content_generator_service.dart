@@ -4,11 +4,13 @@ import 'package:flutter/foundation.dart';
 import '../../models/feed_item.dart';
 
 class ContentGeneratorService {
-  late final GenerativeModel _model;
+  late final GenerativeModel _jsonModel;
+  late final GenerativeModel _textModel;
 
   ContentGeneratorService({required String apiKey}) {
-    _model = GenerativeModel(
-      model: 'gemini-2.0-flash-exp', // 🚀 使用最新的 Gemini 2.0 Flash
+    // Model 1: For structured data generation (JSON)
+    _jsonModel = GenerativeModel(
+      model: 'gemini-2.0-flash-exp',
       apiKey: apiKey,
       generationConfig: GenerationConfig(
         responseMimeType: 'application/json',
@@ -17,17 +19,24 @@ class ContentGeneratorService {
         topK: 40,
       ),
     );
+
+    // Model 2: For natural conversation/text (Standard)
+    _textModel = GenerativeModel(
+      model: 'gemini-2.0-flash-exp',
+      apiKey: apiKey,
+      generationConfig: GenerationConfig(
+        // No specific mimeType -> defaults to text/plain
+        temperature: 0.7,
+        topP: 0.9,
+        topK: 40,
+      ),
+    );
   }
 
   /// 从用户提供的文本生成知识卡片
-  ///
-  /// 核心要求：
-  /// - 将长文本拆分为多个独立的知识点
-  /// - 每个知识点包含 5-15 分钟的阅读内容
-  /// - 内容通俗易懂，使用类比和例子
-  /// - 每个知识点都有高质量的 flashcard
+  /// ...
   Future<List<FeedItem>> generateFromText(String text) async {
-    // 优化后的 Prompt - 确保高质量输出
+    // ... (Keep existing prompt) ...
     const prompt = '''
 你是一位资深的教育内容专家和产品经理导师。你的任务是将用户提供的学习资料转化为易于理解和记忆的知识卡片。
 
@@ -105,10 +114,11 @@ class ContentGeneratorService {
     final content = [Content.text('$prompt\n\n## 用户输入的学习资料：\n\n$text')];
 
     try {
-      debugPrint('🚀 调用 Gemini 2.0 Flash API...');
+      debugPrint('🚀 调用 Gemini 2.0 Flash API (JSON Mode)...');
       debugPrint('📝 输入文本长度: ${text.length} 字符');
 
-      final response = await _model.generateContent(content);
+      final response = await _jsonModel.generateContent(content);
+      // ... (Rest of logic is same, using response.text) ...
       final responseText = response.text;
 
       if (responseText == null || responseText.isEmpty) {
@@ -116,8 +126,7 @@ class ContentGeneratorService {
       }
 
       debugPrint('✅ AI 响应成功');
-      debugPrint(
-          '📄 响应内容: ${responseText.substring(0, responseText.length > 200 ? 200 : responseText.length)}...');
+      // ...
 
       // 解析 JSON
       List<dynamic> jsonList;
@@ -208,6 +217,92 @@ class ContentGeneratorService {
     } catch (e) {
       debugPrint('❌ 未知错误: $e');
       rethrow;
+    }
+  }
+
+  /// 与卡片内容进行对话
+  Future<String> chatWithContent(
+      String contextContent, List<Map<String, String>> history) async {
+    final historyText = history.map((msg) {
+      final role = msg['role'] == 'user' ? '用户' : 'AI Mentor';
+      return '$role: ${msg['content']}';
+    }).join('\n');
+
+    final lastUserMessage = history.lastWhere(
+        (element) => element['role'] == 'user',
+        orElse: () => {'content': ''})['content'];
+
+    if (lastUserMessage!.isEmpty) return '';
+
+    final prompt = '''
+你是一位资深的教育导师。用户正在学习以下内容。你需要基于这些内容回答用户的问题。
+背景内容：
+"""
+$contextContent
+"""
+
+以下是对话记录：
+$historyText
+
+请回答用户最新的问题（"$lastUserMessage"）。
+要求：
+1. **直接回答**：不要使用 JSON 格式，直接输出纯文本（Markdown）。
+2. **结合上下文**：解答必须基于背景内容，保持准确。
+3. **通俗易懂**：用简洁、鼓励性的语言。
+4. **追问**：在回答结束时，必须提出一个相关的、能引发思考的追问，引导用户更深一层。
+
+请直接输出回答内容。
+''';
+
+    final content = [Content.text(prompt)];
+
+    try {
+      final response = await _textModel.generateContent(content);
+      return response.text ?? 'AI 暂时无法回答，请稍后再试。';
+    } catch (e) {
+      debugPrint('❌ Chat API Error: $e');
+      throw Exception('无法连接 AI Mentor');
+    }
+  }
+
+  /// 整理并 Pin 笔记
+  Future<String> summarizeForPin(
+      String contextContent, String selectedChatContent) async {
+    final prompt = '''
+你是一个智能笔记助手。用户的目标是将一段有价值的对话整理成精炼的知识点笔记。
+背景内容（参考用）：
+"""
+$contextContent
+"""
+
+重点对话内容（需整理）：
+"""
+$selectedChatContent
+"""
+
+任务：
+请仅基于"重点对话内容"中的信息，整理出一个结构化的知识点。背景内容仅用于帮助你理解上下文，不要大量重复背景内容。
+要求：
+1. **提炼核心**：归纳对话中 AI 解释的核心观点或方法论（干货）。
+2. **脱水处理**：去除寒暄、废话和过于显而易见的信息。
+3. **格式清晰**：
+   - Q: 一个能概括这段对话核心议题的问题（简短有力）。
+   - A: 经过整理的回答。使用 Markdown 列表或加粗来突出重点。
+4. **直接输出**：不要使用 JSON，直接输出问答对。不要输出 "\n" 字符本身，而是使用真正的换行。
+
+输出示例：
+Q: [核心问题]
+A: [整理后的核心回答]
+''';
+
+    final content = [Content.text(prompt)];
+
+    try {
+      final response = await _textModel.generateContent(content);
+      return response.text ?? '整理失败，请重试。';
+    } catch (e) {
+      debugPrint('❌ Summarize API Error: $e');
+      throw Exception('整理笔记失败');
     }
   }
 }

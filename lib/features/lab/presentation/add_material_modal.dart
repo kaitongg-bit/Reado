@@ -6,22 +6,6 @@ import '../../../../core/services/content_generator_service.dart';
 import '../../../../data/services/firestore_service.dart';
 import '../../feed/presentation/feed_provider.dart';
 
-/// Content Generator Provider
-///
-/// 使用 Gemini 2.0 Flash Developer API
-final contentGeneratorProvider = Provider((ref) {
-  // 从环境变量读取 API Key
-  const apiKey = String.fromEnvironment('GEMINI_API_KEY');
-
-  if (apiKey.isEmpty) {
-    throw Exception('Gemini API Key 未配置\n\n'
-        '请使用以下命令运行：\n'
-        'flutter run --dart-define=GEMINI_API_KEY=你的Key');
-  }
-
-  return ContentGeneratorService(apiKey: apiKey);
-});
-
 class AddMaterialModal extends ConsumerStatefulWidget {
   final String? targetModuleId;
   const AddMaterialModal({super.key, this.targetModuleId});

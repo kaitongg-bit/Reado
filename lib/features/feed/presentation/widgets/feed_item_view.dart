@@ -14,9 +14,11 @@ class FeedItemView extends ConsumerStatefulWidget {
     required this.feedItem,
     this.isReviewMode = false,
     this.onNextTap,
+    this.onViewModeChanged,
   });
 
   final VoidCallback? onNextTap;
+  final ValueChanged<bool>? onViewModeChanged;
 
   @override
   ConsumerState<FeedItemView> createState() => _FeedItemViewState();
@@ -61,16 +63,12 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
       builder: (context) => _AskAISheet(
         feedItem: widget.feedItem,
         onPin: (question, answer) {
-          // 调用 Provider 进行 Pin 操作
           ref.read(feedProvider.notifier).pinNoteToItem(
                 widget.feedItem.id,
                 question,
                 answer,
               );
-
           Navigator.pop(context); // 关闭弹窗
-
-          // 动效反馈
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('✨ Note pinned successfully!'),
@@ -78,19 +76,14 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
               backgroundColor: Colors.green[600],
             ),
           );
-
-          // Auto-scroll is now handled in didUpdateWidget
         },
       ),
     );
   }
 
   void _toggleFavorite() {
-    // 使用 provider 更新状态
     ref.read(feedProvider.notifier).toggleFavorite(widget.feedItem.id);
-
-    // 给用户反馈
-    final isFavorited = !widget.feedItem.isFavorited; // 即将变成的状态
+    final isFavorited = !widget.feedItem.isFavorited;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(isFavorited ? '✨ 已收藏到复习区' : '已取消收藏'),
@@ -100,13 +93,99 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     );
   }
 
+  void _handleDeleteNote(UserNotePage note) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Note?'),
+        content:
+            const Text('Are you sure you want to delete this pinned note?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              ref
+                  .read(feedProvider.notifier)
+                  .deleteUserNote(widget.feedItem.id, note);
+              Navigator.pop(context);
+              // Scroll back if needed? PageView count changes automatically
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleEditNote(UserNotePage note) {
+    final titleCtrl = TextEditingController(text: note.question);
+    final contentCtrl = TextEditingController(text: note.answer);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            left: 20,
+            right: 20,
+            top: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Edit Note',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: titleCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Topic / Question',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: contentCtrl,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                labelText: 'Content',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  ref.read(feedProvider.notifier).updateUserNote(
+                        widget.feedItem.id,
+                        note,
+                        titleCtrl.text,
+                        contentCtrl.text,
+                      );
+                  Navigator.pop(context);
+                },
+                child: const Text('Save Changes'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 1. Simply use pages from model (Official Page + User Notes)
     final pages = widget.feedItem.pages;
-
-    // Calculate total user notes for badge
     final userNoteCount = pages.whereType<UserNotePage>().length;
+    // Check if current page index is valid (items might be deleted)
+    if (_currentPageIndex >= pages.length) _currentPageIndex = 0;
+
+    final isViewingNote = pages[_currentPageIndex] is UserNotePage;
 
     return Stack(
       children: [
@@ -118,14 +197,17 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
             setState(() {
               _currentPageIndex = index;
             });
+            // Notify parent to lock/unlock vertical nav
+            final isNote = pages[index] is UserNotePage;
+            widget.onViewModeChanged?.call(isNote);
           },
           itemBuilder: (context, index) {
             final pageContent = pages[index];
-            return _buildPageContent(pageContent); // Removed noteCount arg
+            return _buildPageContent(pageContent);
           },
         ),
 
-        // 2. Progress Dots (Xiaohongshu Style) - Z-INDEX: 10
+        // 2. Progress Dots (Xiaohongshu Style)
         Positioned(
           bottom: 35,
           left: 0,
@@ -150,10 +232,10 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           ),
         ),
 
-        // 3. User Notes Badge (if any notes exist) - Z-INDEX: 15
-        if (userNoteCount > 0)
+        // 3. User Notes Badge
+        if (userNoteCount > 0 && !isViewingNote)
           Positioned(
-            top: 100, // Below header
+            top: 130, // Below header
             right: 20,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -188,10 +270,10 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
             ),
           ),
 
-        // 3. Action Bar (Right side) - Z-INDEX: 20
+        // 3. Action Bar
         Positioned(
           right: 16,
-          bottom: 110, // Increased to avoid overlap with Next Topic button
+          bottom: 110,
           child: Column(
             children: [
               _buildActionButton(
@@ -203,8 +285,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                     : Colors.white,
                 onTap: _toggleFavorite,
               ),
-              const SizedBox(
-                  height: 16), // Increased from 20 for better spacing
+              const SizedBox(height: 16),
               _buildActionButton(
                 icon: Icons.smart_toy_outlined,
                 isPrimary: true,
@@ -214,11 +295,10 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           ),
         ),
 
-        // 4. "Next Topic" Button - Z-INDEX: 30 (middle layer)
-        if (!widget.isReviewMode)
+        // 4. "Next Topic" Button - HIDDEN IF VIEWING NOTE
+        if (!widget.isReviewMode && !isViewingNote)
           Positioned(
-            bottom:
-                60, // Moved higher to create clear gap from progress indicator
+            bottom: 60,
             left: 0,
             right: 0,
             child: Center(
@@ -336,6 +416,41 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                         color: Colors.amber,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.0)),
+                const Spacer(),
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.more_horiz,
+                      color: isDark ? Colors.white : Colors.black54),
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _handleEditNote(content);
+                    } else if (value == 'delete') {
+                      _handleDeleteNote(content);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, size: 18),
+                          SizedBox(width: 8),
+                          Text('Edit Note'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete, size: 18, color: Colors.redAccent),
+                          SizedBox(width: 8),
+                          Text('Delete Note',
+                              style: TextStyle(color: Colors.redAccent)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 32),
@@ -352,14 +467,20 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
             const SizedBox(height: 24),
             Expanded(
               child: SingleChildScrollView(
-                child: Text(
-                  content.answer,
-                  style: TextStyle(
+                child: MarkdownBody(
+                  data: content.answer,
+                  styleSheet:
+                      MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                    p: TextStyle(
                       fontSize: 18,
                       height: 1.8,
                       color: isDark
                           ? Colors.grey[300]
-                          : Colors.black87.withOpacity(0.8)),
+                          : Colors.black87.withOpacity(0.8),
+                    ),
+                    listBullet: TextStyle(
+                        color: isDark ? Colors.grey[400] : Colors.black87),
+                  ),
                 ),
               ),
             ),
@@ -618,6 +739,10 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                           if (_isSelectionMode)
                             Text('Selected ${_selectedMessageIndices.length}',
                                 style: const TextStyle(
+                                    fontSize: 10, color: Colors.grey))
+                          else
+                            const Text('Long press bubbles to multi-select',
+                                style: TextStyle(
                                     fontSize: 10, color: Colors.grey)),
                         ],
                       ),

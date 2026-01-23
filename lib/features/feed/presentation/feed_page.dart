@@ -350,6 +350,8 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     );
   }
 
+  bool _isVerticalNavLocked = false;
+
   Widget _buildSingleView(List<FeedItem> items) {
     return PageView.builder(
       physics: const NeverScrollableScrollPhysics(), // 🔒 Disable default swipe
@@ -359,6 +361,8 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       onPageChanged: (index) {
         setState(() {
           _focusedItemIndex = index;
+          // Reset lock when changing items (failsafe, though view should reset it)
+          _isVerticalNavLocked = false;
         });
         // 💾 Persist reading position per module
         final currentMap = ref.read(feedProgressProvider);
@@ -368,21 +372,27 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       itemBuilder: (context, index) {
         final item = items[index];
         return _OverscrollNavigatable(
-          hasPrev: index > 0,
-          hasNext: index < items.length - 1,
+          hasPrev: index > 0 && !_isVerticalNavLocked,
+          hasNext: index < items.length - 1 && !_isVerticalNavLocked,
           onTriggerPrev: () {
+            if (_isVerticalNavLocked) return;
             _verticalController.previousPage(
               duration: const Duration(milliseconds: 500),
               curve: Curves.easeOutCubic,
             );
           },
           onTriggerNext: () {
+            if (_isVerticalNavLocked) return;
             _verticalController.nextPage(
               duration: const Duration(milliseconds: 500),
               curve: Curves.easeOutCubic,
             );
           },
           onTriggerBack: () {
+            // Allow back gesture even if locked?
+            // Ideally yes, user might want to exit to grid.
+            // But if "slide switching stuff" implies ALL slides, maybe.
+            // Let's keep Back enabled as it's horizontal.
             setState(() {
               _isSingleView = false;
             });
@@ -390,7 +400,16 @@ class _FeedPageState extends ConsumerState<FeedPage> {
           child: FeedItemView(
             key: ValueKey(item.id),
             feedItem: item,
+            onViewModeChanged: (isNote) {
+              // Defer state update to avoid build collisions
+              if (_isVerticalNavLocked != isNote) {
+                Future.microtask(() {
+                  if (mounted) setState(() => _isVerticalNavLocked = isNote);
+                });
+              }
+            },
             onNextTap: () {
+              if (_isVerticalNavLocked) return;
               _verticalController.nextPage(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,

@@ -277,6 +277,41 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     await _dataService.saveUserNote(itemId, question, answer);
   }
 
+  void deleteUserNote(String itemId, UserNotePage note) {
+    final index = _allItems.indexWhere((i) => i.id == itemId);
+    if (index == -1) return;
+
+    final item = _allItems[index];
+    final newPages = List<CardPageContent>.from(item.pages)..remove(note);
+
+    final newItem = item.copyWith(pages: newPages);
+    updateItem(newItem);
+    // TODO: Implement backend delete persistence
+    // _dataService.deleteNote(...)
+  }
+
+  void updateUserNote(
+      String itemId, UserNotePage oldNote, String newQ, String newA) {
+    final index = _allItems.indexWhere((i) => i.id == itemId);
+    if (index == -1) return;
+
+    final item = _allItems[index];
+    final newPages = item.pages.map((p) {
+      if (p == oldNote) {
+        return UserNotePage(
+          question: newQ,
+          answer: newA,
+          createdAt: (p as UserNotePage).createdAt,
+        );
+      }
+      return p;
+    }).toList();
+
+    final newItem = item.copyWith(pages: newPages);
+    updateItem(newItem);
+    // TODO: Implement backend update persistence
+  }
+
   int get totalDueCount {
     final now = DateTime.now();
     return _allItems.where((item) {

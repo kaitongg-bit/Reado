@@ -350,51 +350,54 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     if (content is OfficialPage) {
       return Container(
         color: backgroundColor, // Semi-transparent base
-        child: SingleChildScrollView(
-          padding: contentPadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // No redundant header here
+        child: SelectionArea(
+          child: SingleChildScrollView(
+            padding: contentPadding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // No redundant header here
 
-              MarkdownBody(
-                data: content.markdownContent,
-                styleSheet:
-                    MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                  h1: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      height: 1.3,
-                      letterSpacing: -0.5,
-                      color: isDark ? Colors.white : const Color(0xFF1E293B)),
-                  p: TextStyle(
-                      fontSize: 18,
-                      height: 1.8,
+                MarkdownBody(
+                  data: content.markdownContent,
+                  styleSheet:
+                      MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                    h1: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        height: 1.3,
+                        letterSpacing: -0.5,
+                        color: isDark ? Colors.white : const Color(0xFF1E293B)),
+                    p: TextStyle(
+                        fontSize: 18,
+                        height: 1.8,
+                        color:
+                            isDark ? Colors.grey[300] : const Color(0xFF334155),
+                        letterSpacing: 0.2),
+                    h2: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : const Color(0xFF1E293B),
+                      height: 1.5,
+                    ),
+                    listBullet: TextStyle(
                       color:
-                          isDark ? Colors.grey[300] : const Color(0xFF334155),
-                      letterSpacing: 0.2),
-                  h2: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : const Color(0xFF1E293B),
-                    height: 1.5,
-                  ),
-                  listBullet: TextStyle(
-                    color: isDark ? Colors.grey[400] : const Color(0xFF334155),
+                          isDark ? Colors.grey[400] : const Color(0xFF334155),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 48),
-              // Dynamic Flashcard Section
-              if (content.flashcardQuestion != null) ...[
-                _FlashcardWidget(
-                  question: content.flashcardQuestion!,
-                  answer: content.flashcardAnswer ?? '',
-                  isDark: isDark,
-                ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 48),
+                // Dynamic Flashcard Section
+                if (content.flashcardQuestion != null) ...[
+                  _FlashcardWidget(
+                    question: content.flashcardQuestion!,
+                    answer: content.flashcardAnswer ?? '',
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 40),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       );
@@ -404,87 +407,90 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
             ? const Color(0xFF2D2510).withOpacity(0.8)
             : const Color(0xFFFFFBEB).withOpacity(0.95), // Amber tint for notes
         padding: contentPadding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.push_pin, color: Colors.amber, size: 24),
-                const SizedBox(width: 12),
-                const Text('PINNED NOTE',
-                    style: TextStyle(
-                        color: Colors.amber,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0)),
-                const Spacer(),
-                PopupMenuButton<String>(
-                  icon: Icon(Icons.more_horiz,
-                      color: isDark ? Colors.white : Colors.black54),
-                  onSelected: (value) {
-                    if (value == 'edit') {
-                      _handleEditNote(content);
-                    } else if (value == 'delete') {
-                      _handleDeleteNote(content);
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit, size: 18),
-                          SizedBox(width: 8),
-                          Text('Edit Note'),
-                        ],
+        child: SelectionArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.push_pin, color: Colors.amber, size: 24),
+                  const SizedBox(width: 12),
+                  const Text('PINNED NOTE',
+                      style: TextStyle(
+                          color: Colors.amber,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0)),
+                  const Spacer(),
+                  PopupMenuButton<String>(
+                    icon: Icon(Icons.more_horiz,
+                        color: isDark ? Colors.white : Colors.black54),
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        _handleEditNote(content);
+                      } else if (value == 'delete') {
+                        _handleDeleteNote(content);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 18),
+                            SizedBox(width: 8),
+                            Text('Edit Note'),
+                          ],
+                        ),
                       ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete, size: 18, color: Colors.redAccent),
-                          SizedBox(width: 8),
-                          Text('Delete Note',
-                              style: TextStyle(color: Colors.redAccent)),
-                        ],
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete,
+                                size: 18, color: Colors.redAccent),
+                            SizedBox(width: 8),
+                            Text('Delete Note',
+                                style: TextStyle(color: Colors.redAccent)),
+                          ],
+                        ),
                       ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              Text(
+                content.question,
+                style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                    height: 1.3),
+              ),
+              const SizedBox(height: 24),
+              Divider(height: 1, color: Colors.amber.withOpacity(0.3)),
+              const SizedBox(height: 24),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: MarkdownBody(
+                    data: content.answer,
+                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
+                        .copyWith(
+                      p: TextStyle(
+                        fontSize: 18,
+                        height: 1.8,
+                        color: isDark
+                            ? Colors.grey[300]
+                            : Colors.black87.withOpacity(0.8),
+                      ),
+                      listBullet: TextStyle(
+                          color: isDark ? Colors.grey[400] : Colors.black87),
                     ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-            Text(
-              content.question,
-              style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
-                  height: 1.3),
-            ),
-            const SizedBox(height: 24),
-            Divider(height: 1, color: Colors.amber.withOpacity(0.3)),
-            const SizedBox(height: 24),
-            Expanded(
-              child: SingleChildScrollView(
-                child: MarkdownBody(
-                  data: content.answer,
-                  styleSheet:
-                      MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                    p: TextStyle(
-                      fontSize: 18,
-                      height: 1.8,
-                      color: isDark
-                          ? Colors.grey[300]
-                          : Colors.black87.withOpacity(0.8),
-                    ),
-                    listBullet: TextStyle(
-                        color: isDark ? Colors.grey[400] : Colors.black87),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
@@ -1038,28 +1044,30 @@ class _FlashcardWidgetState extends State<_FlashcardWidget> {
 
             // 2. Scrollable Content (Question & Answer)
             Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Q: ${widget.question}',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                          color: Colors.grey),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      widget.answer,
-                      style: TextStyle(
-                          fontSize: 18,
-                          height: 1.6,
-                          color: widget.isDark
-                              ? Colors.grey[200]
-                              : Colors.black87),
-                    ),
-                  ],
+              child: SelectionArea(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Q: ${widget.question}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            color: Colors.grey),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.answer,
+                        style: TextStyle(
+                            fontSize: 18,
+                            height: 1.6,
+                            color: widget.isDark
+                                ? Colors.grey[200]
+                                : Colors.black87),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

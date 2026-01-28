@@ -30,7 +30,7 @@ class HomeTab extends ConsumerWidget {
               const CircularProgressIndicator(color: Color(0xFFFF8A65)),
               const SizedBox(height: 16),
               Text(
-                'Preparing your knowledge base...',
+                '正在准备知识库...',
                 style: TextStyle(
                   color: isDark ? Colors.grey[400] : Colors.grey[600],
                   fontSize: 14,
@@ -121,7 +121,7 @@ class HomeTab extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'QuickPM',
+                        '抖书',
                         style: TextStyle(
                           color:
                               Theme.of(context).textTheme.bodyMedium?.color ??
@@ -193,7 +193,7 @@ class HomeTab extends ConsumerWidget {
                       style: TextStyle(
                           color: isDark ? Colors.white : Colors.black87),
                       decoration: InputDecoration(
-                        hintText: 'Search knowledge...',
+                        hintText: '搜索知识...',
                         hintStyle: TextStyle(
                             color:
                                 isDark ? Colors.grey[500] : Colors.grey[400]),
@@ -262,7 +262,7 @@ class HomeTab extends ConsumerWidget {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Initialize Content',
+                            '初始化内容',
                             style: TextStyle(
                                 color: isDark ? Colors.white : Colors.black87,
                                 fontSize: 18,
@@ -270,7 +270,7 @@ class HomeTab extends ConsumerWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Your knowledge vault is empty. Tap below to load 30+ official cards.',
+                            '您的知识库是空的。点击下方加载 30+ 官方卡片。',
                             style: TextStyle(
                                 color: isDark
                                     ? Colors.grey[400]
@@ -310,7 +310,7 @@ class HomeTab extends ConsumerWidget {
                                 }
                               },
                               icon: const Icon(Icons.rocket_launch),
-                              label: const Text('Start Setup',
+                              label: const Text('开始设置',
                                   style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold)),
@@ -337,7 +337,7 @@ class HomeTab extends ConsumerWidget {
                   // -> Official Spaces
                   if (moduleState.officials.isNotEmpty) ...[
                     Text(
-                      'Official Spaces',
+                      '官方知识库',
                       style: TextStyle(
                         color: isDark ? Colors.white : Colors.black87,
                         fontSize: 22,
@@ -373,7 +373,7 @@ class HomeTab extends ConsumerWidget {
                           masteredCount: mastered,
                           progress: progress,
                           color: Colors.transparent,
-                          badgeText: 'Official',
+                          badgeText: '官方',
                           onLoad: () => onLoadModule?.call(m.id),
                         ),
                       );
@@ -384,7 +384,7 @@ class HomeTab extends ConsumerWidget {
 
                   // -> User Spaces
                   Text(
-                    'My Knowledge Spaces',
+                    '我的知识库',
                     style: TextStyle(
                       color: isDark ? Colors.white : Colors.black87,
                       fontSize: 22,
@@ -417,7 +417,7 @@ class HomeTab extends ConsumerWidget {
                                   isDark ? Colors.grey[600] : Colors.grey[400]),
                           const SizedBox(height: 12),
                           Text(
-                            "Create your first space",
+                            "创建你的第一个知识库",
                             style: TextStyle(
                               fontSize: 16,
                               color:
@@ -448,7 +448,7 @@ class HomeTab extends ConsumerWidget {
                           cardCount: count,
                           progress: progress,
                           color: Colors.transparent,
-                          badgeText: 'Private',
+                          badgeText: '私有',
                           onLoad: () => onLoadModule?.call(m.id),
                           masteredCount: learned,
                         ),
@@ -482,7 +482,7 @@ class HomeTab extends ConsumerWidget {
         backgroundColor: Theme.of(context).brightness == Brightness.dark
             ? const Color(0xFF1E1E1E)
             : Colors.white,
-        title: const Text('Create Knowledge Space'),
+        title: const Text('创建知识库'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -490,8 +490,8 @@ class HomeTab extends ConsumerWidget {
               controller: titleController,
               autofocus: true,
               decoration: const InputDecoration(
-                labelText: 'Title',
-                hintText: 'e.g., Interview Prep',
+                labelText: '标题',
+                hintText: '例如：面试准备',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -499,8 +499,8 @@ class HomeTab extends ConsumerWidget {
             TextField(
               controller: descController,
               decoration: const InputDecoration(
-                labelText: 'Description (Optional)',
-                hintText: 'What is this space for?',
+                labelText: '描述（可选）',
+                hintText: '这个知识库是关于什么的？',
                 border: OutlineInputBorder(),
               ),
               maxLines: 2,
@@ -510,7 +510,7 @@ class HomeTab extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('取消'),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -525,7 +525,7 @@ class HomeTab extends ConsumerWidget {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Space "$title" created!'),
+                        content: Text('知识库 "$title" 已创建!'),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -533,7 +533,7 @@ class HomeTab extends ConsumerWidget {
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e')),
+                      SnackBar(content: Text('错误: $e')),
                     );
                   }
                 }
@@ -543,7 +543,7 @@ class HomeTab extends ConsumerWidget {
               backgroundColor: const Color(0xFFFF8A65),
               foregroundColor: Colors.white,
             ),
-            child: const Text('Create'),
+            child: const Text('创建'),
           ),
         ],
       ),
@@ -691,7 +691,7 @@ class _KnowledgeSpaceCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '$masteredCount / $cardCount cards mastered',
+                  '$masteredCount / $cardCount 个已掌握',
                   style: TextStyle(
                     color: isDark ? Colors.grey[500] : Colors.grey[500],
                     fontSize: 13,
@@ -717,7 +717,7 @@ class _KnowledgeSpaceCard extends StatelessWidget {
                           elevation: 8,
                           shadowColor: const Color(0xFFFF8A65).withOpacity(0.5),
                         ),
-                        child: const Text('Continue Learning',
+                        child: const Text('继续学习',
                             style: TextStyle(fontWeight: FontWeight.w600)),
                       ),
                     ),

@@ -183,13 +183,13 @@ class _VaultPageState extends ConsumerState<VaultPage> {
                               child: Row(
                                 children: [
                                   _FilterChip(
-                                      label: 'All',
+                                      label: '全部',
                                       isSelected: _libraryFilter == null,
                                       isDark: isDark,
                                       onTap: () => _updateLibraryFilter(null)),
                                   const SizedBox(width: 8),
                                   _FilterChip(
-                                      label: 'Hard',
+                                      label: '生疏',
                                       isSelected: _libraryFilter ==
                                           FeedItemMastery.hard,
                                       color: Colors.redAccent,
@@ -198,7 +198,7 @@ class _VaultPageState extends ConsumerState<VaultPage> {
                                           FeedItemMastery.hard)),
                                   const SizedBox(width: 8),
                                   _FilterChip(
-                                      label: 'Medium',
+                                      label: '一般',
                                       isSelected: _libraryFilter ==
                                           FeedItemMastery.medium,
                                       color: Colors.orangeAccent,
@@ -207,7 +207,7 @@ class _VaultPageState extends ConsumerState<VaultPage> {
                                           FeedItemMastery.medium)),
                                   const SizedBox(width: 8),
                                   _FilterChip(
-                                      label: 'Easy',
+                                      label: '熟练',
                                       isSelected: _libraryFilter ==
                                           FeedItemMastery.easy,
                                       color: Colors.green,
@@ -411,19 +411,19 @@ class _MasteryBadge extends StatelessWidget {
     switch (level) {
       case FeedItemMastery.hard:
         color = Colors.red;
-        text = 'Hard';
+        text = '生疏';
         break;
       case FeedItemMastery.medium:
         color = Colors.orange;
-        text = 'Medium';
+        text = '一般';
         break;
       case FeedItemMastery.easy:
         color = Colors.green;
-        text = 'Easy';
+        text = '熟练';
         break;
       default:
         color = Colors.grey;
-        text = 'New';
+        text = '新';
     }
 
     return Container(

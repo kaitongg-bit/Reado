@@ -59,7 +59,7 @@ class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-            'Marked as ${intervalDays == 0 ? "Forgot" : (intervalDays == 1 ? "Hazy" : "Easy")}'),
+            '标记为 ${intervalDays == 0 ? "忘记" : (intervalDays == 1 ? "模糊" : "简单")}'),
         duration: const Duration(milliseconds: 500),
         behavior: SnackBarBehavior.floating,
         backgroundColor: const Color(0xFF1E1E1E),
@@ -188,7 +188,7 @@ class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          'Review Mode',
+                          '复习模式',
                           style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -197,7 +197,7 @@ class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '${currentItem.readingTimeMinutes} min',
+                        '${currentItem.readingTimeMinutes} 分钟',
                         style: TextStyle(
                             color: isDark ? Colors.grey[400] : Colors.grey[600],
                             fontSize: 12,
@@ -240,7 +240,7 @@ class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _SRSButton(
-                        label: 'Forgot',
+                        label: '忘记',
                         color: const Color(0xFFEF4444),
                         icon: Icons.refresh,
                         isDark: isDark,
@@ -248,7 +248,7 @@ class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
                             _handleReview(currentItem, 0, FeedItemMastery.hard),
                       ),
                       _SRSButton(
-                        label: 'Hazy',
+                        label: '模糊',
                         color: const Color(0xFFF59E0B),
                         icon: Icons.sentiment_neutral,
                         isDark: isDark,
@@ -256,7 +256,7 @@ class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
                             currentItem, 1, FeedItemMastery.medium),
                       ),
                       _SRSButton(
-                        label: 'Easy',
+                        label: '简单',
                         color: const Color(0xFF10B981),
                         icon: Icons.check_circle,
                         isDark: isDark,

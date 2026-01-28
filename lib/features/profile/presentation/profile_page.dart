@@ -138,7 +138,7 @@ class ProfilePage extends ConsumerWidget {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          user?.displayName ?? 'Guest User',
+                          user?.displayName ?? '游客用户',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -165,8 +165,8 @@ class ProfilePage extends ConsumerWidget {
                     children: [
                       Expanded(
                           child: _StatCard(
-                              label: 'Knowledge Points',
-                              value: '$masteredCount Mastered',
+                              label: '知识点',
+                              value: '$masteredCount 已掌握',
                               icon: Icons.school,
                               color: Colors.blue,
                               isDark: isDark)),
@@ -175,14 +175,14 @@ class ProfilePage extends ConsumerWidget {
                   const SizedBox(height: 16),
 
                   // Settings Section
-                  _SectionHeader(title: 'Settings', isDark: isDark),
+                  _SectionHeader(title: '设置', isDark: isDark),
                   const SizedBox(height: 16),
 
                   // Theme Toggle
                   _GlassTile(
                     icon: isDark ? Icons.light_mode : Icons.dark_mode,
-                    title: 'Appearance',
-                    subtitle: isDark ? 'Dark Mode' : 'Light Mode',
+                    title: '外观',
+                    subtitle: isDark ? '深色模式' : '浅色模式',
                     isDark: isDark,
                     trailing: Switch(
                       value: isDark,
@@ -199,8 +199,8 @@ class ProfilePage extends ConsumerWidget {
                   // Pro (Coming Soon)
                   _GlassTile(
                     icon: Icons.workspace_premium,
-                    title: 'Upgrade to Pro',
-                    subtitle: 'Unlock advanced AI features',
+                    title: '升级专业版',
+                    subtitle: '解锁高级 AI 功能',
                     isDark: isDark,
                     trailing: _ComingSoonBadge(isDark: isDark),
                   ),
@@ -210,8 +210,8 @@ class ProfilePage extends ConsumerWidget {
                   // Language
                   _GlassTile(
                     icon: Icons.language,
-                    title: 'Language',
-                    subtitle: 'English (US)',
+                    title: '语言',
+                    subtitle: '简体中文',
                     isDark: isDark,
                     trailing: _ComingSoonBadge(isDark: isDark),
                   ),
@@ -220,8 +220,8 @@ class ProfilePage extends ConsumerWidget {
                   // Contact Us
                   _GlassTile(
                     icon: Icons.support_agent,
-                    title: 'Contact Support',
-                    subtitle: 'Get help with issues',
+                    title: '联系客服',
+                    subtitle: '获取帮助',
                     isDark: isDark,
                     trailing: _ComingSoonBadge(isDark: isDark),
                   ),
@@ -242,7 +242,7 @@ class ProfilePage extends ConsumerWidget {
                       ),
                       child: const Center(
                         child: Text(
-                          'Log Out',
+                          '退出登录',
                           style: TextStyle(
                             color: Colors.red,
                             fontSize: 16,
@@ -441,7 +441,7 @@ class _ComingSoonBadge extends StatelessWidget {
         border: Border.all(color: Colors.blue.withOpacity(0.3)),
       ),
       child: const Text(
-        'Coming Soon',
+        '敬请期待',
         style: TextStyle(
           color: Colors.blue,
           fontSize: 10,

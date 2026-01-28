@@ -114,9 +114,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                widget.moduleId == 'SEARCH'
-                    ? '没有找到相关内容'
-                    : 'Knowledge Space Empty',
+                widget.moduleId == 'SEARCH' ? '没有找到相关内容' : '知识库为空',
                 style: TextStyle(
                   fontSize: 18,
                   color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -133,7 +131,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                     );
                   },
                   icon: const Icon(Icons.add),
-                  label: const Text('Add Material'),
+                  label: const Text('添加内容'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFF8A65),
                     foregroundColor: Colors.white,
@@ -301,7 +299,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                               ),
                               const SizedBox(width: 10),
                               Text(
-                                '${feedItems[_focusedItemIndex].readingTimeMinutes} min',
+                                '${feedItems[_focusedItemIndex].readingTimeMinutes} 分钟',
                                 style: TextStyle(
                                     color: isDark
                                         ? Colors.grey[300]
@@ -573,7 +571,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                'QuickPM',
+                                '抖书',
                                 style: TextStyle(
                                     fontSize: 10,
                                     color: isDark
@@ -687,7 +685,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       case 'D':
         return '面经军火库';
       default:
-        return 'Knowledge Space';
+        return '知识库';
     }
   }
 }

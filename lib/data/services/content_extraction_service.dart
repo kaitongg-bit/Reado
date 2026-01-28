@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:docx_to_text/docx_to_text.dart';
 import '../../models/feed_item.dart';
 import '../../config/api_config.dart';
 
@@ -429,13 +430,90 @@ class ContentExtractionService {
     }
   }
 
-  /// 一键处理：PDF + 生成
+  /// 从 DOCX 字节数据提取内容
+  static Future<ExtractionResult> extractFromDocxBytes(
+    Uint8List bytes, {
+    String filename = 'Word Document',
+  }) async {
+    try {
+      final text = docxToText(bytes);
+
+      if (text.trim().isEmpty) {
+        throw Exception('未能从文档中提取到文本');
+      }
+
+      return ExtractionResult(
+        title: filename,
+        content: text,
+        sourceType: SourceType.text, // Treat as text source
+      );
+    } catch (e) {
+      if (kDebugMode) print('❌ DOCX extraction failed: $e');
+      throw Exception('Word 文档解析失败: $e');
+    }
+  }
+
+  /// 从 TXT 字节数据提取内容
+  static Future<ExtractionResult> extractFromTxtBytes(
+    Uint8List bytes, {
+    String filename = 'Text Document',
+  }) async {
+    try {
+      final text = utf8.decode(bytes);
+
+      if (text.trim().isEmpty) {
+        throw Exception('文件内容为空');
+      }
+
+      return ExtractionResult(
+        title: filename,
+        content: text,
+        sourceType: SourceType.text,
+      );
+    } catch (e) {
+      if (kDebugMode) print('❌ TXT extraction failed: $e');
+      throw Exception('文本文件解析失败: $e');
+    }
+  }
+
+  /// 通用文件处理
+  static Future<List<FeedItem>> processFile(
+    Uint8List bytes, {
+    required String filename,
+    required String moduleId,
+  }) async {
+    final ext = filename.split('.').last.toLowerCase();
+    ExtractionResult extraction;
+
+    switch (ext) {
+      case 'pdf':
+        extraction = await extractFromPdfBytes(bytes, filename: filename);
+        break;
+      case 'docx':
+        extraction = await extractFromDocxBytes(bytes, filename: filename);
+        break;
+      case 'doc':
+        // DOC is binary, hard to parse in pure Dart. Using DOCX parser usually fails.
+        // For now, we might warn or try to treat as text if it happens to be xml-based (unlikely).
+        // Encouraging users to convert to DOCX or PDF is safer.
+        throw Exception('暂不支持 .doc 格式 (老版本 Word)，请另存为 .docx 或 .pdf 后重试。');
+      case 'txt':
+      case 'md':
+        extraction = await extractFromTxtBytes(bytes, filename: filename);
+        break;
+      default:
+        throw Exception('不支持的文件格式: .$ext');
+    }
+
+    return generateKnowledgeCards(extraction, moduleId: moduleId);
+  }
+
+  /// (Legacy wrapper) 一键处理：PDF + 生成
   static Future<List<FeedItem>> processPdf(
     Uint8List bytes, {
     required String moduleId,
     String filename = 'PDF Document',
   }) async {
-    final extraction = await extractFromPdfBytes(bytes, filename: filename);
-    return generateKnowledgeCards(extraction, moduleId: moduleId);
+    return processFile(bytes, filename: filename, moduleId: moduleId);
   }
 }

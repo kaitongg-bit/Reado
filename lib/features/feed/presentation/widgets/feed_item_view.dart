@@ -71,7 +71,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           Navigator.pop(context); // 关闭弹窗
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('✨ Note pinned successfully!'),
+              content: const Text('✨ 笔记已置顶成功！'),
               behavior: SnackBarBehavior.floating,
               backgroundColor: Colors.green[600],
             ),
@@ -97,13 +97,12 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Note?'),
-        content:
-            const Text('Are you sure you want to delete this pinned note?'),
+        title: const Text('删除笔记？'),
+        content: const Text('确定要删除这个置顶笔记吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('取消'),
           ),
           TextButton(
             onPressed: () {
@@ -113,7 +112,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
               Navigator.pop(context);
               // Scroll back if needed? PageView count changes automatically
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -137,13 +136,13 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Edit Note',
+            const Text('编辑笔记',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             TextField(
               controller: titleCtrl,
               decoration: const InputDecoration(
-                labelText: 'Topic / Question',
+                labelText: '主题 / 问题',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -152,7 +151,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
               controller: contentCtrl,
               maxLines: 5,
               decoration: const InputDecoration(
-                labelText: 'Content',
+                labelText: '内容',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -169,7 +168,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                       );
                   Navigator.pop(context);
                 },
-                child: const Text('Save Changes'),
+                child: const Text('保存更改'),
               ),
             ),
           ],
@@ -318,7 +317,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Next Topic',
+                      Text('下一节',
                           style: TextStyle(
                               color: Colors.white,
                               fontSize: 13,
@@ -415,7 +414,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                 children: [
                   Icon(Icons.push_pin, color: Colors.amber, size: 24),
                   const SizedBox(width: 12),
-                  const Text('PINNED NOTE',
+                  const Text('置顶笔记',
                       style: TextStyle(
                           color: Colors.amber,
                           fontWeight: FontWeight.bold,
@@ -438,7 +437,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                           children: [
                             Icon(Icons.edit, size: 18),
                             SizedBox(width: 8),
-                            Text('Edit Note'),
+                            Text('编辑笔记'),
                           ],
                         ),
                       ),
@@ -449,7 +448,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                             Icon(Icons.delete,
                                 size: 18, color: Colors.redAccent),
                             SizedBox(width: 8),
-                            Text('Delete Note',
+                            Text('删除笔记',
                                 style: TextStyle(color: Colors.redAccent)),
                           ],
                         ),
@@ -739,15 +738,15 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('AI Mentor',
+                          const Text('AI 导师',
                               style: TextStyle(
                                   fontSize: 16, fontWeight: FontWeight.bold)),
                           if (_isSelectionMode)
-                            Text('Selected ${_selectedMessageIndices.length}',
+                            Text('已选 ${_selectedMessageIndices.length}',
                                 style: const TextStyle(
                                     fontSize: 10, color: Colors.grey))
                           else
-                            const Text('Long press bubbles to multi-select',
+                            const Text('长按气泡多选',
                                 style: TextStyle(
                                     fontSize: 10, color: Colors.grey)),
                         ],
@@ -758,7 +757,7 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                     TextButton(
                       onPressed: () =>
                           setState(() => _selectedMessageIndices.clear()),
-                      child: const Text('Cancel'),
+                      child: const Text('取消'),
                     )
                   else
                     IconButton(

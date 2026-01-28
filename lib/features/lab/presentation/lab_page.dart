@@ -36,7 +36,7 @@ class _LabPageState extends ConsumerState<LabPage> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('全栈实操 Lab',
+        title: Text('全栈实操实验室',
             style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: isDark ? Colors.white : Colors.black87)),
@@ -162,8 +162,8 @@ class _LabPageState extends ConsumerState<LabPage> {
           ? FloatingActionButton(
               onPressed: () {
                 // Open AI Chat Sheet (Placeholder logic)
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('AI Assistant is here to help!')));
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('AI 助手为您服务！')));
               },
               backgroundColor: const Color(0xFF9333EA),
               child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
@@ -214,7 +214,7 @@ class _AISidebar extends StatelessWidget {
             children: [
               const Icon(Icons.psychology, color: Color(0xFF9333EA)),
               const SizedBox(width: 12),
-              Text('实操助手 (Companion AI)',
+              Text('实操助手',
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -228,7 +228,7 @@ class _AISidebar extends StatelessWidget {
             children: [
               _buildChatMessage(context, 'AI',
                   '你好！在实操过程中遇到任何报错（如 Coze 配置、Figma 组件问题），请随时把信息粘贴在这里问我。'),
-              _buildChatMessage(context, 'User', '我不知道怎么配置 Google Search 插件...',
+              _buildChatMessage(context, '我', '我不知道怎么配置 Google Search 插件...',
                   isUser: true),
               _buildChatMessage(context, 'AI',
                   '没关系！在左栏点击“插件”，然后搜索“Google Search”。记得点击“添加”，然后在 Bot 设置里选择它。'),

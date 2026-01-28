@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:file_picker/file_picker.dart' as fp;
+import 'package:file_picker/file_picker.dart';
 import '../../../../models/feed_item.dart';
 import '../../../../data/services/content_extraction_service.dart';
 import '../../feed/presentation/feed_provider.dart';
@@ -104,8 +104,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     }
   }
 
-  /// 上传并处理 PDF
-  Future<void> _processPdf() async {
+  /// 上传并处理文件 (PDF, DOCX, TXT)
+  Future<void> _handleFileUpload() async {
     try {
       setState(() {
         _isUploadingPdf = true;
@@ -113,11 +113,10 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
         _error = null;
       });
 
-      /* 暂时禁用 PDF 上传，由于 Web 端编译问题
       // 1. 选择文件
-      fp.FilePickerResult? result = await fp.FilePicker.platform.pickFiles(
-        type: fp.FileType.custom,
-        allowedExtensions: ['pdf'],
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx', 'txt', 'md'],
         withData: true,
       );
 
@@ -130,7 +129,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
         }
 
         final moduleId = widget.targetModuleId ?? 'custom';
-        final newItems = await ContentExtractionService.processPdf(
+        // 使用通用的 processFile 方法
+        final newItems = await ContentExtractionService.processFile(
           bytes,
           moduleId: moduleId,
           filename: file.name,
@@ -147,14 +147,6 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
           _isUploadingPdf = false;
         });
       }
-      */
-
-      // 临时提示
-      await Future.delayed(const Duration(milliseconds: 500));
-      setState(() {
-        _urlError = "PDF 上传功能维护中，请使用文本导入";
-        _isUploadingPdf = false;
-      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -1003,9 +995,10 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
 
           const SizedBox(height: 32),
 
-          // PDF Upload Button
+          // File Upload Button
           InkWell(
-            onTap: _isUploadingPdf || _isExtractingUrl ? null : _processPdf,
+            onTap:
+                _isUploadingPdf || _isExtractingUrl ? null : _handleFileUpload,
             borderRadius: BorderRadius.circular(16),
             child: Container(
               width: double.infinity,
@@ -1030,15 +1023,15 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                     const SizedBox(height: 12),
-                    const Text('正在解析 PDF...',
+                    const Text('正在解析文件...',
                         style: TextStyle(
                             color: Colors.blue, fontWeight: FontWeight.w500)),
                   ] else ...[
-                    const Icon(Icons.picture_as_pdf_rounded,
+                    const Icon(Icons.upload_file_rounded,
                         size: 32, color: Color(0xFFEF4444)),
                     const SizedBox(height: 8),
                     const Text(
-                      '点击上传 PDF 文档',
+                      '点击上传文档',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -1047,7 +1040,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '支持自动提取文本',
+                      '支持 PDF, Word, TXT',
                       style: TextStyle(color: Colors.grey[500], fontSize: 12),
                     ),
                   ],
@@ -1085,7 +1078,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                     _buildSourceChip('新闻网站', Icons.newspaper, true),
                     _buildSourceChip('技术文档', Icons.description, true),
                     _buildSourceChip('YouTube', Icons.play_circle, false),
-                    _buildSourceChip('PDF', Icons.picture_as_pdf, false),
+                    _buildSourceChip('文件上传', Icons.file_present, true),
                   ],
                 ),
               ],

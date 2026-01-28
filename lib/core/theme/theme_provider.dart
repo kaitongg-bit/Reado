@@ -7,19 +7,19 @@ enum ThemeMode { light, dark, system }
 
 /// 主题状态管理
 class ThemeNotifier extends StateNotifier<ThemeMode> {
-  ThemeNotifier() : super(ThemeMode.dark) {
+  ThemeNotifier() : super(ThemeMode.light) {
     _loadTheme();
   }
 
   Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
-    final themeName = prefs.getString('theme_mode') ?? 'dark';
+    final themeName = prefs.getString('theme_mode') ?? 'light';
 
     state = switch (themeName) {
       'light' => ThemeMode.light,
       'dark' => ThemeMode.dark,
       'system' => ThemeMode.system,
-      _ => ThemeMode.dark,
+      _ => ThemeMode.light,
     };
   }
 
@@ -30,8 +30,8 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
   }
 
   bool get isDarkMode {
-    // 简化处理：system 当作 dark
-    return state == ThemeMode.dark || state == ThemeMode.system;
+    // 简化处理：system 当作 light (默认浅色)
+    return state == ThemeMode.dark;
   }
 }
 
@@ -46,16 +46,16 @@ class AppTheme {
   static ThemeData get darkTheme => ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: Colors.black,
+        scaffoldBackgroundColor: const Color(0xFF0F172A), // Slate 900
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFFFF8A65),
           secondary: Color(0xFFFF8A65),
-          surface: Color(0xFF1E1E1E),
+          surface: Color(0xFF1E293B), // Slate 800
           onSurface: Colors.white,
         ),
-        cardColor: const Color(0xFF252525),
+        cardColor: const Color(0xFF1E293B),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.black,
+          backgroundColor: Color(0xFF0F172A),
           elevation: 0,
         ),
       );

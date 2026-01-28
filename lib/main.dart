@@ -77,11 +77,10 @@ class QuickPMApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeProvider);
-    final isDark =
-        themeMode == core.ThemeMode.dark || themeMode == core.ThemeMode.system;
+    final isDark = themeMode == core.ThemeMode.dark;
 
     return MaterialApp.router(
-      title: 'QuickPM',
+      title: '抖书',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: isDark ? flutter.ThemeMode.dark : flutter.ThemeMode.light,

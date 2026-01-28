@@ -97,6 +97,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.19.1"
+  convert:
+    dependency: transitive
+    description:
+      name: convert
+      sha256: b30acd5944035672bc15c6b7a8b47d773e41e2f17de064350988c5d02adb1c68
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.2"
+  cross_file:
+    dependency: transitive
+    description:
+      name: cross_file
+      sha256: "701dcfc06da0882883a2657c445103380e53e647060ad8d9dfb710c100996608"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.5+1"
   crypto:
     dependency: transitive
     description:
@@ -113,6 +129,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.2"
+  dbus:
+    dependency: transitive
+    description:
+      name: dbus
+      sha256: "79e0c23480ff85dc68de79e2cd6334add97e48f7f4865d17686dd6ea81a47e8c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.7.11"
   fake_async:
     dependency: transitive
     description:
@@ -137,6 +161,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.0.1"
+  file_picker:
+    dependency: "direct main"
+    description:
+      name: file_picker
+      sha256: b9c6bbfe174bcc1ec1e3a0de92e9b839fe553a46dd91862debfbbb5055ca876f
+      url: "https://pub.dev"
+    source: hosted
+    version: "10.3.9"
   firebase_auth:
     dependency: "direct main"
     description:
@@ -190,6 +222,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_dotenv:
+    dependency: "direct main"
+    description:
+      name: flutter_dotenv
+      sha256: d4130c4a43e0b13fefc593bc3961f2cb46e30cb79e253d4a526b1b5d24ae1ce4
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.0.0"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -206,6 +246,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.23"
+  flutter_plugin_android_lifecycle:
+    dependency: transitive
+    description:
+      name: flutter_plugin_android_lifecycle
+      sha256: ee8068e0e1cd16c4a82714119918efdeed33b3ba7772c54b5d094ab53f9b7fd1
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.33"
   flutter_riverpod:
     dependency: "direct main"
     description:
@@ -661,6 +709,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.1"
+  syncfusion_flutter_core:
+    dependency: transitive
+    description:
+      name: syncfusion_flutter_core
+      sha256: "44ec7f2bc3257d4d5ecae9ad2ed73ec1ca123323e0b1662441bc7f756530844f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "32.1.25"
+  syncfusion_flutter_pdf:
+    dependency: "direct main"
+    description:
+      name: syncfusion_flutter_pdf
+      sha256: "3cb4d617cb7c98850a9a19ab21d4d7140b1f753316b23c416c5f598671446fdc"
+      url: "https://pub.dev"
+    source: hosted
+    version: "32.1.25"
   term_glyph:
     dependency: transitive
     description:
@@ -717,6 +781,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  win32:
+    dependency: transitive
+    description:
+      name: win32
+      sha256: d7cb55e04cd34096cd3a79b3330245f54cb96a370a1c27adb3c84b917de8b08e
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.15.0"
   xdg_directories:
     dependency: transitive
     description:

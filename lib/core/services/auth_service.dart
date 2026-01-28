@@ -6,7 +6,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 /// 支持：匿名登录、Google 登录
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  GoogleSignIn? _googleSignIn;
 
   // 当前用户流
   Stream<User?> get authStateChanges => _auth.authStateChanges();
@@ -52,7 +52,8 @@ class AuthService {
       // 移动平台
       else {
         // 1. 触发 Google 登录流程
-        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+        _googleSignIn ??= GoogleSignIn();
+        final GoogleSignInAccount? googleUser = await _googleSignIn!.signIn();
 
         if (googleUser == null) {
           debugPrint('⚠️  用户取消了 Google 登录');
@@ -98,7 +99,8 @@ class AuthService {
       }
       // 移动平台
       else {
-        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+        _googleSignIn ??= GoogleSignIn();
+        final GoogleSignInAccount? googleUser = await _googleSignIn!.signIn();
 
         if (googleUser == null) {
           return null;
@@ -132,7 +134,8 @@ class AuthService {
       // 因为如果没有配置 Client ID 会报错。
       if (!kIsWeb) {
         try {
-          await _googleSignIn.signOut();
+          // 只在非 Web 端尝试退出 GoogleSignIn 插件会话
+          await _googleSignIn?.signOut();
         } catch (e) {
           debugPrint('⚠️ Google Sign In signOut error (safe to ignore): $e');
         }

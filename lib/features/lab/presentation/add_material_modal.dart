@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:file_picker/file_picker.dart' as fp;
 import '../../../../models/feed_item.dart';
 import '../../../../data/services/content_extraction_service.dart';
 import '../../feed/presentation/feed_provider.dart';
@@ -18,6 +19,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
   final TextEditingController _urlController = TextEditingController();
   bool _isGenerating = false;
   bool _isExtractingUrl = false;
+  bool _isUploadingPdf = false; // 新增状态
   List<FeedItem>? _generatedItems;
   String? _error;
   String? _urlError;
@@ -98,6 +100,66 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       setState(() {
         _urlError = e.toString();
         _isExtractingUrl = false;
+      });
+    }
+  }
+
+  /// 上传并处理 PDF
+  Future<void> _processPdf() async {
+    try {
+      setState(() {
+        _isUploadingPdf = true;
+        _urlError = null;
+        _error = null;
+      });
+
+      /* 暂时禁用 PDF 上传，由于 Web 端编译问题
+      // 1. 选择文件
+      fp.FilePickerResult? result = await fp.FilePicker.platform.pickFiles(
+        type: fp.FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final bytes = file.bytes;
+
+        if (bytes == null) {
+          throw Exception('无法读取文件内容 (Bytes is null)');
+        }
+
+        final moduleId = widget.targetModuleId ?? 'custom';
+        final newItems = await ContentExtractionService.processPdf(
+          bytes,
+          moduleId: moduleId,
+          filename: file.name,
+        );
+
+        if (!mounted) return;
+
+        setState(() {
+          _generatedItems = newItems;
+          _isUploadingPdf = false;
+        });
+      } else {
+        setState(() {
+          _isUploadingPdf = false;
+        });
+      }
+      */
+
+      // 临时提示
+      await Future.delayed(const Duration(milliseconds: 500));
+      setState(() {
+        _urlError = "PDF 上传功能维护中，请使用文本导入";
+        _isUploadingPdf = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _urlError = e.toString();
+        _isUploadingPdf = false;
       });
     }
   }
@@ -604,191 +666,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
   }
 
   Widget _buildNotebookLMTab() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          if (_generatedItems == null) ...[
-            // Input State - URL Mode
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFFEFF6FF).withOpacity(0.8),
-                    const Color(0xFFF3E8FF).withOpacity(0.8),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.8),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blue.withOpacity(0.1),
-                          blurRadius: 20,
-                          spreadRadius: 5,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(Icons.link_rounded,
-                        size: 36, color: Color(0xFF3B82F6)),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    '从 URL 提取内容',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '粘贴文章链接，AI 自动提取并生成知识卡片',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 13,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // URL Input
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: _urlError != null
-                      ? Colors.red.withOpacity(0.5)
-                      : Colors.grey.withOpacity(0.2),
-                ),
-              ),
-              child: TextField(
-                controller: _urlController,
-                style: const TextStyle(fontSize: 15, color: Color(0xFF334155)),
-                decoration: InputDecoration(
-                  hintText: 'https://example.com/article',
-                  hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
-                  prefixIcon: const Icon(Icons.link, color: Color(0xFF64748B)),
-                  suffixIcon: _urlController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: () {
-                            _urlController.clear();
-                            setState(() => _urlError = null);
-                          },
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                ),
-                onChanged: (_) => setState(() => _urlError = null),
-              ),
-            ),
-
-            if (_urlError != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.red.withOpacity(0.2)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline,
-                        color: Colors.red, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _urlError!,
-                        style: const TextStyle(color: Colors.red, fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 20),
-
-            // Extract Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isExtractingUrl ? null : _extractFromUrl,
-                icon: _isExtractingUrl
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.auto_awesome),
-                label: Text(_isExtractingUrl ? '正在提取并生成...' : '提取并生成知识卡片'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3B82F6),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                ),
-              ),
-            ),
-
-            const Spacer(),
-
-            // Supported Sources
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '支持的来源',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _buildSourceChip('博客文章', Icons.article, true),
-                      _buildSourceChip('新闻网站', Icons.newspaper, true),
-                      _buildSourceChip('技术文档', Icons.description, true),
-                      _buildSourceChip('YouTube', Icons.play_circle, false),
-                      _buildSourceChip('PDF', Icons.picture_as_pdf, false),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ] else ...[
-            // Review State (共用，与文本导入一致)
+    if (_generatedItems != null) {
+      // Review State
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -887,21 +770,24 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: const Color(0xFFFFEDD5)),
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.help_outline,
-                                  size: 14, color: Color(0xFFF97316)),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '提问: ${(item.pages.first as OfficialPage).flashcardQuestion ?? "自动生成中..."}',
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF9A3412),
-                                    fontWeight: FontWeight.w500,
+                              Row(children: [
+                                const Icon(Icons.help_outline,
+                                    size: 14, color: Color(0xFFF97316)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '提问: ${(item.pages.first as OfficialPage).flashcardQuestion ?? "自动生成中..."}',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF9A3412),
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
-                                ),
-                              ),
+                                )
+                              ])
                             ],
                           ),
                         ),
@@ -949,6 +835,262 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
               ],
             ),
           ],
+        ),
+      );
+    }
+
+    // Input States - Scrollable
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          // Input State - URL Mode
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFFEFF6FF).withOpacity(0.8),
+                  const Color(0xFFF3E8FF).withOpacity(0.8),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.8),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.withOpacity(0.1),
+                        blurRadius: 20,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.link_rounded,
+                      size: 36, color: Color(0xFF3B82F6)),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '从 URL 提取内容',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '粘贴文章链接，AI 自动提取并生成知识卡片',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 13,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // URL Input
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: _urlError != null
+                    ? Colors.red.withOpacity(0.5)
+                    : Colors.grey.withOpacity(0.2),
+              ),
+            ),
+            child: TextField(
+              controller: _urlController,
+              style: const TextStyle(fontSize: 15, color: Color(0xFF334155)),
+              decoration: InputDecoration(
+                hintText: 'https://example.com/article',
+                hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                prefixIcon: const Icon(Icons.link, color: Color(0xFF64748B)),
+                suffixIcon: _urlController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _urlController.clear();
+                          setState(() => _urlError = null);
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              ),
+              onChanged: (_) => setState(() => _urlError = null),
+            ),
+          ),
+
+          if (_urlError != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _urlError!,
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 20),
+
+          // Extract Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isExtractingUrl ? null : _extractFromUrl,
+              icon: _isExtractingUrl
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.auto_awesome),
+              label: Text(_isExtractingUrl ? '正在提取并生成...' : '提取并生成知识卡片'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF3B82F6),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          // 分隔线
+          Row(
+            children: [
+              Expanded(child: Divider(color: Colors.grey.withOpacity(0.2))),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text('或上传文件',
+                    style: TextStyle(color: Colors.grey[400], fontSize: 13)),
+              ),
+              Expanded(child: Divider(color: Colors.grey.withOpacity(0.2))),
+            ],
+          ),
+
+          const SizedBox(height: 32),
+
+          // PDF Upload Button
+          InkWell(
+            onTap: _isUploadingPdf || _isExtractingUrl ? null : _processPdf,
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: _isUploadingPdf
+                      ? Colors.blue.withOpacity(0.5)
+                      : Colors.grey.withOpacity(0.2),
+                  width: 1.5,
+                  style: BorderStyle.solid,
+                ),
+              ),
+              child: Column(
+                children: [
+                  if (_isUploadingPdf) ...[
+                    const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('正在解析 PDF...',
+                        style: TextStyle(
+                            color: Colors.blue, fontWeight: FontWeight.w500)),
+                  ] else ...[
+                    const Icon(Icons.picture_as_pdf_rounded,
+                        size: 32, color: Color(0xFFEF4444)),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '点击上传 PDF 文档',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '支持自动提取文本',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          // Supported Sources
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '支持的来源',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildSourceChip('博客文章', Icons.article, true),
+                    _buildSourceChip('新闻网站', Icons.newspaper, true),
+                    _buildSourceChip('技术文档', Icons.description, true),
+                    _buildSourceChip('YouTube', Icons.play_circle, false),
+                    _buildSourceChip('PDF', Icons.picture_as_pdf, false),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

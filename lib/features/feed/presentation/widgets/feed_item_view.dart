@@ -1006,17 +1006,18 @@ class _FlashcardWidgetState extends State<_FlashcardWidget> {
   void _showAnswerSheet() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent, // For custom rounded corners
       builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.75, // 使用屏幕高度的 75%
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: widget.isDark ? const Color(0xFF1E1E1E) : Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 1. Header (Fixed)
             Row(
               children: [
                 const Icon(Icons.lightbulb, color: Colors.amber, size: 28),
@@ -1034,22 +1035,37 @@ class _FlashcardWidgetState extends State<_FlashcardWidget> {
               ],
             ),
             const Divider(height: 32),
-            Text(
-              'Q: ${widget.question}',
-              style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                  color: Colors.grey),
+
+            // 2. Scrollable Content (Question & Answer)
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Q: ${widget.question}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: Colors.grey),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      widget.answer,
+                      style: TextStyle(
+                          fontSize: 18,
+                          height: 1.6,
+                          color: widget.isDark
+                              ? Colors.grey[200]
+                              : Colors.black87),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              widget.answer,
-              style: TextStyle(
-                  fontSize: 18,
-                  height: 1.6,
-                  color: widget.isDark ? Colors.grey[200] : Colors.black87),
-            ),
-            const SizedBox(height: 48), // Bottom padding
+
+            // 3. Bottom Button (Fixed)
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               height: 50,

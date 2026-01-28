@@ -70,3 +70,7 @@ migrate_working_dir/
 
 ## CocoaPods
 **/ios/Pods/
+
+# Private Configs
+lib/core/secrets.dart
+.env

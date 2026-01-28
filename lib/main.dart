@@ -18,8 +18,11 @@ import 'firebase_options.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/theme/theme_provider.dart' as core show ThemeMode;
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );

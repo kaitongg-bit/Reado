@@ -1,3 +1,5 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 /// API 配置管理
 ///
 /// 用于存储和管理 Gemini API Key
@@ -5,15 +7,17 @@ class ApiConfig {
   /// Gemini API Key
   ///
   /// 获取方式：
-  /// 1. 开发阶段：通过环境变量传入
-  ///    flutter run --dart-define=GEMINI_API_KEY=your_key_here
-  ///
-  /// 2. 生产阶段：用户在个人中心提供自己的 API Key
-  ///    存储在 Firestore: /users/{uid}/profile/geminiApiKey
-  static const String geminiApiKey = String.fromEnvironment(
-    'GEMINI_API_KEY',
-    defaultValue: '',
-  );
+  /// 1. 开发阶段：环境变量 (flutter run --dart-define=GEMINI_API_KEY=...)
+  /// 2. 本地配置：.env 文件 (GEMINI_API_KEY=...)
+  /// 3. 分发/生产：建议结合后端或 Obfuscation 使用
+  static String get geminiApiKey {
+    // 优先使用命令行参数
+    const envArg = String.fromEnvironment('GEMINI_API_KEY');
+    if (envArg.isNotEmpty) return envArg;
+
+    // 回退到 .env 文件配置
+    return dotenv.env['GEMINI_API_KEY'] ?? '';
+  }
 
   /// 检查 API Key 是否已配置
   static bool get isConfigured => geminiApiKey.isNotEmpty;

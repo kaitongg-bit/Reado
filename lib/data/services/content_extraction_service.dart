@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../../models/feed_item.dart';
 import '../../config/api_config.dart';
 
@@ -12,8 +13,7 @@ enum SourceType {
   url,
   text,
   youtube,
-  // 未来扩展
-  // pdf,
+  pdf,
 }
 
 /// 内容提取结果
@@ -42,8 +42,20 @@ class ContentExtractionService {
   static Future<ExtractionResult> extractFromUrl(String url) async {
     // 1. YouTube 特殊处理
     if (_isYoutubeUrl(url)) {
-      if (kDebugMode) print('🎥 Detected YouTube URL: $url');
-      return _extractFromYoutube(url);
+      // Web 端 MVP 策略:
+      // 由于浏览器的 CORS 安全限制，无法在 Web 端使用 youtube_explode 进行本地提取。
+      // 因此，Web 端自动回退使用 Jina Reader (服务端代理)，它通常也能很好地处理 YouTube。
+      if (kIsWeb) {
+        if (kDebugMode) {
+          print(
+              '🌐 Web Environment detected: Skipping local YouTube extraction due to CORS.');
+          print('👉 Falling back to Jina Reader (Server-side proxy).');
+        }
+        // 不执行 return，继续向下执行，自然会进入默认的 _extractWithJinaReader 逻辑
+      } else {
+        if (kDebugMode) print('🎥 Detected YouTube URL: $url');
+        return _extractFromYoutube(url);
+      }
     }
 
     try {
@@ -386,6 +398,44 @@ class ContentExtractionService {
     }
   }
 
-  // TODO: 未来添加 PDF 处理
-  // static Future<ExtractionResult> extractFromPdf(File file) async { ... }
+  /// 从 PDF 字节数据提取内容
+  static Future<ExtractionResult> extractFromPdfBytes(
+    Uint8List bytes, {
+    String filename = 'PDF Document',
+  }) async {
+    try {
+      // 加载 PDF 文档
+      final PdfDocument document = PdfDocument(inputBytes: bytes);
+
+      // 提取所有文本
+      // PdfTextExtractor 是 syncfusion 提供的强大提取器
+      String text = PdfTextExtractor(document).extractText();
+
+      // 释放资源
+      document.dispose();
+
+      if (text.trim().isEmpty) {
+        throw Exception('未能从 PDF 中提取到文本，可能是扫描件或图片 PDF');
+      }
+
+      return ExtractionResult(
+        title: filename,
+        content: text,
+        sourceType: SourceType.pdf,
+      );
+    } catch (e) {
+      if (kDebugMode) print('❌ PDF extraction failed: $e');
+      throw Exception('PDF 解析失败: $e');
+    }
+  }
+
+  /// 一键处理：PDF + 生成
+  static Future<List<FeedItem>> processPdf(
+    Uint8List bytes, {
+    required String moduleId,
+    String filename = 'PDF Document',
+  }) async {
+    final extraction = await extractFromPdfBytes(bytes, filename: filename);
+    return generateKnowledgeCards(extraction, moduleId: moduleId);
+  }
 }

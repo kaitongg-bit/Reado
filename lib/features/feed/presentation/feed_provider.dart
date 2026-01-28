@@ -42,6 +42,9 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
 
   List<FeedItem> get allItems => _allItems;
 
+  /// 获取当前用户ID
+  String? get currentUserId => FirebaseAuth.instance.currentUser?.uid;
+
   FeedNotifier(this._dataService, this._ref) : super([]) {
     // Trigger initial load
     loadAllData();

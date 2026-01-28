@@ -10,7 +10,7 @@ class ContentGeneratorService {
   ContentGeneratorService({required String apiKey}) {
     // Model 1: For structured data generation (JSON)
     _jsonModel = GenerativeModel(
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash',
       apiKey: apiKey,
       generationConfig: GenerationConfig(
         responseMimeType: 'application/json',
@@ -22,7 +22,7 @@ class ContentGeneratorService {
 
     // Model 2: For natural conversation/text (Standard)
     _textModel = GenerativeModel(
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash',
       apiKey: apiKey,
       generationConfig: GenerationConfig(
         // No specific mimeType -> defaults to text/plain

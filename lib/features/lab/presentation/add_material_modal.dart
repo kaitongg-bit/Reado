@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../models/feed_item.dart';
-import '../../../../core/services/content_generator_service.dart';
-import '../../../../data/services/firestore_service.dart';
+import '../../../../data/services/content_extraction_service.dart';
 import '../../feed/presentation/feed_provider.dart';
 
 class AddMaterialModal extends ConsumerStatefulWidget {
@@ -16,10 +15,21 @@ class AddMaterialModal extends ConsumerStatefulWidget {
 
 class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
   final TextEditingController _textController = TextEditingController();
+  final TextEditingController _urlController = TextEditingController();
   bool _isGenerating = false;
+  bool _isExtractingUrl = false;
   List<FeedItem>? _generatedItems;
   String? _error;
+  String? _urlError;
 
+  @override
+  void dispose() {
+    _textController.dispose();
+    _urlController.dispose();
+    super.dispose();
+  }
+
+  /// AI 智能拆解 - 从粘贴的文本生成知识卡片
   Future<void> _generate() async {
     if (_textController.text.trim().isEmpty) return;
 
@@ -29,20 +39,16 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     });
 
     try {
-      final generator = ref.read(contentGeneratorProvider);
-      final newItems = await generator.generateFromText(_textController.text);
-
-      // Override module ID immediately so preview is correct
-      final correctedItems = newItems.map((item) {
-        return widget.targetModuleId != null
-            ? item.copyWith(moduleId: widget.targetModuleId!)
-            : item;
-      }).toList();
+      final moduleId = widget.targetModuleId ?? 'custom';
+      final newItems = await ContentExtractionService.processText(
+        _textController.text,
+        moduleId: moduleId,
+      );
 
       if (!mounted) return;
 
       setState(() {
-        _generatedItems = correctedItems;
+        _generatedItems = newItems;
         _isGenerating = false;
       });
     } catch (e) {
@@ -51,6 +57,47 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       setState(() {
         _error = e.toString();
         _isGenerating = false;
+      });
+    }
+  }
+
+  /// 从 URL 提取内容并生成知识卡片
+  Future<void> _extractFromUrl() async {
+    final url = _urlController.text.trim();
+    if (url.isEmpty) {
+      setState(() => _urlError = '请输入 URL');
+      return;
+    }
+
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      setState(() => _urlError = '请输入有效的 URL (以 http:// 或 https:// 开头)');
+      return;
+    }
+
+    setState(() {
+      _isExtractingUrl = true;
+      _urlError = null;
+    });
+
+    try {
+      final moduleId = widget.targetModuleId ?? 'custom';
+      final newItems = await ContentExtractionService.processUrl(
+        url,
+        moduleId: moduleId,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _generatedItems = newItems;
+        _isExtractingUrl = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _urlError = e.toString();
+        _isExtractingUrl = false;
       });
     }
   }
@@ -560,111 +607,397 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF), // Blue 50
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.blue.withOpacity(0.1),
-                    blurRadius: 20,
-                    spreadRadius: 5),
+          if (_generatedItems == null) ...[
+            // Input State - URL Mode
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFFEFF6FF).withOpacity(0.8),
+                    const Color(0xFFF3E8FF).withOpacity(0.8),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.8),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.withOpacity(0.1),
+                          blurRadius: 20,
+                          spreadRadius: 5,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.link_rounded,
+                        size: 36, color: Color(0xFF3B82F6)),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '从 URL 提取内容',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '粘贴文章链接，AI 自动提取并生成知识卡片',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 13,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // URL Input
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: _urlError != null
+                      ? Colors.red.withOpacity(0.5)
+                      : Colors.grey.withOpacity(0.2),
+                ),
+              ),
+              child: TextField(
+                controller: _urlController,
+                style: const TextStyle(fontSize: 15, color: Color(0xFF334155)),
+                decoration: InputDecoration(
+                  hintText: 'https://example.com/article',
+                  hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                  prefixIcon: const Icon(Icons.link, color: Color(0xFF64748B)),
+                  suffixIcon: _urlController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _urlController.clear();
+                            setState(() => _urlError = null);
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+                onChanged: (_) => setState(() => _urlError = null),
+              ),
+            ),
+
+            if (_urlError != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline,
+                        color: Colors.red, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _urlError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 20),
+
+            // Extract Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isExtractingUrl ? null : _extractFromUrl,
+                icon: _isExtractingUrl
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.auto_awesome),
+                label: Text(_isExtractingUrl ? '正在提取并生成...' : '提取并生成知识卡片'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3B82F6),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+            ),
+
+            const Spacer(),
+
+            // Supported Sources
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '支持的来源',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildSourceChip('博客文章', Icons.article, true),
+                      _buildSourceChip('新闻网站', Icons.newspaper, true),
+                      _buildSourceChip('技术文档', Icons.description, true),
+                      _buildSourceChip('YouTube', Icons.play_circle, false),
+                      _buildSourceChip('PDF', Icons.picture_as_pdf, false),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            // Review State (共用，与文本导入一致)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '已生成 ${_generatedItems!.length} 个知识点',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, color: Color(0xFF64748B)),
+                  onPressed: () {
+                    setState(() {
+                      _generatedItems = null;
+                      _isExtractingUrl = false;
+                    });
+                  },
+                  tooltip: '重新开始',
+                ),
               ],
             ),
-            child: const Icon(Icons.auto_graph_outlined,
-                size: 48, color: Color(0xFF3B82F6)),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'NotebookLM 深度解析',
-            style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B)),
-          ),
-          const SizedBox(height: 12),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              '上传 PDF、Word 文档或粘贴 Bilibili/YouTube 视频链接。\nAI 将自动构建知识图谱并生成深度问答。',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: Color(0xFF64748B), height: 1.5, fontSize: 14),
-            ),
-          ),
-          const SizedBox(height: 48),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildUploadButton(Icons.link, '粘贴链接', Colors.blue),
-              const SizedBox(width: 20),
-              _buildUploadButton(Icons.upload_file, '上传文件', Colors.indigo),
-            ],
-          ),
-          const SizedBox(height: 48),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3E8FF), // Purple 100
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFD8B4FE)),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: const [
-              Icon(Icons.star_border, size: 16, color: Color(0xFF9333EA)),
-              SizedBox(width: 8),
-              Text(
-                '即将推出',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF9333EA)),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView.separated(
+                itemCount: _generatedItems!.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final item = _generatedItems![index];
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${index + 1}',
+                                style: const TextStyle(
+                                  color: Color(0xFF3B82F6),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                item.title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                item.category,
+                                style: const TextStyle(
+                                    fontSize: 10, color: Color(0xFF64748B)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF7ED),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFFFEDD5)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.help_outline,
+                                  size: 14, color: Color(0xFFF97316)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '提问: ${(item.pages.first as OfficialPage).flashcardQuestion ?? "自动生成中..."}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF9A3412),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
-            ]),
-          ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      setState(() {
+                        _generatedItems = null;
+                      });
+                    },
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                      foregroundColor: const Color(0xFF64748B),
+                    ),
+                    child: const Text('返回修改'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _saveAll,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D9488),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: const Text('确认并保存'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildUploadButton(IconData icon, String label, Color color) {
-    return InkWell(
-      onTap: () {}, // Pending implementation
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        width: 120,
-        height: 120,
-        decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: color.withOpacity(0.1), width: 2),
-            boxShadow: [
-              BoxShadow(
-                  color: color.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4)),
-            ]),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.05),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 28, color: color),
-            ),
-            const SizedBox(height: 12),
-            Text(label,
-                style: TextStyle(
-                    color: Colors.grey[700],
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13)),
-          ],
+  Widget _buildSourceChip(String label, IconData icon, bool isAvailable) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isAvailable ? Colors.white : Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isAvailable
+              ? const Color(0xFF3B82F6).withOpacity(0.3)
+              : Colors.grey.withOpacity(0.2),
         ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: isAvailable ? const Color(0xFF3B82F6) : Colors.grey,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isAvailable ? const Color(0xFF3B82F6) : Colors.grey,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          if (!isAvailable) ...[
+            const SizedBox(width: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'Soon',
+                style: TextStyle(fontSize: 8, color: Colors.grey),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

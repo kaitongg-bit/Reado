@@ -19,11 +19,14 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
   final TextEditingController _urlController = TextEditingController();
   bool _isGenerating = false;
   bool _isExtractingUrl = false;
-  bool _isUploadingPdf = false; // 新增状态
+
   ExtractionResult? _extractionResult; // 存储提取结果
   List<FeedItem>? _generatedItems;
   String? _error;
   String? _urlError;
+
+  String? _pickedFileName; // New: For storing picked file name
+  PlatformFile? _pickedFile; // Holds the actual file object
 
   @override
   void dispose() {
@@ -64,57 +67,14 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     }
   }
 
-  /// 从 URL 提取内容并生成知识卡片
-  Future<void> _extractFromUrl() async {
-    final url = _urlController.text.trim();
-    if (url.isEmpty) {
-      setState(() => _urlError = '请输入 URL');
-      return;
-    }
-
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      setState(() => _urlError = '请输入有效的 URL (以 http:// 或 https:// 开头)');
-      return;
-    }
-
-    setState(() {
-      _isExtractingUrl = true;
-      _urlError = null;
-    });
-
+  /// 1. 仅选择文件，不解析
+  Future<void> _pickFile() async {
     try {
-      final moduleId = widget.targetModuleId ?? 'custom';
-      final newItems = await ContentExtractionService.processUrl(
-        url,
-        moduleId: moduleId,
-      );
+      // Clear URL if picking file (Mutually exclusive check)
+      if (_urlController.text.isNotEmpty) {
+        _urlController.clear();
+      }
 
-      if (!mounted) return;
-
-      setState(() {
-        _generatedItems = newItems;
-        _isExtractingUrl = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _urlError = e.toString();
-        _isExtractingUrl = false;
-      });
-    }
-  }
-
-  /// 上传并处理文件 (PDF, DOCX, TXT)
-  Future<void> _handleFileUpload() async {
-    try {
-      setState(() {
-        _isUploadingPdf = true;
-        _urlError = null;
-        _error = null;
-      });
-
-      // 1. 选择文件
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'doc', 'docx', 'txt', 'md'],
@@ -122,40 +82,63 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       );
 
       if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        final bytes = file.bytes;
-
-        if (bytes == null) {
-          throw Exception('无法读取文件内容 (Bytes is null)');
-        }
-
-        // 2. 仅提取内容，不立即生成
-        final extraction =
-            await ContentExtractionService.extractContentFromFile(
-          bytes,
-          filename: file.name,
-        );
-
-        if (!mounted) return;
-
         setState(() {
-          _extractionResult = extraction;
-          _generatedItems = null; // 重置生成结果
-          _isUploadingPdf = false;
-        });
-      } else {
-        setState(() {
-          _isUploadingPdf = false;
+          _pickedFile = result.files.first;
+          _pickedFileName = _pickedFile!.name;
+          _error = null;
+          _urlError = null;
+          _extractionResult = null; // Clear previous result
         });
       }
     } catch (e) {
+      setState(() => _error = e.toString());
+    }
+  }
+
+  /// 2. 统一解析入口 (URL 或 File)
+  Future<void> _performParse() async {
+    setState(() {
+      _isExtractingUrl = true; // Reusing this bool for general "Parsing" state
+      _error = null;
+      _urlError = null;
+    });
+
+    try {
+      ExtractionResult? result;
+      // Priority: File > URL (Since picking file clears URL usually, but let's check)
+      if (_pickedFile != null) {
+        final bytes = _pickedFile!.bytes;
+        if (bytes == null) throw Exception('无法读取文件内容');
+        result = await ContentExtractionService.extractContentFromFile(
+          bytes,
+          filename: _pickedFile!.name,
+        );
+      } else if (_urlController.text.trim().isNotEmpty) {
+        final url = _urlController.text.trim();
+        if (!url.startsWith('http')) throw Exception('请输入有效的 http/https 链接');
+        result = await ContentExtractionService.extractFromUrl(url);
+      } else {
+        throw Exception('请先上传文件或粘贴链接');
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _extractionResult = result;
+        _isExtractingUrl = false;
+        // _generatedItems is still null, waiting for AI
+      });
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _urlError = e.toString();
-        _isUploadingPdf = false;
+        _error = e.toString(); // Show global error
+        _isExtractingUrl = false;
       });
     }
   }
+
+  /// Old Upload method (kept temporarily or removed if replacing fully)
+  /// replaced by split logic above.
 
   /// 开始 AI 生成
   Future<void> _startGeneration() async {
@@ -204,6 +187,16 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       final contentStr = currentContent.toString().trim();
       if (contentStr.isNotEmpty) {
         String title = activeTitle ?? 'Overview';
+
+        // 如果没有标题 (activeTitle 为 null)，尝试用正文第一行作为标题
+        if (activeTitle == null) {
+          final firstLine = contentStr.split('\n').first.trim();
+          if (firstLine.isNotEmpty) {
+            title = firstLine.length > 20
+                ? '${firstLine.substring(0, 20)}...'
+                : firstLine;
+          }
+        }
 
         // 智能优化：如果由于层级深导致标题只有"场景题"这种简单词，尝试拼接上一级
         // 比如: "Redis > 场景题"
@@ -445,26 +438,78 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
           if (_generatedItems == null) ...[
             // Input State
             Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: TextField(
-                  controller: _textController,
-                  maxLines: null,
-                  expands: true,
-                  style: const TextStyle(
-                      fontSize: 16, height: 1.5, color: Color(0xFF334155)),
-                  decoration: const InputDecoration(
-                    hintText: '在此粘贴文章内容、笔记或网页文本...\nAI 将自动为您提取结构化知识点。',
-                    hintStyle: TextStyle(color: Color(0xFF94A3B8)),
-                    border: InputBorder.none,
+              child: Column(
+                children: [
+                  // Hint Box
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF), // Blue 50
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFDBEAFE)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.lightbulb_outline,
+                            color: Color(0xFF3B82F6), size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: RichText(
+                            text: const TextSpan(
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFF1E293B)),
+                              children: [
+                                TextSpan(
+                                    text: '小贴士：',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                                TextSpan(text: '使用 Markdown 标题 (如 '),
+                                TextSpan(
+                                    text: '# 标题',
+                                    style: TextStyle(
+                                        fontFamily: 'monospace',
+                                        backgroundColor: Color(0xFFDBEAFE))),
+                                TextSpan(
+                                    text:
+                                        ') 可手动拆分卡片，无需消耗 AI 额度。若无标题，将默认使用第一句话作为标题。'),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      child: TextField(
+                        controller: _textController,
+                        maxLines: null,
+                        expands: true,
+                        style: const TextStyle(
+                            fontSize: 16,
+                            height: 1.5,
+                            color: Color(0xFF334155)),
+                        decoration: const InputDecoration(
+                          hintText:
+                              '在此粘贴文章内容、笔记或网页文本...\n\n示例：\n# 什么是 Flutter\nFlutter 是 Google 开源的 UI 工具包...\n\n# 特点\n1. 跨平台\n2. 高性能...',
+                          hintStyle: TextStyle(color: Color(0xFF94A3B8)),
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 20),
@@ -714,6 +759,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                     setState(() {
                       _generatedItems = null;
                       _isExtractingUrl = false;
+                      _extractionResult = null;
                     });
                   },
                   tooltip: '重新开始',
@@ -864,349 +910,329 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       );
     }
 
-    // Input States - Scrollable
+    // --- Main Layout: Inputs (Left) + Buttons (Right) ---
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          // Input State - URL Mode
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFFEFF6FF).withOpacity(0.8),
-                  const Color(0xFFF3E8FF).withOpacity(0.8),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.8),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.blue.withOpacity(0.1),
-                        blurRadius: 20,
-                        spreadRadius: 5,
-                      ),
-                    ],
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // === LEFT COLUMN: Inputs & Info ===
+                  Expanded(
+                    child: Column(
+                      children: [
+                        // 1. File Input Box
+                        InkWell(
+                          onTap: () {
+                            if (!_isParsing && !_isGenerating) _pickFile();
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 24, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: _pickedFile != null
+                                    ? const Color(
+                                        0xFF10B981) // Green if file selected
+                                    : const Color(0xFFE2E8F0),
+                                width: _pickedFile != null ? 2 : 1,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  _pickedFile != null
+                                      ? Icons.description
+                                      : Icons.upload_file,
+                                  size: 32,
+                                  color: _pickedFile != null
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFF94A3B8),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _pickedFileName ?? '支持PDF, Word, Markdown',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: _pickedFile != null
+                                        ? const Color(0xFF1E293B)
+                                        : const Color(0xFF94A3B8),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (_pickedFile != null) ...[
+                                  const SizedBox(height: 4),
+                                  const Text('已选择 (点击更换)',
+                                      style: TextStyle(
+                                          fontSize: 10, color: Colors.grey)),
+                                ]
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // 2. Link Input Box
+                        TextField(
+                          controller: _urlController,
+                          style: const TextStyle(
+                              fontSize: 15, color: Color(0xFF334155)),
+                          decoration: InputDecoration(
+                            hintText: '支持大部分网页、YouTube等',
+                            hintStyle:
+                                const TextStyle(color: Color(0xFF94A3B8)),
+                            prefixIcon: const Icon(Icons.link,
+                                color: Color(0xFF64748B)),
+                            suffixIcon: _urlController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18),
+                                    onPressed: () {
+                                      _urlController.clear();
+                                      setState(() => _urlError = null);
+                                    },
+                                  )
+                                : null,
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFE2E8F0)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFE2E8F0)),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 20),
+                          ),
+                          onChanged: (_) {
+                            if (_pickedFile != null) {
+                              // Clear picked file if user types url
+                              setState(() {
+                                _pickedFile = null;
+                                _pickedFileName = null;
+                                _extractionResult = null;
+                              });
+                            }
+                            setState(() => _urlError = null);
+                          },
+                        ),
+
+                        // 3. Status / Info Area (Result or Error)
+                        if (_error != null || _urlError != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(12),
+                              border:
+                                  Border.all(color: const Color(0xFFFECACA)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline,
+                                    color: Colors.red, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _error ?? _urlError!,
+                                    style: const TextStyle(
+                                        color: Colors.red, fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        if (_extractionResult != null) ...[
+                          const SizedBox(height: 20),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0FDF4), // Green 50
+                              borderRadius: BorderRadius.circular(16),
+                              border:
+                                  Border.all(color: const Color(0xFFBBF7D0)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.check_circle,
+                                        color: Color(0xFF10B981), size: 24),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _extractionResult!.title,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            color: Color(0xFF065F46)),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 36),
+                                  child: Text(
+                                    '包含 ${_extractionResult!.content.length} 字符 · 预计耗时 ${_calculateEstimatedTime(_extractionResult!.content.length)}',
+                                    style: const TextStyle(
+                                        color: Color(0xFF047857), fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  child: const Icon(Icons.link_rounded,
-                      size: 36, color: Color(0xFF3B82F6)),
+
+                  const SizedBox(width: 20),
+
+                  // === RIGHT COLUMN: Buttons ===
+                  SizedBox(
+                    width: 120,
+                    child: Column(
+                      children: [
+                        // Parse Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: (_isParsing || _isGenerating)
+                                ? null
+                                : _performParse,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFF1F5F9),
+                              foregroundColor: const Color(0xFF1E293B),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              padding: EdgeInsets.zero,
+                            ),
+                            child: _isParsing
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2))
+                                : const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.auto_fix_high, size: 20),
+                                      SizedBox(height: 4),
+                                      Text('解析',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // AI Generation Button - Expanded to fill height
+                        Expanded(
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed:
+                                  (_extractionResult != null && !_isGenerating)
+                                      ? _startGeneration
+                                      : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1E293B),
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor:
+                                    const Color(0xFFE2E8F0),
+                                disabledForegroundColor:
+                                    const Color(0xFF94A3B8),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16)),
+                              ),
+                              child: _isGenerating
+                                  ? const CircularProgressIndicator(
+                                      color: Colors.white)
+                                  : const Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.auto_awesome, size: 28),
+                                        SizedBox(height: 8),
+                                        Text('AI 拆解',
+                                            style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 48),
+
+            // Coming Soon
+            Column(
+              children: [
+                Text(
+                  '即将支持 / Coming Soon',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[400],
+                    letterSpacing: 1,
+                  ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  '从 URL 提取内容',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '粘贴文章链接，AI 自动提取并生成知识卡片',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 13,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // URL Input
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: _urlError != null
-                    ? Colors.red.withOpacity(0.5)
-                    : Colors.grey.withOpacity(0.2),
-              ),
-            ),
-            child: TextField(
-              controller: _urlController,
-              style: const TextStyle(fontSize: 15, color: Color(0xFF334155)),
-              decoration: InputDecoration(
-                hintText: 'https://example.com/article',
-                hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
-                prefixIcon: const Icon(Icons.link, color: Color(0xFF64748B)),
-                suffixIcon: _urlController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _urlController.clear();
-                          setState(() => _urlError = null);
-                        },
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              ),
-              onChanged: (_) => setState(() => _urlError = null),
-            ),
-          ),
-
-          if (_urlError != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.red.withOpacity(0.2)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.error_outline, color: Colors.red, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _urlError!,
-                      style: const TextStyle(color: Colors.red, fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          const SizedBox(height: 20),
-
-          // Extract Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isExtractingUrl ? null : _extractFromUrl,
-              icon: _isExtractingUrl
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.auto_awesome),
-              label: Text(_isExtractingUrl ? '正在提取并生成...' : '提取并生成知识卡片'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3B82F6),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 18),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          // 分隔线
-          Row(
-            children: [
-              Expanded(child: Divider(color: Colors.grey.withOpacity(0.2))),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text('或上传文件',
-                    style: TextStyle(color: Colors.grey[400], fontSize: 13)),
-              ),
-              Expanded(child: Divider(color: Colors.grey.withOpacity(0.2))),
-            ],
-          ),
-
-          const SizedBox(height: 32),
-
-          // File Upload Button (Hidden if we have extraction result but no items yet)
-          if (_extractionResult == null) ...[
-            InkWell(
-              onTap: _isUploadingPdf || _isExtractingUrl
-                  ? null
-                  : _handleFileUpload,
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: _isUploadingPdf
-                        ? Colors.blue.withOpacity(0.5)
-                        : Colors.grey.withOpacity(0.2),
-                    width: 1.5,
-                    style: BorderStyle.solid,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    if (_isUploadingPdf) ...[
-                      const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text('正在解析文件...',
-                          style: TextStyle(
-                              color: Colors.blue, fontWeight: FontWeight.w500)),
-                    ] else ...[
-                      const Icon(Icons.upload_file_rounded,
-                          size: 32, color: Color(0xFFEF4444)),
-                      const SizedBox(height: 8),
-                      const Text(
-                        '点击上传文档',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF334155),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '支持 PDF, Word, TXT, MD',
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ] else if (_generatedItems == null) ...[
-            // Extraction Success State - Confirmation
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  const Icon(Icons.check_circle_outline,
-                      size: 48, color: Color(0xFF10B981)),
-                  const SizedBox(height: 16),
-                  Text(
-                    '已成功提取 "${_extractionResult!.title}"',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '共 ${_extractionResult!.content.length} 个字符 · 预计生成耗时 ${_calculateEstimatedTime(_extractionResult!.content.length)}',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            setState(() {
-                              _extractionResult = null;
-                            });
-                          },
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text('取消'),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _isGenerating ? null : _startGeneration,
-                          icon: _isGenerating
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Icon(Icons.auto_awesome),
-                          label: Text(_isGenerating ? 'AI 拆解中...' : '开始智能拆解'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFF8A65),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 0,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          const SizedBox(height: 32),
-
-          // Supported Sources
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '支持的来源',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-                const SizedBox(height: 12),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
                   children: [
-                    _buildSourceChip('小红书', Icons.camera_alt, false),
-                    _buildSourceChip('知乎', Icons.question_answer, false),
-                    _buildSourceChip('微信公众号', Icons.chat_bubble, false),
-                    _buildSourceChip('YouTube', Icons.play_circle, false),
-                    _buildSourceChip('文件上传', Icons.file_present, true),
+                    _buildComingSoonChip('小红书', Icons.camera_alt),
+                    _buildComingSoonChip('知乎', Icons.question_answer),
+                    _buildComingSoonChip('微信公众号', Icons.rss_feed),
+                    _buildComingSoonChip('Bilibili', Icons.tv),
                   ],
                 ),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+
+  // Renaming getter to match new logic variable name if needed, but we used _isExtractingUrl in state
+  bool get _isParsing => _isExtractingUrl; // Helper getter
 
   String _calculateEstimatedTime(int length) {
     // 粗略估算：假设每 1000 字处理需要 5-8 秒 + 网络延迟
@@ -1219,49 +1245,27 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     }
   }
 
-  Widget _buildSourceChip(String label, IconData icon, bool isAvailable) {
+  // New Minimal Chip for Coming Soon Sources
+  Widget _buildComingSoonChip(String label, IconData icon) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: isAvailable ? Colors.white : Colors.grey.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isAvailable
-              ? const Color(0xFF3B82F6).withOpacity(0.3)
-              : Colors.grey.withOpacity(0.2),
-        ),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 14,
-            color: isAvailable ? const Color(0xFF3B82F6) : Colors.grey,
-          ),
+          Icon(icon, size: 14, color: Colors.grey[400]),
           const SizedBox(width: 6),
           Text(
             label,
             style: TextStyle(
-              fontSize: 12,
-              color: isAvailable ? const Color(0xFF3B82F6) : Colors.grey,
-              fontWeight: FontWeight.w500,
-            ),
+                color: Colors.grey[400],
+                fontSize: 12,
+                fontWeight: FontWeight.w500),
           ),
-          if (!isAvailable) ...[
-            const SizedBox(width: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text(
-                'Soon',
-                style: TextStyle(fontSize: 8, color: Colors.grey),
-              ),
-            ),
-          ],
         ],
       ),
     );

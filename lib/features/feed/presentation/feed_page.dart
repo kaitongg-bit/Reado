@@ -375,14 +375,14 @@ class _FeedPageState extends ConsumerState<FeedPage> {
           onTriggerPrev: () {
             if (_isVerticalNavLocked) return;
             _verticalController.previousPage(
-              duration: const Duration(milliseconds: 500),
+              duration: const Duration(milliseconds: 300), // Faster transition
               curve: Curves.easeOutCubic,
             );
           },
           onTriggerNext: () {
             if (_isVerticalNavLocked) return;
             _verticalController.nextPage(
-              duration: const Duration(milliseconds: 500),
+              duration: const Duration(milliseconds: 300), // Faster transition
               curve: Curves.easeOutCubic,
             );
           },
@@ -822,7 +822,8 @@ class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
   }
 
   void _handleDragEnd() {
-    final threshold = MediaQuery.of(context).size.height * 0.15;
+    // 降低垂直触发阈值，让"释放进入下一章"更容易 (原 0.15 -> 0.10)
+    final threshold = MediaQuery.of(context).size.height * 0.10;
     final backThreshold =
         MediaQuery.of(context).size.width * 0.25; // Needs more distance usually
 
@@ -858,7 +859,8 @@ class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
 
   @override
   Widget build(BuildContext context) {
-    final threshold = MediaQuery.of(context).size.height * 0.15;
+    // 降低视觉反馈和逻辑判断的阈值，保持一致 (0.15 -> 0.10)
+    final threshold = MediaQuery.of(context).size.height * 0.10;
     double progress = 0.0;
     String? textAlert;
     IconData? icon;

@@ -20,6 +20,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
   bool _isGenerating = false;
   bool _isExtractingUrl = false;
   bool _isUploadingPdf = false; // 新增状态
+  ExtractionResult? _extractionResult; // 存储提取结果
   List<FeedItem>? _generatedItems;
   String? _error;
   String? _urlError;
@@ -128,18 +129,18 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
           throw Exception('无法读取文件内容 (Bytes is null)');
         }
 
-        final moduleId = widget.targetModuleId ?? 'custom';
-        // 使用通用的 processFile 方法
-        final newItems = await ContentExtractionService.processFile(
+        // 2. 仅提取内容，不立即生成
+        final extraction =
+            await ContentExtractionService.extractContentFromFile(
           bytes,
-          moduleId: moduleId,
           filename: file.name,
         );
 
         if (!mounted) return;
 
         setState(() {
-          _generatedItems = newItems;
+          _extractionResult = extraction;
+          _generatedItems = null; // 重置生成结果
           _isUploadingPdf = false;
         });
       } else {
@@ -152,6 +153,38 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       setState(() {
         _urlError = e.toString();
         _isUploadingPdf = false;
+      });
+    }
+  }
+
+  /// 开始 AI 生成
+  Future<void> _startGeneration() async {
+    if (_extractionResult == null) return;
+
+    setState(() {
+      _isGenerating = true;
+      _error = null;
+    });
+
+    try {
+      final moduleId = widget.targetModuleId ?? 'custom';
+      final newItems = await ContentExtractionService.generateKnowledgeCards(
+        _extractionResult!,
+        moduleId: moduleId,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _generatedItems = newItems;
+        _isGenerating = false;
+        // 保留 _extractionResult 以便可能的后续操作，或者清空取决于需求
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _isGenerating = false;
       });
     }
   }
@@ -995,59 +1028,145 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
 
           const SizedBox(height: 32),
 
-          // File Upload Button
-          InkWell(
-            onTap:
-                _isUploadingPdf || _isExtractingUrl ? null : _handleFileUpload,
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 24),
+          // File Upload Button (Hidden if we have extraction result but no items yet)
+          if (_extractionResult == null) ...[
+            InkWell(
+              onTap: _isUploadingPdf || _isExtractingUrl
+                  ? null
+                  : _handleFileUpload,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _isUploadingPdf
+                        ? Colors.blue.withOpacity(0.5)
+                        : Colors.grey.withOpacity(0.2),
+                    width: 1.5,
+                    style: BorderStyle.solid,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    if (_isUploadingPdf) ...[
+                      const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text('正在解析文件...',
+                          style: TextStyle(
+                              color: Colors.blue, fontWeight: FontWeight.w500)),
+                    ] else ...[
+                      const Icon(Icons.upload_file_rounded,
+                          size: 32, color: Color(0xFFEF4444)),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '点击上传文档',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '支持 PDF, Word, TXT, MD',
+                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ] else if (_generatedItems == null) ...[
+            // Extraction Success State - Confirmation
+            Container(
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: _isUploadingPdf
-                      ? Colors.blue.withOpacity(0.5)
-                      : Colors.grey.withOpacity(0.2),
-                  width: 1.5,
-                  style: BorderStyle.solid,
-                ),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Column(
                 children: [
-                  if (_isUploadingPdf) ...[
-                    const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                  const Icon(Icons.check_circle_outline,
+                      size: 48, color: Color(0xFF10B981)),
+                  const SizedBox(height: 16),
+                  Text(
+                    '已成功提取 "${_extractionResult!.title}"',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
                     ),
-                    const SizedBox(height: 12),
-                    const Text('正在解析文件...',
-                        style: TextStyle(
-                            color: Colors.blue, fontWeight: FontWeight.w500)),
-                  ] else ...[
-                    const Icon(Icons.upload_file_rounded,
-                        size: 32, color: Color(0xFFEF4444)),
-                    const SizedBox(height: 8),
-                    const Text(
-                      '点击上传文档',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF334155),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '共 ${_extractionResult!.content.length} 个字符 · 预计生成耗时 ${_calculateEstimatedTime(_extractionResult!.content.length)}',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _extractionResult = null;
+                            });
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text('取消'),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '支持 PDF, Word, TXT',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                    ),
-                  ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isGenerating ? null : _startGeneration,
+                          icon: _isGenerating
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.auto_awesome),
+                          label: Text(_isGenerating ? 'AI 拆解中...' : '开始智能拆解'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFF8A65),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
-          ),
+          ],
 
           const SizedBox(height: 32),
 
@@ -1074,9 +1193,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _buildSourceChip('博客文章', Icons.article, true),
-                    _buildSourceChip('新闻网站', Icons.newspaper, true),
-                    _buildSourceChip('技术文档', Icons.description, true),
+                    _buildSourceChip('小红书', Icons.camera_alt, false),
+                    _buildSourceChip('知乎', Icons.question_answer, false),
+                    _buildSourceChip('微信公众号', Icons.chat_bubble, false),
                     _buildSourceChip('YouTube', Icons.play_circle, false),
                     _buildSourceChip('文件上传', Icons.file_present, true),
                   ],
@@ -1087,6 +1206,17 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
         ],
       ),
     );
+  }
+
+  String _calculateEstimatedTime(int length) {
+    // 粗略估算：假设每 1000 字处理需要 5-8 秒 + 网络延迟
+    // 简单公式：基础 3秒 + 每1000字 3秒
+    final seconds = 3 + (length / 1000 * 3).round();
+    if (seconds < 60) {
+      return '$seconds 秒';
+    } else {
+      return '${(seconds / 60).toStringAsFixed(1)} 分钟';
+    }
   }
 
   Widget _buildSourceChip(String label, IconData icon, bool isAvailable) {

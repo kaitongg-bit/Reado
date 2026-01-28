@@ -476,35 +476,35 @@ class ContentExtractionService {
     }
   }
 
-  /// 通用文件处理
+  /// 通用文件提取（不生成）
+  static Future<ExtractionResult> extractContentFromFile(
+    Uint8List bytes, {
+    required String filename,
+  }) async {
+    final ext = filename.split('.').last.toLowerCase();
+
+    switch (ext) {
+      case 'pdf':
+        return await extractFromPdfBytes(bytes, filename: filename);
+      case 'docx':
+        return await extractFromDocxBytes(bytes, filename: filename);
+      case 'doc':
+        throw Exception('暂不支持 .doc 格式 (老版本 Word)，请另存为 .docx 或 .pdf 后重试。');
+      case 'txt':
+      case 'md':
+        return await extractFromTxtBytes(bytes, filename: filename);
+      default:
+        throw Exception('不支持的文件格式: .$ext');
+    }
+  }
+
+  /// 通用文件处理（提取 + 生成）
   static Future<List<FeedItem>> processFile(
     Uint8List bytes, {
     required String filename,
     required String moduleId,
   }) async {
-    final ext = filename.split('.').last.toLowerCase();
-    ExtractionResult extraction;
-
-    switch (ext) {
-      case 'pdf':
-        extraction = await extractFromPdfBytes(bytes, filename: filename);
-        break;
-      case 'docx':
-        extraction = await extractFromDocxBytes(bytes, filename: filename);
-        break;
-      case 'doc':
-        // DOC is binary, hard to parse in pure Dart. Using DOCX parser usually fails.
-        // For now, we might warn or try to treat as text if it happens to be xml-based (unlikely).
-        // Encouraging users to convert to DOCX or PDF is safer.
-        throw Exception('暂不支持 .doc 格式 (老版本 Word)，请另存为 .docx 或 .pdf 后重试。');
-      case 'txt':
-      case 'md':
-        extraction = await extractFromTxtBytes(bytes, filename: filename);
-        break;
-      default:
-        throw Exception('不支持的文件格式: .$ext');
-    }
-
+    final extraction = await extractContentFromFile(bytes, filename: filename);
     return generateKnowledgeCards(extraction, moduleId: moduleId);
   }
 

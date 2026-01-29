@@ -236,62 +236,65 @@ class _ExplorePageState extends State<ExplorePage>
   }
 
   Widget _buildTabBar(BuildContext context, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      child: Container(
-        height: 44,
-        decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withOpacity(0.08)
-              : Colors.grey.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: TabBar(
-          controller: _tabController,
-          indicator: BoxDecoration(
-            color: isDark ? Colors.white.withOpacity(0.15) : Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: TabBar(
+        controller: _tabController,
+        // Cleaner underline indicator
+        indicator: UnderlineTabIndicator(
+          borderSide: BorderSide(
+            width: 3,
+            color: isDark ? Colors.white : Colors.black87,
           ),
-          indicatorPadding: const EdgeInsets.all(4),
-          labelColor: isDark ? Colors.white : Colors.black87,
-          unselectedLabelColor: isDark ? Colors.grey[500] : Colors.grey[600],
-          labelStyle:
-              const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-          unselectedLabelStyle:
-              const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
-          dividerColor: Colors.transparent,
-          tabs: [
-            Tab(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.verified,
-                      size: 16, color: const Color(0xFF0D9488)),
-                  const SizedBox(width: 6),
-                  const Text('官方'),
-                ],
-              ),
-            ),
-            Tab(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.people_alt,
-                      size: 16, color: const Color(0xFFEA580C)),
-                  const SizedBox(width: 6),
-                  const Text('创作者'),
-                ],
-              ),
-            ),
-          ],
+          insets: const EdgeInsets.symmetric(horizontal: 40),
+          borderRadius: BorderRadius.circular(2),
         ),
+        indicatorSize: TabBarIndicatorSize.label,
+        dividerColor: Colors.transparent, // Remove default divider
+
+        labelColor: isDark ? Colors.white : Colors.black87,
+        unselectedLabelColor: isDark ? Colors.white38 : Colors.black38,
+
+        labelStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.5,
+        ),
+
+        overlayColor: MaterialStateProperty.all(
+            Colors.transparent), // No ripple for clean look
+
+        tabs: [
+          Tab(
+            height: 40,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.verified_outlined,
+                    size: 18, color: const Color(0xFF0D9488)),
+                const SizedBox(width: 8),
+                const Text('官方精选'),
+              ],
+            ),
+          ),
+          Tab(
+            height: 40,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.people_outline,
+                    size: 18, color: const Color(0xFFEA580C)),
+                const SizedBox(width: 8),
+                const Text('创作者广场'),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

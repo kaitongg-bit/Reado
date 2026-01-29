@@ -14,7 +14,6 @@ class ProfilePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final user = FirebaseAuth.instance.currentUser;
     final items = ref.watch(allItemsProvider);
     final masteredCount =
         items.where((i) => i.masteryLevel != FeedItemMastery.unknown).length;
@@ -22,6 +21,14 @@ class ProfilePage extends ConsumerWidget {
     void handleLogout() async {
       await FirebaseAuth.instance.signOut();
       if (context.mounted) context.go('/onboarding');
+    }
+
+    // Helper to show edit dialog
+    void _showEditProfile(BuildContext context, User user) {
+      showDialog(
+        context: context,
+        builder: (context) => _EditProfileDialog(user: user),
+      );
     }
 
     return Scaffold(
@@ -95,71 +102,129 @@ class ProfilePage extends ConsumerWidget {
               child: Column(
                 children: [
                   // Avatar & Info
-                  Center(
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                color: Colors.orangeAccent.withOpacity(0.5),
-                                width: 2),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.orangeAccent.withOpacity(0.2),
-                                blurRadius: 20,
-                                spreadRadius: 5,
-                              )
-                            ],
-                          ),
-                          child: ClipOval(
-                            child: SizedBox(
-                              width: 100,
-                              height: 100,
-                              child: user?.photoURL != null
-                                  ? Image.network(
-                                      user!.photoURL!,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                        return Image.network(
-                                          'https://api.dicebear.com/7.x/avataaars/png?seed=${user?.uid ?? "Guest"}',
-                                          fit: BoxFit.cover,
-                                        );
-                                      },
-                                    )
-                                  : Image.network(
-                                      'https://api.dicebear.com/7.x/avataaars/png?seed=Guest',
-                                      fit: BoxFit.cover,
+                  StreamBuilder<User?>(
+                    stream: FirebaseAuth.instance.userChanges(),
+                    builder: (context, snapshot) {
+                      final user = snapshot.data;
+                      if (user == null) return const SizedBox();
+
+                      return Center(
+                        child: Column(
+                          children: [
+                            Stack(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: Colors.orangeAccent
+                                            .withOpacity(0.5),
+                                        width: 2),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.orangeAccent
+                                            .withOpacity(0.2),
+                                        blurRadius: 20,
+                                        spreadRadius: 5,
+                                      )
+                                    ],
+                                  ),
+                                  child: ClipOval(
+                                    child: SizedBox(
+                                      width: 100,
+                                      height: 100,
+                                      child: user.photoURL != null
+                                          ? Image.network(
+                                              user.photoURL!,
+                                              fit: BoxFit.cover,
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
+                                                return Image.network(
+                                                  'https://api.dicebear.com/7.x/adventurer/png?seed=${user.uid}',
+                                                  fit: BoxFit.cover,
+                                                );
+                                              },
+                                            )
+                                          : Image.network(
+                                              'https://api.dicebear.com/7.x/adventurer/png?seed=${user.uid}',
+                                              fit: BoxFit.cover,
+                                            ),
                                     ),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: GestureDetector(
+                                    onTap: () =>
+                                        _showEditProfile(context, user),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orangeAccent,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                            color: Colors.white, width: 2),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color:
+                                                Colors.black.withOpacity(0.2),
+                                            blurRadius: 4,
+                                          )
+                                        ],
+                                      ),
+                                      child: const Icon(Icons.edit,
+                                          size: 16, color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  user.displayName ?? '设置昵称',
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color:
+                                        isDark ? Colors.white : Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: () => _showEditProfile(context, user),
+                                  child: Icon(
+                                    Icons.edit_outlined,
+                                    size: 18,
+                                    color: isDark
+                                        ? Colors.grey[400]
+                                        : Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              user.email ?? '',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: isDark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          user?.displayName ?? '游客用户',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          user?.email ?? '',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isDark ? Colors.grey[400] : Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 40),
 
-                  // Stats Grid
                   // Stats Grid
                   Row(
                     children: [
@@ -206,7 +271,6 @@ class ProfilePage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  // Language
                   // Language
                   _GlassTile(
                     icon: Icons.language,
@@ -448,6 +512,188 @@ class _ComingSoonBadge extends StatelessWidget {
           fontWeight: FontWeight.bold,
         ),
       ),
+    );
+  }
+}
+
+class _EditProfileDialog extends StatefulWidget {
+  final User user;
+  const _EditProfileDialog({required this.user});
+
+  @override
+  State<_EditProfileDialog> createState() => _EditProfileDialogState();
+}
+
+class _EditProfileDialogState extends State<_EditProfileDialog> {
+  late TextEditingController _nameController;
+  late String _selectedAvatarUrl;
+  bool _isSaving = false;
+
+  // Curated list of official avatars (Adventurer style for Explore theme)
+  final List<String> _officialAvatars = [
+    'https://api.dicebear.com/7.x/adventurer/png?seed=Felix',
+    'https://api.dicebear.com/7.x/adventurer/png?seed=Aneka',
+    'https://api.dicebear.com/7.x/adventurer/png?seed=Zack',
+    'https://api.dicebear.com/7.x/adventurer/png?seed=Midnight',
+    'https://api.dicebear.com/7.x/adventurer/png?seed=Luna',
+    'https://api.dicebear.com/7.x/adventurer/png?seed=Jasper',
+    'https://api.dicebear.com/7.x/adventurer/png?seed=Willow',
+    'https://api.dicebear.com/7.x/adventurer/png?seed=River',
+    'https://api.dicebear.com/7.x/adventurer/png?seed=Bear',
+    'https://api.dicebear.com/7.x/adventurer/png?seed=Fox',
+    'https://api.dicebear.com/7.x/adventurer/png?seed=Owl',
+    'https://api.dicebear.com/7.x/adventurer/png?seed=Cat',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.user.displayName);
+    _selectedAvatarUrl = widget.user.photoURL ?? _officialAvatars[0];
+
+    // Ensure selected avatar is one of the official ones or default if custom/google
+    // If not in generic list, we just display it as current selection, user can switch
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveProfile() async {
+    setState(() => _isSaving = true);
+    try {
+      if (_nameController.text.trim().isNotEmpty) {
+        await widget.user.updateDisplayName(_nameController.text.trim());
+      }
+      await widget.user.updatePhotoURL(_selectedAvatarUrl);
+
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Update failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return AlertDialog(
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text('编辑资料',
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Avatar Selection
+              Center(
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.orangeAccent, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.orangeAccent.withOpacity(0.2),
+                          blurRadius: 10)
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: Image.network(_selectedAvatarUrl, fit: BoxFit.cover),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              Text('选择头像',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600])),
+              const SizedBox(height: 10),
+
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                ),
+                itemCount: _officialAvatars.length,
+                itemBuilder: (context, index) {
+                  final url = _officialAvatars[index];
+                  final isSelected = url == _selectedAvatarUrl;
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedAvatarUrl = url),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: isSelected
+                            ? Border.all(color: Colors.orangeAccent, width: 3)
+                            : null,
+                      ),
+                      child: ClipOval(
+                        child: Image.network(url, fit: BoxFit.cover),
+                      ),
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 24),
+
+              // Name Input
+              TextField(
+                controller: _nameController,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                decoration: InputDecoration(
+                  labelText: '昵称',
+                  hintText: '输入你的昵称',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(Icons.person_outline),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        ElevatedButton(
+          onPressed: _isSaving ? null : _saveProfile,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orangeAccent,
+            foregroundColor: Colors.white,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: _isSaving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white))
+              : const Text('保存'),
+        ),
+      ],
     );
   }
 }

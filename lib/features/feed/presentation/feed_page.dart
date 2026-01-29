@@ -13,8 +13,10 @@ import 'widgets/feed_item_view.dart';
 class FeedPage extends ConsumerStatefulWidget {
   final String moduleId; // e.g. "A" or "SEARCH"
   final String? searchQuery;
+  final int? initialIndex; // Optional: jump to specific item
 
-  const FeedPage({super.key, required this.moduleId, this.searchQuery});
+  const FeedPage(
+      {super.key, required this.moduleId, this.searchQuery, this.initialIndex});
 
   @override
   ConsumerState<FeedPage> createState() => _FeedPageState();
@@ -31,9 +33,16 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     super.initState();
     bool isSearch = widget.moduleId == 'SEARCH';
 
-    // Restore index per module
+    // Handle special case: initialIndex = -1 means "jump to last item"
+    // We'll handle this after loading completes
+    final bool jumpToLast = widget.initialIndex == -1;
+
+    // Priority: initialIndex > savedProgress > 0
     final progressMap = ref.read(feedProgressProvider);
-    final savedIndex = progressMap[widget.moduleId] ?? 0;
+    final savedIndex =
+        (widget.initialIndex != null && widget.initialIndex! >= 0)
+            ? widget.initialIndex!
+            : progressMap[widget.moduleId] ?? 0;
 
     _focusedItemIndex = savedIndex;
     _verticalController = PageController(initialPage: savedIndex);
@@ -45,8 +54,29 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       Future.microtask(() =>
           ref.read(feedProvider.notifier).searchItems(widget.searchQuery!));
     } else {
-      Future.microtask(
-          () => ref.read(feedProvider.notifier).loadModule(widget.moduleId));
+      Future.microtask(() {
+        ref.read(feedProvider.notifier).loadModule(widget.moduleId);
+      });
+
+      // After loading completes (via provider rebuild), jump to last if requested
+      if (jumpToLast) {
+        // Use a slight delay to let the provider update
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (!mounted) return;
+          final items = ref.read(feedProvider);
+          if (items.isNotEmpty) {
+            final lastIndex = items.length - 1;
+            setState(() {
+              _focusedItemIndex = lastIndex;
+            });
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_verticalController.hasClients) {
+                _verticalController.jumpToPage(lastIndex);
+              }
+            });
+          }
+        });
+      }
     }
   }
 
@@ -61,6 +91,39 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   @override
   Widget build(BuildContext context) {
     final feedItems = ref.watch(feedProvider);
+
+    // 🎧 Listen for Auto-Jump triggers (e.g. adding new material)
+    ref.listen<Map<String, int>>(feedProgressProvider, (previous, next) {
+      final newIndex = next[widget.moduleId];
+      if (newIndex != null) {
+        // Switching Logic
+        if (!_isSingleView) {
+          setState(() {
+            _isSingleView = true;
+            _focusedItemIndex = newIndex;
+          });
+        } else if (_focusedItemIndex != newIndex) {
+          setState(() => _focusedItemIndex = newIndex);
+        }
+
+        // Jump Execution with Retry
+        // Retry logic is needed because if we switch from Empty -> Loaded or Grid -> Single,
+        // the PageView might not be attached immediately in the current frame.
+        void tryJump(int attempt) {
+          if (_verticalController.hasClients) {
+            _verticalController.jumpToPage(newIndex);
+          } else {
+            if (attempt < 5) {
+              // Retry up to 5 times (~500ms)
+              Future.delayed(const Duration(milliseconds: 100),
+                  () => tryJump(attempt + 1));
+            }
+          }
+        }
+
+        WidgetsBinding.instance.addPostFrameCallback((_) => tryJump(0));
+      }
+    });
 
     // 🛡️ Guard: Check for stale data from previous module to avoid index resets
     if (widget.moduleId != 'SEARCH' && feedItems.isNotEmpty) {
@@ -516,8 +579,65 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                 ),
                               const Spacer(),
                               if (item.isFavorited)
-                                const Icon(Icons.favorite,
-                                    size: 16, color: Colors.redAccent)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 4),
+                                  child: const Icon(Icons.favorite,
+                                      size: 16, color: Colors.redAccent),
+                                ),
+                              if (item.isCustom)
+                                SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: PopupMenuButton<String>(
+                                    padding: EdgeInsets.zero,
+                                    icon: Icon(Icons.more_horiz,
+                                        size: 16,
+                                        color: isDark
+                                            ? Colors.white70
+                                            : Colors.black54),
+                                    onSelected: (value) {
+                                      if (value == 'delete') {
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: const Text('删除知识卡片？'),
+                                            content:
+                                                const Text('删除后无法恢复，确定要删除吗？'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(context),
+                                                child: const Text('取消'),
+                                              ),
+                                              TextButton(
+                                                onPressed: () {
+                                                  ref
+                                                      .read(
+                                                          feedProvider.notifier)
+                                                      .deleteFeedItem(item.id);
+                                                  Navigator.pop(context);
+                                                },
+                                                child: const Text('删除',
+                                                    style: TextStyle(
+                                                        color: Colors.red)),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    itemBuilder: (context) => [
+                                      const PopupMenuItem(
+                                        value: 'delete',
+                                        height: 32,
+                                        child: Text('删除',
+                                            style: TextStyle(
+                                                fontSize: 13,
+                                                color: Colors.red)),
+                                      ),
+                                    ],
+                                  ),
+                                )
                             ],
                           ),
 

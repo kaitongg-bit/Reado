@@ -65,6 +65,9 @@ class FeedItem {
   // 收藏状态
   final bool isFavorited;
 
+  // 是否为自定义内容
+  final bool isCustom;
+
   // Getters for compatibility
   String get module => moduleId; // Alias
 
@@ -81,6 +84,7 @@ class FeedItem {
     this.easeFactor = 2.5,
     this.masteryLevel = FeedItemMastery.unknown,
     this.isFavorited = false,
+    this.isCustom = false,
   });
 
   /// CopyWith
@@ -111,6 +115,8 @@ class FeedItem {
       easeFactor: easeFactor ?? this.easeFactor,
       masteryLevel: masteryLevel ?? this.masteryLevel,
       isFavorited: isFavorited ?? this.isFavorited,
+      isCustom: this
+          .isCustom, // Copy original value, usually not changed via copyWith
     );
   }
 
@@ -128,6 +134,7 @@ class FeedItem {
       'easeFactor': easeFactor,
       'masteryLevel': masteryLevel.name,
       'isFavorited': isFavorited,
+      'isCustom': isCustom,
       'pages': pages.map((p) {
         if (p is OfficialPage) {
           return {
@@ -196,6 +203,7 @@ class FeedItem {
       easeFactor: (json['easeFactor'] ?? 2.5).toDouble(),
       masteryLevel: mastery,
       isFavorited: json['isFavorited'] ?? false,
+      isCustom: json['isCustom'] ?? false,
     );
   }
 }

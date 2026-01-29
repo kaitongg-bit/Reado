@@ -155,7 +155,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(30),
                         child: Image.asset(
-                          'assets/images/logo_flat.png', // The new 2D icon
+                          'assets/images/logonew.jpg', // User's custom logo
                           width: 120,
                           height: 120,
                           fit: BoxFit.cover,

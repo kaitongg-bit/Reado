@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../../../models/feed_item.dart';
 import '../../../../data/services/content_extraction_service.dart';
 import '../../feed/presentation/feed_provider.dart';
+import '../../feed/presentation/feed_page.dart';
 
 class AddMaterialModal extends ConsumerStatefulWidget {
   final String? targetModuleId;
@@ -219,6 +220,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
           pages: [OfficialPage("# $title\n\n$contentStr")],
           category: category,
           masteryLevel: FeedItemMastery.unknown,
+          isCustom: true, // 用户生成的内容，可删除
         ));
       }
     }
@@ -269,6 +271,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
         pages: [OfficialPage(text)],
         category: 'Manual',
         masteryLevel: FeedItemMastery.unknown,
+        isCustom: true, // 用户生成的内容，可删除
       ));
     }
 
@@ -296,16 +299,53 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
         await service.saveCustomFeedItem(itemToSave, currentUser.uid);
       }
 
-      // 同时添加到内存 Provider（用于即时显示）
+      // 3. 同时添加到内存 Provider（用于即时显示）
       ref.read(feedProvider.notifier).addCustomItems(_generatedItems!);
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('成功添加 ${_generatedItems!.length} 个知识点到 Firestore！')),
+      // 4. Show confirmation dialog
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('导入成功'),
+          content: const Text('知识卡片已生成，是否立即开始学习？'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                // Just close the dialog and the modal
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(); // Close modal
+              },
+              child: const Text('稍后'),
+            ),
+            FilledButton(
+              onPressed: () {
+                // Close dialog first
+                Navigator.of(context).pop();
+
+                // Close the modal
+                Navigator.of(context).pop();
+
+                // Get the module we just added to
+                final activeModuleId = widget.targetModuleId ?? 'custom';
+
+                // 直接导航到 FeedPage，使用 -1 表示跳到最后一张（新添加的）
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => FeedPage(
+                      moduleId: activeModuleId,
+                      initialIndex:
+                          -1, // Special: jump to last item after loading
+                    ),
+                  ),
+                );
+              },
+              child: const Text('立即学习'),
+            ),
+          ],
+        ),
       );
-      Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
 

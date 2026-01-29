@@ -9,6 +9,10 @@ abstract class DataService {
   Future<List<FeedItem>> fetchFeedItems(String moduleId);
   Future<List<FeedItem>> fetchCustomFeedItems(String userId); // 获取用户自定义内容
   Future<void> saveUserNote(String itemId, String question, String answer);
+  Future<void> deleteUserNote(String itemId, UserNotePage note);
+  Future<void> updateUserNote(
+      String itemId, UserNotePage oldNote, String newQ, String newA);
+  Future<void> deleteCustomFeedItem(String itemId);
   Future<void> updateSRSStatus(
       String itemId, DateTime nextReview, int interval, double ease);
   Future<void> updateMasteryLevel(String itemId, String masteryLevel);
@@ -131,6 +135,7 @@ class FirestoreService implements DataService {
 
       final items = snapshot.docs.map<FeedItem>((doc) {
         final data = doc.data();
+        data['isCustom'] = true; // Mark as custom
         return FeedItem.fromJson(data);
       }).toList();
 
@@ -209,6 +214,159 @@ class FirestoreService implements DataService {
       print('✅ Saved AI Custom Item: ${item.id}');
     } catch (e) {
       print('❌ Error saving custom item: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> deleteCustomFeedItem(String itemId) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      print('🗑️ Deleting custom item: $itemId');
+      await _usersRef
+          .doc(user.uid)
+          .collection('custom_items')
+          .doc(itemId)
+          .delete();
+      print('✅ Deleted custom item');
+    } catch (e) {
+      print('❌ Error deleting custom item: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> deleteUserNote(String itemId, UserNotePage note) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      print('🗑️ Deleting user note from $itemId');
+
+      final noteData = {
+        'type': 'user_note',
+        'question': note.question,
+        'answer': note.answer,
+        'createdAt': note.createdAt.toIso8601String(),
+      };
+
+      // 1️⃣ Try Custom Item
+      final customRef =
+          _usersRef.doc(user.uid).collection('custom_items').doc(itemId);
+      final customDoc = await customRef.get();
+
+      if (customDoc.exists) {
+        await customRef.update({
+          'pages': FieldValue.arrayRemove([noteData])
+        });
+        print('✅ Removed note from custom item');
+        return;
+      }
+
+      // 2️⃣ Try Official Item (Notes collection)
+      // Note: For official item, we might have saved it with Timestamp.
+      // But arrayRemove needs EXACT match.
+      // If timestamps differ by format (ISO string vs Timestamp), this might fail.
+      // Strategy: Fetch the array, remove by filtering, update the array.
+      // This is safer than arrayRemove for complex objects.
+
+      final notesRef = _usersRef.doc(user.uid).collection('notes').doc(itemId);
+
+      final noteDoc = await notesRef.get();
+      if (noteDoc.exists) {
+        final data = noteDoc.data();
+        if (data != null && data['pages'] != null) {
+          final pages = List<Map<String, dynamic>>.from(data['pages']);
+
+          // Filter out the note to delete
+          // Matching by question and content to be safe (Title might be enough?)
+          final updatedPages = pages.where((p) {
+            final q = p['question'] as String?;
+            final a = p['answer'] as String?;
+            return q != note.question || a != note.answer;
+          }).toList();
+
+          await notesRef.update({'pages': updatedPages});
+          print('✅ Removed note from official item side-car');
+        }
+      }
+    } catch (e) {
+      print('❌ Error deleting user note: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> updateUserNote(
+      String itemId, UserNotePage oldNote, String newQ, String newA) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      print('✏️ Updating user note in $itemId');
+
+      // 1️⃣ Try Custom Item
+      final customRef =
+          _usersRef.doc(user.uid).collection('custom_items').doc(itemId);
+      final customDoc = await customRef.get();
+
+      if (customDoc.exists) {
+        final data = customDoc.data();
+        if (data != null && data['pages'] != null) {
+          final pages = List<Map<String, dynamic>>.from(data['pages']);
+
+          // Find and update the note
+          final updatedPages = pages.map((p) {
+            final q = p['question'] as String?;
+            final a = p['answer'] as String?;
+            if (q == oldNote.question && a == oldNote.answer) {
+              return {
+                'type': 'user_note',
+                'question': newQ,
+                'answer': newA,
+                'createdAt': oldNote.createdAt.toIso8601String(),
+              };
+            }
+            return p;
+          }).toList();
+
+          await customRef.update({'pages': updatedPages});
+          print('✅ Updated note in custom item');
+          return;
+        }
+      }
+
+      // 2️⃣ Try Official Item (Notes collection)
+      final notesRef = _usersRef.doc(user.uid).collection('notes').doc(itemId);
+      final noteDoc = await notesRef.get();
+
+      if (noteDoc.exists) {
+        final data = noteDoc.data();
+        if (data != null && data['pages'] != null) {
+          final pages = List<Map<String, dynamic>>.from(data['pages']);
+
+          final updatedPages = pages.map((p) {
+            final q = p['question'] as String?;
+            final a = p['answer'] as String?;
+            if (q == oldNote.question && a == oldNote.answer) {
+              return {
+                'type': 'user_note',
+                'question': newQ,
+                'answer': newA,
+                'createdAt': oldNote.createdAt.toIso8601String(),
+              };
+            }
+            return p;
+          }).toList();
+
+          await notesRef.update({'pages': updatedPages});
+          print('✅ Updated note in official item side-car');
+        }
+      }
+    } catch (e) {
+      print('❌ Error updating user note: $e');
       rethrow;
     }
   }

@@ -401,28 +401,47 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
         ),
       );
     } else if (content is UserNotePage) {
+      // No bottom padding for notes - maximize reading space
+      final notePadding = const EdgeInsets.fromLTRB(24, 130, 24, 0);
+
       return Container(
         color: isDark
-            ? const Color(0xFF2D2510).withOpacity(0.8)
-            : const Color(0xFFFFFBEB).withOpacity(0.95), // Amber tint for notes
-        padding: contentPadding,
+            ? const Color(0xFF1A1A1A) // Dark mode: nearly black, subtle
+            : Colors.white.withOpacity(0.95), // Light mode: clean white
+        padding: notePadding,
         child: SelectionArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Compact header
               Row(
                 children: [
-                  Icon(Icons.push_pin, color: Colors.amber, size: 24),
-                  const SizedBox(width: 12),
-                  const Text('置顶笔记',
-                      style: TextStyle(
-                          color: Colors.amber,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0)),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.push_pin, color: Colors.amber, size: 14),
+                        const SizedBox(width: 6),
+                        Text('笔记',
+                            style: TextStyle(
+                                color: Colors.amber[700],
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12)),
+                      ],
+                    ),
+                  ),
                   const Spacer(),
                   PopupMenuButton<String>(
                     icon: Icon(Icons.more_horiz,
-                        color: isDark ? Colors.white : Colors.black54),
+                        color: isDark ? Colors.white54 : Colors.black45,
+                        size: 20),
                     onSelected: (value) {
                       if (value == 'edit') {
                         _handleEditNote(content);
@@ -457,18 +476,21 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                   ),
                 ],
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               Text(
                 content.question,
                 style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : Colors.black87,
                     height: 1.3),
               ),
-              const SizedBox(height: 24),
-              Divider(height: 1, color: Colors.amber.withOpacity(0.3)),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+              Divider(
+                  height: 1,
+                  color:
+                      isDark ? Colors.white24 : Colors.grey.withOpacity(0.2)),
+              const SizedBox(height: 20),
               Expanded(
                 child: SingleChildScrollView(
                   child: MarkdownBody(
@@ -476,11 +498,11 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                     styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
                         .copyWith(
                       p: TextStyle(
-                        fontSize: 18,
-                        height: 1.8,
+                        fontSize: 17,
+                        height: 1.7,
                         color: isDark
                             ? Colors.grey[300]
-                            : Colors.black87.withOpacity(0.8),
+                            : Colors.black87.withOpacity(0.85),
                       ),
                       listBullet: TextStyle(
                           color: isDark ? Colors.grey[400] : Colors.black87),

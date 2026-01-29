@@ -296,6 +296,7 @@ class ContentExtractionService {
         category: item['category'] ?? 'AI Generated',
         difficulty: item['difficulty'] ?? 'Medium',
         readingTimeMinutes: 5,
+        isCustom: true, // 用户生成的内容，可删除
         pages: [
           OfficialPage(
             item['content'] ?? '',

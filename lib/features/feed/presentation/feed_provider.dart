@@ -4,6 +4,7 @@ import '../../../data/mock_data.dart';
 import '../../../models/feed_item.dart';
 import '../../../data/services/firestore_service.dart';
 import '../../../core/services/content_generator_service.dart';
+import '../../../config/api_config.dart';
 
 // Global provider to track reviewed items in the current session (persist across navigation)
 final reviewedSessionProvider = StateProvider<Set<String>>((ref) => {});
@@ -26,11 +27,14 @@ final dataServiceProvider = Provider<DataService>((ref) => FirestoreService());
 
 // Content Generator Provider
 final contentGeneratorProvider = Provider((ref) {
-  const apiKey = String.fromEnvironment('GEMINI_API_KEY');
-  if (apiKey.isEmpty) {
-    print('⚠️ Gemini API Key missing via --dart-define');
+  try {
+    final apiKey = ApiConfig.getApiKey();
+    return ContentGeneratorService(apiKey: apiKey);
+  } catch (e) {
+    print('⚠️ Gemini API Key not configured: $e');
+    // Return with empty key, will fail on actual API call
+    return ContentGeneratorService(apiKey: '');
   }
-  return ContentGeneratorService(apiKey: apiKey);
 });
 
 class FeedNotifier extends StateNotifier<List<FeedItem>> {
@@ -280,6 +284,20 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     await _dataService.saveUserNote(itemId, question, answer);
   }
 
+  Future<void> deleteFeedItem(String itemId) async {
+    final index = _allItems.indexWhere((i) => i.id == itemId);
+    if (index == -1) return;
+
+    final item = _allItems[index];
+    if (!item.isCustom) return; // Only allow deleting custom items
+
+    // Optimistic UI update
+    _allItems = List.from(_allItems)..removeAt(index);
+    state = List.from(state)..removeWhere((i) => i.id == itemId);
+
+    await _dataService.deleteCustomFeedItem(itemId);
+  }
+
   void deleteUserNote(String itemId, UserNotePage note) {
     final index = _allItems.indexWhere((i) => i.id == itemId);
     if (index == -1) return;
@@ -289,8 +307,8 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
 
     final newItem = item.copyWith(pages: newPages);
     updateItem(newItem);
-    // TODO: Implement backend delete persistence
-    // _dataService.deleteNote(...)
+
+    _dataService.deleteUserNote(itemId, note);
   }
 
   void updateUserNote(
@@ -312,7 +330,9 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
 
     final newItem = item.copyWith(pages: newPages);
     updateItem(newItem);
-    // TODO: Implement backend update persistence
+
+    // Persist to backend
+    _dataService.updateUserNote(itemId, oldNote, newQ, newA);
   }
 
   int get totalDueCount {

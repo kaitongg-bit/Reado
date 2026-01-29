@@ -7,6 +7,7 @@ import '../../../../models/feed_item.dart';
 import '../module_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../lab/presentation/add_material_modal.dart';
+import '../../../explore/presentation/explore_page.dart';
 
 class HomeTab extends ConsumerWidget {
   final Function(String moduleId)? onLoadModule; // 加载模块的回调
@@ -336,14 +337,56 @@ class HomeTab extends ConsumerWidget {
                   // 3. Knowledge Spaces Section
                   // -> Official Spaces
                   if (moduleState.officials.isNotEmpty) ...[
-                    Text(
-                      '官方知识库',
-                      style: TextStyle(
-                        color: isDark ? Colors.white : Colors.black87,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: -0.5,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '官方知识库',
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black87,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const ExplorePage()),
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0D9488).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: const Color(0xFF0D9488).withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.explore_outlined,
+                                  size: 16,
+                                  color: const Color(0xFF0D9488),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '探索',
+                                  style: TextStyle(
+                                    color: const Color(0xFF0D9488),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     ...moduleState.officials.map((m) {

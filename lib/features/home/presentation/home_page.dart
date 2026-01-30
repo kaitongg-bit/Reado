@@ -18,37 +18,46 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage> {
   int _selectedIndex = 0;
-  String? _activeModule; // 当前激活的模块
 
   @override
   void initState() {
     super.initState();
 
-    // ✅ 修复：首次进入时加载所有数据
+    // ✅ Load all data on first entry
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(feedProvider.notifier).loadAllData();
     });
 
     if (widget.initialModule != null) {
       _selectedIndex = 1; // 切换到学习 tab
-      _activeModule = widget.initialModule;
+      // Save to provider
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref
+            .read(lastActiveModuleProvider.notifier)
+            .setActiveModule(widget.initialModule!);
+      });
     }
   }
 
   void _loadModule(String moduleId) {
+    // Save the active module to persistent storage
+    ref.read(lastActiveModuleProvider.notifier).setActiveModule(moduleId);
     setState(() {
       _selectedIndex = 1; // 切换到学习 tab
-      _activeModule = moduleId;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    // Watch the persisted last active module
+    final lastActiveModule = ref.watch(lastActiveModuleProvider);
+
+    // Use persisted module, or fallback to 'A'
+    final currentModuleId = lastActiveModule ?? 'A';
+
     final screens = [
       HomeTab(onLoadModule: _loadModule), // 传递回调
-      _activeModule != null
-          ? FeedPage(moduleId: _activeModule!)
-          : const FeedPage(moduleId: 'A'), // 默认显示 Module A
+      FeedPage(key: ValueKey(currentModuleId), moduleId: currentModuleId),
       const VaultPage(),
     ];
 

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:flutter/foundation.dart';
 import '../../../models/feed_item.dart';
 
 import '../../home/presentation/module_provider.dart';
@@ -56,6 +57,10 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     } else {
       Future.microtask(() {
         ref.read(feedProvider.notifier).loadModule(widget.moduleId);
+        // Save this module as the last active module
+        ref
+            .read(lastActiveModuleProvider.notifier)
+            .setActiveModule(widget.moduleId);
       });
 
       // After loading completes (via provider rebuild), jump to last if requested
@@ -87,15 +92,54 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   }
 
   int _focusedItemIndex = 0;
+  bool _initialPositionRestored = false; // Track if we've restored position
+
+  /// Attempt to restore scroll position from saved progress
+  void _tryRestorePosition(int itemCount) {
+    if (_initialPositionRestored || !mounted) return;
+
+    final progressMap = ref.read(feedProgressProvider);
+
+    // If progressMap is completely empty, progress loading might not be complete yet
+    // Wait for it to load (will be triggered by ref.listen when data arrives)
+    if (progressMap.isEmpty) {
+      print('🔄 Progress map is empty, waiting for load...');
+      return;
+    }
+
+    // Progress is loaded. Use saved value for this module, or 0 if never saved.
+    final savedIndex = progressMap[widget.moduleId] ?? 0;
+    print(
+        '🎯 Restoring position for ${widget.moduleId}: $savedIndex (current: $_focusedItemIndex)');
+
+    // Validate index is within bounds
+    if (savedIndex >= 0 && savedIndex < itemCount) {
+      // Only restore if we're NOT already at the correct position
+      if (_focusedItemIndex != savedIndex) {
+        print('🎯 Jumping to page $savedIndex');
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (mounted && _verticalController.hasClients) {
+            _verticalController.jumpToPage(savedIndex);
+            setState(() => _focusedItemIndex = savedIndex);
+            print('✅ Position restored to $savedIndex');
+          }
+        });
+      } else {
+        print('🎯 Already at correct position $savedIndex');
+      }
+      _initialPositionRestored = true;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final feedItems = ref.watch(feedProvider);
 
-    // 🎧 Listen for Auto-Jump triggers (e.g. adding new material)
+    // 🎧 Listen for Auto-Jump triggers (Progress Update)
     ref.listen<Map<String, int>>(feedProgressProvider, (previous, next) {
       final newIndex = next[widget.moduleId];
-      if (newIndex != null) {
+      // Only jump if we have data and the view is ready
+      if (newIndex != null && feedItems.isNotEmpty) {
         // Switching Logic
         if (!_isSingleView) {
           setState(() {
@@ -106,24 +150,30 @@ class _FeedPageState extends ConsumerState<FeedPage> {
           setState(() => _focusedItemIndex = newIndex);
         }
 
-        // Jump Execution with Retry
-        // Retry logic is needed because if we switch from Empty -> Loaded or Grid -> Single,
-        // the PageView might not be attached immediately in the current frame.
-        void tryJump(int attempt) {
+        // Execution
+        WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_verticalController.hasClients) {
             _verticalController.jumpToPage(newIndex);
-          } else {
-            if (attempt < 5) {
-              // Retry up to 5 times (~500ms)
-              Future.delayed(const Duration(milliseconds: 100),
-                  () => tryJump(attempt + 1));
-            }
           }
-        }
-
-        WidgetsBinding.instance.addPostFrameCallback((_) => tryJump(0));
+        });
       }
     });
+
+    // 🎧 Listen for Data Load to apply pending progress (Data Update)
+    ref.listen<List<FeedItem>>(feedProvider, (prev, next) {
+      if (next.isNotEmpty && (prev == null || prev.isEmpty)) {
+        // Data just arrived! Check if we have a saved position to restore.
+        _tryRestorePosition(next.length);
+      }
+    });
+
+    // 🔄 CRITICAL: Try to restore position on EVERY build until successful
+    // This handles the case where progress loads AFTER data
+    if (!_initialPositionRestored && feedItems.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _tryRestorePosition(feedItems.length);
+      });
+    }
 
     // 🛡️ Guard: Check for stale data from previous module to avoid index resets
     if (widget.moduleId != 'SEARCH' && feedItems.isNotEmpty) {
@@ -142,11 +192,9 @@ class _FeedPageState extends ConsumerState<FeedPage> {
         _verticalController = PageController(initialPage: 0);
         // Update provider to 0 safely
         Future.microtask(() {
-          final currentMap = ref.read(feedProgressProvider);
-          ref.read(feedProgressProvider.notifier).state = {
-            ...currentMap,
-            widget.moduleId: 0
-          };
+          ref
+              .read(feedProgressProvider.notifier)
+              .setProgress(widget.moduleId, 0);
         });
       }
     }
@@ -426,9 +474,9 @@ class _FeedPageState extends ConsumerState<FeedPage> {
           _isVerticalNavLocked = false;
         });
         // 💾 Persist reading position per module
-        final currentMap = ref.read(feedProgressProvider);
-        final newMap = {...currentMap, widget.moduleId: index};
-        ref.read(feedProgressProvider.notifier).state = newMap;
+        ref
+            .read(feedProgressProvider.notifier)
+            .setProgress(widget.moduleId, index);
       },
       itemBuilder: (context, index) {
         final item = items[index];
@@ -515,9 +563,9 @@ class _FeedPageState extends ConsumerState<FeedPage> {
         return GestureDetector(
           onTap: () {
             // 💾 Explicitly save index on tap from Grid
-            final currentMap = ref.read(feedProgressProvider);
-            final newMap = {...currentMap, widget.moduleId: index};
-            ref.read(feedProgressProvider.notifier).state = newMap;
+            ref
+                .read(feedProgressProvider.notifier)
+                .setProgress(widget.moduleId, index);
 
             setState(() {
               _focusedItemIndex = index; // Ensure we sync before switching
@@ -534,12 +582,16 @@ class _FeedPageState extends ConsumerState<FeedPage> {
               Positioned.fill(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                    child: Container(
+                  child: Builder(builder: (context) {
+                    final content = Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: backgroundColor,
+                        // Web optimization: Higher opacity background if no blur
+                        color: kIsWeb
+                            ? (isDark
+                                ? Colors.black.withOpacity(0.8)
+                                : Colors.white.withOpacity(0.95))
+                            : backgroundColor,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                             color: borderColor, width: isFocused ? 2 : 1),
@@ -702,8 +754,15 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                           )
                         ],
                       ),
-                    ),
-                  ),
+                    );
+
+                    return kIsWeb
+                        ? content
+                        : BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                            child: content,
+                          );
+                  }),
                 ),
               ),
               if (isFocused)

@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/mock_data.dart';
 import '../../../models/feed_item.dart';
 import '../../../data/services/firestore_service.dart';
@@ -18,9 +20,138 @@ final libraryIdsProvider = StateProvider<List<String>>((ref) => []);
 // Loading state for feed data
 final feedLoadingProvider = StateProvider<bool>((ref) => true);
 
+// Provider to persist the last active module ID
+final lastActiveModuleProvider =
+    StateNotifierProvider<LastActiveModuleNotifier, String?>((ref) {
+  return LastActiveModuleNotifier();
+});
+
+class LastActiveModuleNotifier extends StateNotifier<String?> {
+  LastActiveModuleNotifier() : super(null) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final moduleId = prefs.getString('last_active_module');
+      if (moduleId != null) {
+        state = moduleId;
+        print('📍 Last active module loaded: $moduleId');
+      }
+    } catch (e) {
+      print('Failed to load last active module: $e');
+    }
+  }
+
+  Future<void> setActiveModule(String moduleId) async {
+    if (state == moduleId) return;
+    state = moduleId;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('last_active_module', moduleId);
+      print('📍 Last active module saved: $moduleId');
+    } catch (e) {
+      print('Failed to save last active module: $e');
+    }
+  }
+}
+
 // Provider to persist the last focused item index PER MODULE
 // Key: moduleId, Value: index
-final feedProgressProvider = StateProvider<Map<String, int>>((ref) => {});
+// CRITICAL: Do NOT use ref.watch on auth stream here - it causes provider rebuild!
+final feedProgressProvider =
+    StateNotifierProvider<FeedProgressNotifier, Map<String, int>>((ref) {
+  final dataService = ref.watch(dataServiceProvider);
+  return FeedProgressNotifier(dataService);
+});
+
+class FeedProgressNotifier extends StateNotifier<Map<String, int>> {
+  final DataService _dataService;
+
+  FeedProgressNotifier(this._dataService) : super({}) {
+    _loadProgress();
+  }
+
+  Future<void> _loadProgress() async {
+    try {
+      // 1. Load Local FIRST (instant restore)
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString('feed_progress');
+      Map<String, int> localProgress = {};
+      if (jsonStr != null) {
+        print('📦 Local data found: $jsonStr');
+        final decoded = json.decode(jsonStr) as Map<String, dynamic>;
+        localProgress =
+            decoded.map((key, value) => MapEntry(key, value as int));
+        state = localProgress; // Immediate local restore
+        print('📦 Local progress loaded: $localProgress');
+      } else {
+        print('📦 No local data found');
+      }
+
+      // 2. Wait for Firebase Auth to initialize (up to 2 seconds)
+      User? user = FirebaseAuth.instance.currentUser;
+      for (int i = 0; i < 10 && user == null; i++) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        user = FirebaseAuth.instance.currentUser;
+      }
+
+      // 3. Load Cloud (Authoritative) if user available
+      if (user != null) {
+        print('☁️ Fetching progress for user ${user.uid}...');
+        final cloudProgress =
+            await _dataService.fetchAllModuleProgress(user.uid);
+        print('☁️ Cloud progress received: $cloudProgress');
+        if (cloudProgress.isNotEmpty) {
+          // Merge: Cloud overwrites Local for same keys
+          final merged = {...localProgress, ...cloudProgress};
+          print('🔀 Merged progress: $merged');
+
+          if (merged.toString() != state.toString()) {
+            state = merged;
+            // Update Local Cache
+            await prefs.setString('feed_progress', json.encode(merged));
+            print('✅ Sync with Cloud complete. Final state: $state');
+          }
+        } else {
+          print('☁️ Cloud returned empty, keeping local: $state');
+        }
+      }
+    } catch (e) {
+      print('❌ Failed to load progress: $e');
+    }
+  }
+
+  Future<void> setProgress(String moduleId, int index) async {
+    // Only update if changed
+    if (state[moduleId] == index) return;
+
+    print('💾 Saving progress: moduleId=$moduleId, index=$index');
+
+    // CRITICAL: Must use this syntax to use variable as map key in Dart
+    final newState = Map<String, int>.from(state);
+    newState[moduleId] = index;
+    state = newState;
+    print('💾 New state: $state');
+
+    try {
+      // 1. Save Local IMMEDIATELY
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('feed_progress', json.encode(state));
+      print('💾 Saved to local storage');
+
+      // 2. Save Cloud (Fire & Forget)
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        _dataService.saveModuleProgress(user.uid, moduleId, index);
+        print('💾 Saving to cloud for user ${user.uid}');
+      }
+    } catch (e) {
+      print('❌ Failed to save progress: $e');
+    }
+  }
+}
 
 // DATA SOURCE PROVIDER
 final dataServiceProvider = Provider<DataService>((ref) => FirestoreService());

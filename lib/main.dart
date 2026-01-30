@@ -12,6 +12,7 @@ import 'features/feed/presentation/feed_page.dart';
 import 'features/lab/presentation/lab_page.dart';
 import 'features/war_room/presentation/war_room_page.dart';
 import 'features/profile/presentation/profile_page.dart';
+import 'features/explore/presentation/explore_page.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -43,10 +44,18 @@ final _router = GoRouter(
       builder: (context, state) => const HomePage(),
     ),
     GoRoute(
+      path: '/explore',
+      pageBuilder: (context, state) => const NoTransitionPage(
+        child: ExplorePage(),
+      ),
+    ),
+    GoRoute(
       path: '/feed/:moduleId',
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final moduleId = state.pathParameters['moduleId']!;
-        return FeedPage(moduleId: moduleId);
+        return NoTransitionPage(
+          child: FeedPage(moduleId: moduleId),
+        );
       },
     ),
     GoRoute(
@@ -59,9 +68,11 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/search',
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final query = state.uri.queryParameters['q'] ?? '';
-        return FeedPage(moduleId: 'SEARCH', searchQuery: query);
+        return NoTransitionPage(
+          child: FeedPage(moduleId: 'SEARCH', searchQuery: query),
+        );
       },
     ),
     GoRoute(

@@ -7,7 +7,6 @@ import '../../../../models/feed_item.dart';
 import '../module_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../lab/presentation/add_material_modal.dart';
-import '../../../explore/presentation/explore_page.dart';
 
 class HomeTab extends ConsumerWidget {
   final Function(String moduleId)? onLoadModule; // 加载模块的回调
@@ -350,11 +349,7 @@ class HomeTab extends ConsumerWidget {
                           ),
                         ),
                         GestureDetector(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const ExplorePage()),
-                          ),
+                          onTap: () => context.push('/explore'),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 6),

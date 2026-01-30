@@ -24,6 +24,10 @@ abstract class DataService {
   Future<KnowledgeModule> createModule(
       String userId, String title, String description);
   Future<int> fixOrphanItems(String userId, String targetModuleId);
+  Future<void> saveModuleProgress(
+      String userId, String moduleId, int index); // Save reading progress
+  Future<Map<String, int>> fetchAllModuleProgress(
+      String userId); // Fetch all progress
 }
 
 class FirestoreService implements DataService {
@@ -568,5 +572,39 @@ class FirestoreService implements DataService {
 
     await batch.commit();
     print('Seeding completed: ${items.length} items.');
+  }
+
+  @override
+  Future<void> saveModuleProgress(
+      String userId, String moduleId, int index) async {
+    try {
+      await _usersRef
+          .doc(userId)
+          .collection('module_progress')
+          .doc(moduleId)
+          .set({
+        'lastIndex': index,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      print('Error saving progress: $e');
+    }
+  }
+
+  @override
+  Future<Map<String, int>> fetchAllModuleProgress(String userId) async {
+    try {
+      final snapshot =
+          await _usersRef.doc(userId).collection('module_progress').get();
+      final map = <String, int>{};
+      for (var doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        map[doc.id] = data['lastIndex'] as int? ?? 0;
+      }
+      return map;
+    } catch (e) {
+      print('Error fetching progress: $e');
+      return {};
+    }
   }
 }

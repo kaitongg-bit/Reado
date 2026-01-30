@@ -56,7 +56,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).canvasColor, // Use theme color
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -366,22 +366,26 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                         fontWeight: FontWeight.w800,
                         height: 1.3,
                         letterSpacing: -0.5,
-                        color: isDark ? Colors.white : const Color(0xFF1E293B)),
+                        color: Theme.of(context).colorScheme.onSurface),
                     p: TextStyle(
                         fontSize: 18,
                         height: 1.8,
-                        color:
-                            isDark ? Colors.grey[300] : const Color(0xFF334155),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.9),
                         letterSpacing: 0.2),
                     h2: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : const Color(0xFF1E293B),
+                      color: Theme.of(context).colorScheme.onSurface,
                       height: 1.5,
                     ),
                     listBullet: TextStyle(
-                      color:
-                          isDark ? Colors.grey[400] : const Color(0xFF334155),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.7),
                     ),
                   ),
                 ),
@@ -406,7 +410,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
 
       return Container(
         color: isDark
-            ? const Color(0xFF1A1A1A) // Dark mode: nearly black, subtle
+            ? Theme.of(context).cardColor // Use new #212526
             : Colors.white.withOpacity(0.95), // Light mode: clean white
         padding: notePadding,
         child: SelectionArea(
@@ -482,7 +486,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                 style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
+                    color: Theme.of(context).colorScheme.onSurface,
                     height: 1.3),
               ),
               const SizedBox(height: 20),
@@ -501,11 +505,19 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                         fontSize: 17,
                         height: 1.7,
                         color: isDark
-                            ? Colors.grey[300]
+                            ? Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.9)
                             : Colors.black87.withOpacity(0.85),
                       ),
                       listBullet: TextStyle(
-                          color: isDark ? Colors.grey[400] : Colors.black87),
+                          color: isDark
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withOpacity(0.7)
+                              : Colors.black87),
                     ),
                   ),
                 ),

@@ -357,10 +357,31 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Palette
+    final bgColor = isDark ? const Color(0xFF212526) : const Color(0xFFF8FAFC);
+    final cardColor =
+        isDark ? const Color(0xFF212526) : Colors.white; // Main container bg
+    final textColor =
+        isDark ? const Color(0xFFe6e8d1) : const Color(0xFF1E293B);
+    final subTextColor = isDark
+        ? const Color(0xFFe6e8d1).withOpacity(0.7)
+        : const Color(0xFF64748B);
+    final accentColor =
+        isDark ? const Color(0xFFee8f4b) : const Color(0xFFFF8A65);
+    final borderColor = isDark
+        ? const Color(0xFF917439).withOpacity(0.3)
+        : const Color(0xFFE2E8F0); // Secondary accent as border
+
     return Dialog(
-      backgroundColor: const Color(0xFFF8FAFC), // Slate 50
+      backgroundColor: bgColor,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side:
+            isDark ? BorderSide(color: borderColor, width: 1) : BorderSide.none,
+      ),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 600, maxHeight: 750),
         child: DefaultTabController(
@@ -374,21 +395,22 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       '添加学习资料',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E293B), // Slate 800
-                        fontFamily:
-                            'Plus Jakarta Sans', // Fallback to system if not avail
+                        color: textColor,
+                        fontFamily: 'Plus Jakarta Sans',
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Color(0xFF64748B)),
+                      icon: Icon(Icons.close, color: subTextColor),
                       onPressed: () => Navigator.of(context).pop(),
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.white,
+                        backgroundColor: isDark
+                            ? Colors.white.withOpacity(0.05)
+                            : Colors.white,
                         padding: const EdgeInsets.all(8),
                       ),
                     ),
@@ -402,30 +424,35 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color:
+                        isDark ? Colors.black.withOpacity(0.2) : Colors.white,
                     borderRadius: BorderRadius.circular(16),
+                    border: isDark ? Border.all(color: borderColor) : null,
                     boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
+                      if (!isDark)
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
                     ],
                   ),
                   child: TabBar(
                     indicator: BoxDecoration(
-                      color: const Color(0xFFFF8A65),
+                      color: accentColor,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFFF8A65).withOpacity(0.3),
+                          color: accentColor.withOpacity(0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
                       ],
                     ),
-                    labelColor: Colors.white,
-                    unselectedLabelColor: const Color(0xFF64748B),
+                    labelColor: isDark
+                        ? const Color(0xFF212526)
+                        : Colors.white, // Inverted text on active tab
+                    unselectedLabelColor: subTextColor,
                     labelStyle: const TextStyle(
                         fontWeight: FontWeight.w600, fontSize: 14),
                     indicatorSize: TabBarIndicatorSize.tab,
@@ -442,9 +469,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
               // Content
               Expanded(
                 child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: const BorderRadius.only(
                       bottomLeft: Radius.circular(24),
                       bottomRight: Radius.circular(24),
                     ),
@@ -471,6 +498,23 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
   }
 
   Widget _buildPlainTextTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Palette
+    final cardBg = isDark ? const Color(0xFF212526) : Colors.white;
+    final inputBg = isDark ? const Color(0xFF2d3233) : const Color(0xFFF8FAFC);
+    final hintBg = isDark ? const Color(0xFF2d3233) : const Color(0xFFEFF6FF);
+    final borderColor = isDark
+        ? const Color(0xFF917439).withOpacity(0.3)
+        : Colors.grey.withOpacity(0.2);
+    final textColor =
+        isDark ? const Color(0xFFe6e8d1) : const Color(0xFF334155);
+    final secondaryTextColor = isDark
+        ? const Color(0xFFe6e8d1).withOpacity(0.7)
+        : const Color(0xFF64748B);
+    final accentColor =
+        isDark ? const Color(0xFFee8f4b) : const Color(0xFFFF8A65);
+
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -486,33 +530,37 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF), // Blue 50
+                      color: hintBg,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFDBEAFE)),
+                      border: Border.all(color: borderColor),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.lightbulb_outline,
-                            color: Color(0xFF3B82F6), size: 16),
+                        Icon(Icons.lightbulb_outline,
+                            color:
+                                isDark ? accentColor : const Color(0xFF3B82F6),
+                            size: 16),
                         const SizedBox(width: 8),
                         Expanded(
                           child: RichText(
-                            text: const TextSpan(
-                              style: TextStyle(
-                                  fontSize: 12, color: Color(0xFF1E293B)),
+                            text: TextSpan(
+                              style: TextStyle(fontSize: 12, color: textColor),
                               children: [
-                                TextSpan(
+                                const TextSpan(
                                     text: '小贴士：',
                                     style:
                                         TextStyle(fontWeight: FontWeight.bold)),
-                                TextSpan(text: '使用 Markdown 标题 (如 '),
+                                const TextSpan(text: '使用 Markdown 标题 (如 '),
                                 TextSpan(
                                     text: '# 标题',
                                     style: TextStyle(
                                         fontFamily: 'monospace',
-                                        backgroundColor: Color(0xFFDBEAFE))),
-                                TextSpan(
+                                        color: isDark ? accentColor : null,
+                                        backgroundColor: isDark
+                                            ? Colors.transparent
+                                            : const Color(0xFFDBEAFE))),
+                                const TextSpan(
                                     text:
                                         ') 可手动拆分卡片，无需消耗 AI 额度。若无标题，将默认使用第一句话作为标题。'),
                               ],
@@ -526,9 +574,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: inputBg,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                        border: Border.all(color: borderColor),
                       ),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
@@ -536,14 +584,13 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                         controller: _textController,
                         maxLines: null,
                         expands: true,
-                        style: const TextStyle(
-                            fontSize: 16,
-                            height: 1.5,
-                            color: Color(0xFF334155)),
-                        decoration: const InputDecoration(
+                        style: TextStyle(
+                            fontSize: 16, height: 1.5, color: textColor),
+                        decoration: InputDecoration(
                           hintText:
                               '在此粘贴文章内容、笔记或网页文本...\n\n示例：\n# 什么是 Flutter\nFlutter 是 Google 开源的 UI 工具包...\n\n# 特点\n1. 跨平台\n2. 高性能...',
-                          hintStyle: TextStyle(color: Color(0xFF94A3B8)),
+                          hintStyle: TextStyle(
+                              color: secondaryTextColor.withOpacity(0.5)),
                           border: InputBorder.none,
                         ),
                       ),
@@ -584,11 +631,11 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                     label: const Text('直接导入'),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 20),
-                      foregroundColor: const Color(0xFF64748B),
-                      backgroundColor: Colors.white,
+                      foregroundColor: secondaryTextColor,
+                      backgroundColor: cardBg,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                        side: BorderSide(color: borderColor),
                       ),
                     ),
                   ),
@@ -607,13 +654,13 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                         : const Icon(Icons.auto_awesome),
                     label: Text(_isGenerating ? 'AI 智能解析中...' : 'AI 智能拆解'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF8A65),
+                      backgroundColor: accentColor,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 20),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)),
-                      shadowColor: const Color(0xFFFF8A65).withOpacity(0.4),
+                      shadowColor: accentColor.withOpacity(0.4),
                     ),
                   ),
                 ),
@@ -626,13 +673,13 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
               children: [
                 Text(
                   '已生成 ${_generatedItems!.length} 个知识点',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B)),
+                      color: textColor),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.refresh, color: Color(0xFF64748B)),
+                  icon: Icon(Icons.refresh, color: secondaryTextColor),
                   onPressed: () {
                     setState(() {
                       _generatedItems = null;
@@ -653,15 +700,16 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                   return Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      color: cardBg,
+                      border: Border.all(color: borderColor),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.02),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
+                        if (!isDark)
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
                       ],
                     ),
                     child: Column(
@@ -674,30 +722,37 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                               height: 32,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEFF6FF),
+                                color: isDark
+                                    ? accentColor.withOpacity(0.2)
+                                    : const Color(0xFFEFF6FF),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text('${index + 1}',
-                                  style: const TextStyle(
-                                      color: Color(0xFF3B82F6),
+                                  style: TextStyle(
+                                      color: isDark
+                                          ? accentColor
+                                          : const Color(0xFF3B82F6),
                                       fontWeight: FontWeight.bold)),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                                 child: Text(item.title,
-                                    style: const TextStyle(
+                                    style: TextStyle(
+                                        color: textColor,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 16))),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF1F5F9),
+                                color: isDark
+                                    ? borderColor.withOpacity(0.3)
+                                    : const Color(0xFFF1F5F9),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(item.category,
-                                  style: const TextStyle(
-                                      fontSize: 10, color: Color(0xFF64748B))),
+                                  style: TextStyle(
+                                      fontSize: 10, color: secondaryTextColor)),
                             ),
                           ],
                         ),
@@ -705,24 +760,33 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                         Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFFF7ED),
+                              color: isDark
+                                  ? Colors.black.withOpacity(0.2)
+                                  : const Color(0xFFFFF7ED),
                               borderRadius: BorderRadius.circular(12),
-                              border:
-                                  Border.all(color: const Color(0xFFFFEDD5)),
+                              border: Border.all(
+                                  color: isDark
+                                      ? borderColor
+                                      : const Color(0xFFFFEDD5)),
                             ),
                             child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(children: [
-                                    const Icon(Icons.help_outline,
-                                        size: 14, color: Color(0xFFF97316)),
+                                    Icon(Icons.help_outline,
+                                        size: 14,
+                                        color: isDark
+                                            ? accentColor
+                                            : const Color(0xFFF97316)),
                                     const SizedBox(width: 8),
                                     Expanded(
                                         child: Text(
                                             '提问: ${(item.pages.first as OfficialPage).flashcardQuestion ?? "自动生成中..."}',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                                 fontSize: 13,
-                                                color: Color(0xFF9A3412),
+                                                color: isDark
+                                                    ? accentColor
+                                                    : const Color(0xFF9A3412),
                                                 fontWeight: FontWeight.w500)))
                                   ])
                                 ])),
@@ -744,10 +808,10 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                     },
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 20),
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      side: BorderSide(color: borderColor),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)),
-                      foregroundColor: const Color(0xFF64748B),
+                      foregroundColor: secondaryTextColor,
                     ),
                     child: const Text('返回修改'),
                   ),
@@ -757,7 +821,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                   child: ElevatedButton(
                     onPressed: _saveAll,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D9488),
+                      backgroundColor: accentColor,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 20),
@@ -776,6 +840,23 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
   }
 
   Widget _buildNotebookLMTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Palette
+    final cardBg = isDark ? const Color(0xFF212526) : Colors.white;
+    final inputBg =
+        isDark ? const Color(0xFF2d3233) : Colors.white; // Input field bg
+    final borderColor = isDark
+        ? const Color(0xFF917439).withOpacity(0.3)
+        : const Color(0xFFE2E8F0);
+    final textColor =
+        isDark ? const Color(0xFFe6e8d1) : const Color(0xFF1E293B);
+    final secondaryTextColor = isDark
+        ? const Color(0xFFe6e8d1).withOpacity(0.7)
+        : const Color(0xFF64748B);
+    final accentColor =
+        isDark ? const Color(0xFFee8f4b) : const Color(0xFFFF8A65);
+
     if (_generatedItems != null) {
       // Review State
       return Padding(
@@ -787,14 +868,14 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
               children: [
                 Text(
                   '已生成 ${_generatedItems!.length} 个知识点',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
+                    color: textColor,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.refresh, color: Color(0xFF64748B)),
+                  icon: Icon(Icons.refresh, color: secondaryTextColor),
                   onPressed: () {
                     setState(() {
                       _generatedItems = null;
@@ -816,15 +897,16 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                   return Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      color: cardBg,
+                      border: Border.all(color: borderColor),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.02),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
+                        if (!isDark)
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
                       ],
                     ),
                     child: Column(
@@ -837,13 +919,17 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                               height: 32,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEFF6FF),
+                                color: isDark
+                                    ? accentColor.withOpacity(0.2)
+                                    : const Color(0xFFEFF6FF),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
                                 '${index + 1}',
-                                style: const TextStyle(
-                                  color: Color(0xFF3B82F6),
+                                style: TextStyle(
+                                  color: isDark
+                                      ? accentColor
+                                      : const Color(0xFF3B82F6),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -852,9 +938,10 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                             Expanded(
                               child: Text(
                                 item.title,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
+                                  color: textColor,
                                 ),
                               ),
                             ),
@@ -862,13 +949,15 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF1F5F9),
+                                color: isDark
+                                    ? borderColor.withOpacity(0.3)
+                                    : const Color(0xFFF1F5F9),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 item.category,
-                                style: const TextStyle(
-                                    fontSize: 10, color: Color(0xFF64748B)),
+                                style: TextStyle(
+                                    fontSize: 10, color: secondaryTextColor),
                               ),
                             ),
                           ],
@@ -877,23 +966,33 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFF7ED),
+                            color: isDark
+                                ? Colors.black.withOpacity(0.2)
+                                : const Color(0xFFFFF7ED),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFFFEDD5)),
+                            border: Border.all(
+                                color: isDark
+                                    ? borderColor
+                                    : const Color(0xFFFFEDD5)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(children: [
-                                const Icon(Icons.help_outline,
-                                    size: 14, color: Color(0xFFF97316)),
+                                Icon(Icons.help_outline,
+                                    size: 14,
+                                    color: isDark
+                                        ? accentColor
+                                        : const Color(0xFFF97316)),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     '提问: ${(item.pages.first as OfficialPage).flashcardQuestion ?? "自动生成中..."}',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 13,
-                                      color: Color(0xFF9A3412),
+                                      color: isDark
+                                          ? accentColor
+                                          : const Color(0xFF9A3412),
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -920,10 +1019,10 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                     },
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 20),
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      side: BorderSide(color: borderColor),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)),
-                      foregroundColor: const Color(0xFF64748B),
+                      foregroundColor: secondaryTextColor,
                     ),
                     child: const Text('返回修改'),
                   ),
@@ -933,7 +1032,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                   child: ElevatedButton(
                     onPressed: _saveAll,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D9488),
+                      backgroundColor: accentColor,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 20),
@@ -975,13 +1074,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                             padding: const EdgeInsets.symmetric(
                                 vertical: 24, horizontal: 16),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: inputBg,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: _pickedFile != null
-                                    ? const Color(
-                                        0xFF10B981) // Green if file selected
-                                    : const Color(0xFFE2E8F0),
+                                    ? const Color(0xFF10B981) // Green
+                                    : borderColor,
                                 width: _pickedFile != null ? 2 : 1,
                               ),
                             ),
@@ -994,7 +1092,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                                   size: 32,
                                   color: _pickedFile != null
                                       ? const Color(0xFF10B981)
-                                      : const Color(0xFF94A3B8),
+                                      : (isDark
+                                          ? secondaryTextColor
+                                          : const Color(0xFF94A3B8)),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
@@ -1003,8 +1103,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                     color: _pickedFile != null
-                                        ? const Color(0xFF1E293B)
-                                        : const Color(0xFF94A3B8),
+                                        ? (isDark
+                                            ? textColor
+                                            : const Color(0xFF1E293B))
+                                        : (isDark
+                                            ? secondaryTextColor
+                                            : const Color(0xFF94A3B8)),
                                   ),
                                   textAlign: TextAlign.center,
                                   maxLines: 1,
@@ -1026,17 +1130,17 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                         // 2. Link Input Box
                         TextField(
                           controller: _urlController,
-                          style: const TextStyle(
-                              fontSize: 15, color: Color(0xFF334155)),
+                          style: TextStyle(fontSize: 15, color: textColor),
                           decoration: InputDecoration(
                             hintText: '支持大部分网页、YouTube等',
-                            hintStyle:
-                                const TextStyle(color: Color(0xFF94A3B8)),
-                            prefixIcon: const Icon(Icons.link,
-                                color: Color(0xFF64748B)),
+                            hintStyle: TextStyle(
+                                color: secondaryTextColor.withOpacity(0.5)),
+                            prefixIcon:
+                                Icon(Icons.link, color: secondaryTextColor),
                             suffixIcon: _urlController.text.isNotEmpty
                                 ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 18),
+                                    icon: Icon(Icons.clear,
+                                        size: 18, color: secondaryTextColor),
                                     onPressed: () {
                                       _urlController.clear();
                                       setState(() => _urlError = null);
@@ -1044,16 +1148,14 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                                   )
                                 : null,
                             filled: true,
-                            fillColor: Colors.white,
+                            fillColor: inputBg,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
-                              borderSide:
-                                  const BorderSide(color: Color(0xFFE2E8F0)),
+                              borderSide: BorderSide(color: borderColor),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
-                              borderSide:
-                                  const BorderSide(color: Color(0xFFE2E8F0)),
+                              borderSide: BorderSide(color: borderColor),
                             ),
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 20),
@@ -1163,19 +1265,27 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                                 ? null
                                 : _performParse,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFF1F5F9),
-                              foregroundColor: const Color(0xFF1E293B),
+                              backgroundColor: isDark
+                                  ? const Color(0xFF2d3233)
+                                  : const Color(0xFFF1F5F9),
+                              foregroundColor: isDark
+                                  ? accentColor
+                                  : const Color(0xFF1E293B),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: isDark
+                                      ? BorderSide(color: borderColor)
+                                      : BorderSide.none),
                               padding: EdgeInsets.zero,
                             ),
                             child: _isParsing
-                                ? const SizedBox(
+                                ? SizedBox(
                                     width: 24,
                                     height: 24,
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2))
+                                        strokeWidth: 2,
+                                        color: isDark ? accentColor : null))
                                 : const Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
@@ -1202,10 +1312,13 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                                       ? _startGeneration
                                       : null,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF1E293B),
+                                backgroundColor: isDark
+                                    ? accentColor
+                                    : const Color(0xFF1E293B),
                                 foregroundColor: Colors.white,
-                                disabledBackgroundColor:
-                                    const Color(0xFFE2E8F0),
+                                disabledBackgroundColor: isDark
+                                    ? Colors.grey.withOpacity(0.1)
+                                    : const Color(0xFFE2E8F0),
                                 disabledForegroundColor:
                                     const Color(0xFF94A3B8),
                                 elevation: 0,
@@ -1287,24 +1400,31 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
 
   // New Minimal Chip for Coming Soon Sources
   Widget _buildComingSoonChip(String label, IconData icon) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF2d3233) : const Color(0xFFF8FAFC);
+    final borderColor = isDark
+        ? const Color(0xFF917439).withOpacity(0.3)
+        : const Color(0xFFF1F5F9);
+    final textColor = isDark
+        ? Colors.grey[400]
+        : Colors.grey[400]; // Keep grey for disabled look
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: bgColor,
         borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: Colors.grey[400]),
+          Icon(icon, size: 14, color: textColor),
           const SizedBox(width: 6),
           Text(
             label,
             style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 12,
-                fontWeight: FontWeight.w500),
+                color: textColor, fontSize: 12, fontWeight: FontWeight.w500),
           ),
         ],
       ),

@@ -43,21 +43,43 @@ final themeProvider = StateNotifierProvider<ThemeNotifier, ThemeMode>((ref) {
 /// 主题数据
 class AppTheme {
   // 深色主题
+  // 深色主题
   static ThemeData get darkTheme => ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0F172A), // Slate 900
+        scaffoldBackgroundColor: const Color(0xFF212526), // Custom BG
+        primaryColor: const Color(0xFFee8f4b), // Custom Accent
+
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFFF8A65),
-          secondary: Color(0xFFFF8A65),
-          surface: Color(0xFF1E293B), // Slate 800
-          onSurface: Colors.white,
+          primary: Color(0xFFee8f4b),
+          secondary: Color(0xFFee8f4b),
+          tertiary: Color(0xFF917439), // Custom Secondary
+          surface: Color(0xFF212526), // Custom Surface
+          onSurface: Color(0xFFe6e8d1), // Custom Text
+          outline: Color(0xFF917439), // For borders
         ),
-        cardColor: const Color(0xFF1E293B),
+
+        cardColor: const Color(0xFF212526),
+        dividerColor: const Color(0xFF917439).withOpacity(0.2),
+
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF0F172A),
+          backgroundColor: Color(0xFF212526),
+          foregroundColor: Color(0xFFe6e8d1),
           elevation: 0,
         ),
+
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          backgroundColor: Color(0xFF212526),
+          selectedItemColor: Color(0xFFee8f4b),
+          unselectedItemColor: Color(0xFF917439), // Muted Gold
+        ),
+
+        // Adjust default TextTheme to use the custom text color
+        textTheme:
+            Typography.material2021(platform: TargetPlatform.iOS).white.apply(
+                  bodyColor: const Color(0xFFe6e8d1),
+                  displayColor: const Color(0xFFe6e8d1),
+                ),
       );
 
   // 浅色主题

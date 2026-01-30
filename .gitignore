@@ -74,3 +74,17 @@ migrate_working_dir/
 # Private Configs
 lib/core/secrets.dart
 .env
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.log.*
+
+# Firebase Functions
+functions/node_modules/
+functions/.env
+functions/firebase-debug.log
+functions/firebase-debug.log.*
+
+# Temporary / Generated
+cloudflare_worker_proxy.js

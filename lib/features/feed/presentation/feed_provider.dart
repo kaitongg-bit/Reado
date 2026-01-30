@@ -29,7 +29,11 @@ final dataServiceProvider = Provider<DataService>((ref) => FirestoreService());
 final contentGeneratorProvider = Provider((ref) {
   try {
     final apiKey = ApiConfig.getApiKey();
-    return ContentGeneratorService(apiKey: apiKey);
+    final proxyUrl = ApiConfig.geminiProxyUrl;
+    return ContentGeneratorService(
+      apiKey: apiKey,
+      baseUrl: proxyUrl.isNotEmpty ? proxyUrl : null,
+    );
   } catch (e) {
     print('⚠️ Gemini API Key not configured: $e');
     // Return with empty key, will fail on actual API call

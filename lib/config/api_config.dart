@@ -41,6 +41,12 @@ class ApiConfig {
   /// 2. 默认的 fallback Key
   /// 3. 抛出异常（需要用户提供）
   static String getApiKey() {
+    // 允许通过环境变量覆盖 Key (如果使用了代理，Key 可以为空或者是伪造的，因为 Worker 会注入)
+    if (geminiProxyUrl.isNotEmpty) {
+      // 如果配置了代理，允许 Key 为空 (或者返回一个占位符)
+      if (geminiApiKey.isEmpty) return 'PROXY_MODE_PLACEHOLDER';
+    }
+
     if (geminiApiKey.isNotEmpty) {
       return geminiApiKey;
     }
@@ -51,6 +57,13 @@ class ApiConfig {
 
     throw Exception('Gemini API Key 未配置\n'
         '请在个人中心添加你的 API Key\n'
-        '或使用 --dart-define=GEMINI_API_KEY=xxx 运行应用');
+        '或配置 GEMINI_PROXY_URL');
+  }
+
+  /// 获取 Gemini 代理地址 (用于 Cloudflare Worker)
+  static String get geminiProxyUrl {
+    const envArg = String.fromEnvironment('GEMINI_PROXY_URL');
+    if (envArg.isNotEmpty) return envArg;
+    return dotenv.env['GEMINI_PROXY_URL'] ?? '';
   }
 }

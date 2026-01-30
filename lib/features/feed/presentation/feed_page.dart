@@ -918,6 +918,12 @@ class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
       double dampingY =
           0.8 * (1.0 - (_dragOffset.dy.abs() / 1500).clamp(0.0, 1.0));
 
+      // 🔥 Pro adjustment: If pulling UP for Next (dy < 0), remove resistance
+      // Make it linear (1.0) so it feels extremely light and responsive
+      if (_dragOffset.dy < 0 || delta.dy > 0) {
+        dampingY = 1.0;
+      }
+
       // If we are dragging horizontal, we want 1:1 feel initially for "Back"
       if (delta.dx != 0) {
         dampingX = 1.0;
@@ -942,21 +948,29 @@ class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
   }
 
   void _handleDragEnd() {
-    // 降低垂直触发阈值，让"释放进入下一章"更容易 (原 0.15 -> 0.10)
-    final threshold = MediaQuery.of(context).size.height * 0.10;
-    final backThreshold =
-        MediaQuery.of(context).size.width * 0.25; // Needs more distance usually
+    // Asymmetric thresholds (easier to go next)
+    final h = MediaQuery.of(context).size.height;
+    final prevThreshold = h * 0.05; // 5% for Prev
+    final nextThreshold =
+        h * 0.015; // 1.5% for Next (Extremely easy, almost instant)
+
+    final backThreshold = MediaQuery.of(context).size.width * 0.25;
 
     bool triggered = false;
 
     // Vertical Trigger
-    if (_dragOffset.dy.abs() > threshold) {
-      HapticFeedback.mediumImpact();
-      if (_dragOffset.dy > 0 && widget.onTriggerPrev != null) {
-        widget.onTriggerPrev!();
+    if (_dragOffset.dy > 0 && widget.hasPrev) {
+      // Prev logic
+      if (_dragOffset.dy.abs() > prevThreshold) {
+        HapticFeedback.mediumImpact();
+        if (widget.onTriggerPrev != null) widget.onTriggerPrev!();
         triggered = true;
-      } else if (_dragOffset.dy < 0 && widget.onTriggerNext != null) {
-        widget.onTriggerNext!();
+      }
+    } else if (_dragOffset.dy < 0 && widget.hasNext) {
+      // Next logic
+      if (_dragOffset.dy.abs() > nextThreshold) {
+        HapticFeedback.mediumImpact();
+        if (widget.onTriggerNext != null) widget.onTriggerNext!();
         triggered = true;
       }
     }
@@ -979,22 +993,25 @@ class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
 
   @override
   Widget build(BuildContext context) {
-    // 降低视觉反馈和逻辑判断的阈值，保持一致 (0.15 -> 0.10)
-    final threshold = MediaQuery.of(context).size.height * 0.10;
+    // Asymmetric thresholds for UI feedback too
+    final h = MediaQuery.of(context).size.height;
+    final prevThreshold = h * 0.05;
+    final nextThreshold = h * 0.015;
+
     double progress = 0.0;
     String? textAlert;
     IconData? icon;
 
-    // Determine UI State based on dragging axis
+    // Determine UI State
     if (_dragOffset.dy > 0 && widget.hasPrev) {
-      progress = (_dragOffset.dy.abs() / threshold).clamp(0.0, 1.0);
-      bool isReady = _dragOffset.dy.abs() > threshold;
-      textAlert = isReady ? "释放切换到上一篇" : "继续下拉回到上一篇";
+      progress = (_dragOffset.dy.abs() / prevThreshold).clamp(0.0, 1.0);
+      bool isReady = _dragOffset.dy.abs() > prevThreshold;
+      textAlert = isReady ? "释放切换到上一篇" : "继续下拉";
       icon = Icons.arrow_upward;
     } else if (_dragOffset.dy < 0 && widget.hasNext) {
-      progress = (_dragOffset.dy.abs() / threshold).clamp(0.0, 1.0);
-      bool isReady = _dragOffset.dy.abs() > threshold;
-      textAlert = isReady ? "释放进入下一篇" : "继续上拉进入下一篇";
+      progress = (_dragOffset.dy.abs() / nextThreshold).clamp(0.0, 1.0);
+      bool isReady = _dragOffset.dy.abs() > nextThreshold;
+      textAlert = isReady ? "释放进入下一篇" : "继续上拉";
       icon = Icons.arrow_downward;
     } else if (_dragOffset.dx > 0 && widget.onTriggerBack != null) {
       final backThreshold = MediaQuery.of(context).size.width * 0.25;
@@ -1003,6 +1020,9 @@ class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
       textAlert = isReady ? "释放返回列表" : "左滑返回";
       icon = Icons.grid_view;
     }
+
+    // Is the action ready to be triggered?
+    bool isReady = progress >= 1.0;
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
@@ -1032,23 +1052,31 @@ class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
               child: Opacity(
                 opacity: progress,
                 child: Center(
-                  child: Container(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutBack,
+                    transform: Matrix4.identity()
+                      ..scale(isReady ? 1.1 : 1.0), // Pop effect
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.7),
+                        color: isReady
+                            ? const Color(0xFF0D9488) // Teal when ready!
+                            : Colors.black.withOpacity(0.7),
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 4,
+                              color: isReady
+                                  ? const Color(0xFF0D9488).withOpacity(0.4)
+                                  : Colors.black12,
+                              blurRadius: isReady ? 12 : 4,
                               offset: const Offset(0, 2))
                         ]),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          icon,
+                          isReady ? Icons.check_circle : icon, // Icon change
                           color: Colors.white,
                           size: 16,
                         ),

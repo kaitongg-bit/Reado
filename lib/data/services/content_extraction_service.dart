@@ -32,6 +32,68 @@ class ExtractionResult {
   });
 }
 
+/// 流式生成事件类型
+enum StreamingEventType {
+  status, // 状态更新（文字提示）
+  outline, // 大纲已生成（知道总数了）
+  card, // 一张卡片生成完成
+  complete, // 全部完成
+  error, // 出错
+}
+
+/// 流式生成事件
+class StreamingGenerationEvent {
+  final StreamingEventType type;
+  final String? statusMessage;
+  final int? totalCards;
+  final int? currentIndex;
+  final FeedItem? card;
+  final String? error;
+
+  StreamingGenerationEvent._({
+    required this.type,
+    this.statusMessage,
+    this.totalCards,
+    this.currentIndex,
+    this.card,
+    this.error,
+  });
+
+  factory StreamingGenerationEvent.status(String message) {
+    return StreamingGenerationEvent._(
+      type: StreamingEventType.status,
+      statusMessage: message,
+    );
+  }
+
+  factory StreamingGenerationEvent.outline(int total) {
+    return StreamingGenerationEvent._(
+      type: StreamingEventType.outline,
+      totalCards: total,
+    );
+  }
+
+  factory StreamingGenerationEvent.card(FeedItem item, int index, int total) {
+    return StreamingGenerationEvent._(
+      type: StreamingEventType.card,
+      card: item,
+      currentIndex: index,
+      totalCards: total,
+    );
+  }
+
+  factory StreamingGenerationEvent.complete() {
+    return StreamingGenerationEvent._(type: StreamingEventType.complete);
+  }
+
+  factory StreamingGenerationEvent.error(String message) {
+    return StreamingGenerationEvent._(
+      type: StreamingEventType.error,
+      error: message,
+    );
+  }
+}
+
 /// 内容提取服务
 class ContentExtractionService {
   /// 从 URL 提取内容
@@ -310,6 +372,176 @@ class ContentExtractionService {
     if (kDebugMode) print('✅ Generated ${items.length} knowledge cards');
 
     return items;
+  }
+
+  /// 流式生成知识卡片 - 分两步：先获取大纲，再逐个生成
+  ///
+  /// 第一步：快速分析，返回知识点大纲（标题列表）
+  /// 第二步：逐个生成详细卡片，每完成一张 yield 给 UI
+  static Stream<StreamingGenerationEvent> generateKnowledgeCardsStream(
+    ExtractionResult extraction, {
+    required String moduleId,
+  }) async* {
+    final apiKey = ApiConfig.getApiKey();
+
+    final model = GenerativeModel(
+      model: 'gemini-2.5-flash',
+      apiKey: apiKey,
+      generationConfig: GenerationConfig(
+        responseMimeType: 'application/json',
+        temperature: 0.7,
+        topP: 0.9,
+        topK: 40,
+      ),
+    );
+
+    // ========== 第一步：快速获取大纲 ==========
+    yield StreamingGenerationEvent.status('正在分析文章结构...');
+
+    const outlinePrompt = '''
+你是一位资深的教育内容专家。请快速分析用户提供的学习资料，识别出其中的核心知识点。
+
+## 任务
+1. 阅读用户的学习资料
+2. 识别出 2-8 个独立的核心知识点
+3. 每个知识点用一个简洁的标题概括（10-20字）
+
+## 输出格式
+严格按照以下 JSON 格式输出（只输出 JSON，不要有其他文字）：
+
+{
+  "topics": [
+    {"title": "知识点1的标题", "category": "分类", "difficulty": "Easy|Medium|Hard"},
+    {"title": "知识点2的标题", "category": "分类", "difficulty": "Medium"}
+  ]
+}
+''';
+
+    final outlineContent = [
+      Content.text('$outlinePrompt\n\n## 用户的学习资料：\n\n${extraction.content}')
+    ];
+
+    if (kDebugMode) print('🔍 Step 1: Getting outline...');
+
+    final outlineResponse = await model.generateContent(outlineContent);
+    final outlineText = outlineResponse.text;
+
+    if (outlineText == null) {
+      throw Exception('AI 未返回大纲');
+    }
+
+    // 解析大纲
+    String cleanedOutline = outlineText.trim();
+    if (cleanedOutline.startsWith('```json')) {
+      cleanedOutline = cleanedOutline.substring(7);
+    }
+    if (cleanedOutline.startsWith('```')) {
+      cleanedOutline = cleanedOutline.substring(3);
+    }
+    if (cleanedOutline.endsWith('```')) {
+      cleanedOutline = cleanedOutline.substring(0, cleanedOutline.length - 3);
+    }
+    cleanedOutline = cleanedOutline.trim();
+
+    final outlineJson = jsonDecode(cleanedOutline) as Map<String, dynamic>;
+    final topics = (outlineJson['topics'] as List).cast<Map<String, dynamic>>();
+
+    if (kDebugMode) print('📋 Found ${topics.length} topics');
+
+    yield StreamingGenerationEvent.outline(topics.length);
+
+    // ========== 第二步：逐个生成卡片 ==========
+    for (int i = 0; i < topics.length; i++) {
+      final topic = topics[i];
+      final title = topic['title'] as String;
+      final category = topic['category'] as String? ?? 'AI Generated';
+      final difficulty = topic['difficulty'] as String? ?? 'Medium';
+
+      yield StreamingGenerationEvent.status(
+          '正在生成: $title (${i + 1}/${topics.length})');
+
+      if (kDebugMode) print('🎯 Generating card ${i + 1}: $title');
+
+      final cardPrompt = '''
+你是一位资深的教育内容专家。请针对以下知识点，生成一张详细的知识卡片。
+
+## 知识点标题
+$title
+
+## 参考资料（从中提取相关内容）
+${extraction.content}
+
+## 要求
+1. **正文内容**：300-800 字，通俗易懂，采用"是什么 → 为什么 → 怎么做"的结构
+2. **Flashcard**：一个具体的测试问题 + 简洁但完整的答案（100-200字）
+3. 使用 Markdown 格式
+
+## 输出格式
+严格按照以下 JSON 格式输出：
+
+{
+  "title": "$title",
+  "category": "$category",
+  "difficulty": "$difficulty",
+  "content": "# 标题\\n\\n## 是什么\\n\\n[Markdown 正文]",
+  "flashcard": {
+    "question": "具体的测试问题",
+    "answer": "简洁但完整的答案"
+  }
+}
+''';
+
+      final cardContent = [Content.text(cardPrompt)];
+      final cardResponse = await model.generateContent(cardContent);
+      final cardText = cardResponse.text;
+
+      if (cardText == null) {
+        if (kDebugMode) print('⚠️ Failed to generate card: $title');
+        continue;
+      }
+
+      // 解析卡片
+      String cleanedCard = cardText.trim();
+      if (cleanedCard.startsWith('```json')) {
+        cleanedCard = cleanedCard.substring(7);
+      }
+      if (cleanedCard.startsWith('```')) {
+        cleanedCard = cleanedCard.substring(3);
+      }
+      if (cleanedCard.endsWith('```')) {
+        cleanedCard = cleanedCard.substring(0, cleanedCard.length - 3);
+      }
+      cleanedCard = cleanedCard.trim();
+
+      try {
+        final cardJson = jsonDecode(cleanedCard) as Map<String, dynamic>;
+        final id = 'custom_${DateTime.now().millisecondsSinceEpoch}_$i';
+
+        final feedItem = FeedItem(
+          id: id,
+          moduleId: moduleId,
+          title: cardJson['title'] ?? title,
+          category: cardJson['category'] ?? category,
+          difficulty: cardJson['difficulty'] ?? difficulty,
+          readingTimeMinutes: 5,
+          isCustom: true,
+          pages: [
+            OfficialPage(
+              cardJson['content'] ?? '',
+              flashcardQuestion: cardJson['flashcard']?['question'],
+              flashcardAnswer: cardJson['flashcard']?['answer'],
+            ),
+          ],
+        );
+
+        yield StreamingGenerationEvent.card(feedItem, i + 1, topics.length);
+        if (kDebugMode) print('✅ Card ${i + 1} generated');
+      } catch (e) {
+        if (kDebugMode) print('❌ Failed to parse card $i: $e');
+      }
+    }
+
+    yield StreamingGenerationEvent.complete();
   }
 
   /// 一键处理：提取 + 生成

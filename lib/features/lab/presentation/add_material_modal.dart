@@ -29,6 +29,11 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
   String? _pickedFileName; // New: For storing picked file name
   PlatformFile? _pickedFile; // Holds the actual file object
 
+  // 流式生成状态
+  String? _streamingStatus; // 当前状态消息
+  int? _totalCards; // 总卡片数
+  int? _currentCardIndex; // 当前生成的卡片索引
+
   @override
   void dispose() {
     _textController.dispose();
@@ -36,34 +41,73 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     super.dispose();
   }
 
-  /// AI 智能拆解 - 从粘贴的文本生成知识卡片
+  /// AI 智能拆解 - 从粘贴的文本生成知识卡片（流式版本）
   Future<void> _generate() async {
     if (_textController.text.trim().isEmpty) return;
 
     setState(() {
       _isGenerating = true;
       _error = null;
+      _generatedItems = []; // 初始化为空列表
+      _streamingStatus = '正在分析文章结构...';
+      _totalCards = null;
+      _currentCardIndex = null;
     });
 
     try {
       final moduleId = widget.targetModuleId ?? 'custom';
-      final newItems = await ContentExtractionService.processText(
-        _textController.text,
+      final extraction =
+          ContentExtractionService.extractFromText(_textController.text);
+
+      await for (final event
+          in ContentExtractionService.generateKnowledgeCardsStream(
+        extraction,
         moduleId: moduleId,
-      );
+      )) {
+        if (!mounted) return;
 
-      if (!mounted) return;
-
-      setState(() {
-        _generatedItems = newItems;
-        _isGenerating = false;
-      });
+        switch (event.type) {
+          case StreamingEventType.status:
+            setState(() {
+              _streamingStatus = event.statusMessage;
+            });
+            break;
+          case StreamingEventType.outline:
+            setState(() {
+              _totalCards = event.totalCards;
+              _streamingStatus = '发现 ${event.totalCards} 个知识点，开始生成...';
+            });
+            break;
+          case StreamingEventType.card:
+            setState(() {
+              _generatedItems = [..._generatedItems!, event.card!];
+              _currentCardIndex = event.currentIndex;
+              _streamingStatus =
+                  '已生成 ${event.currentIndex}/${event.totalCards}';
+            });
+            break;
+          case StreamingEventType.complete:
+            setState(() {
+              _isGenerating = false;
+              _streamingStatus = null;
+            });
+            break;
+          case StreamingEventType.error:
+            setState(() {
+              _error = event.error;
+              _isGenerating = false;
+              _streamingStatus = null;
+            });
+            break;
+        }
+      }
     } catch (e) {
       if (!mounted) return;
 
       setState(() {
         _error = e.toString();
         _isGenerating = false;
+        _streamingStatus = null;
       });
     }
   }
@@ -141,34 +185,70 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
   /// Old Upload method (kept temporarily or removed if replacing fully)
   /// replaced by split logic above.
 
-  /// 开始 AI 生成
+  /// 开始 AI 生成（流式版本）
   Future<void> _startGeneration() async {
     if (_extractionResult == null) return;
 
     setState(() {
       _isGenerating = true;
       _error = null;
+      _generatedItems = []; // 初始化为空列表
+      _streamingStatus = '正在分析文章结构...';
+      _totalCards = null;
+      _currentCardIndex = null;
     });
 
     try {
       final moduleId = widget.targetModuleId ?? 'custom';
-      final newItems = await ContentExtractionService.generateKnowledgeCards(
+
+      await for (final event
+          in ContentExtractionService.generateKnowledgeCardsStream(
         _extractionResult!,
         moduleId: moduleId,
-      );
+      )) {
+        if (!mounted) return;
 
-      if (!mounted) return;
-
-      setState(() {
-        _generatedItems = newItems;
-        _isGenerating = false;
-        // 保留 _extractionResult 以便可能的后续操作，或者清空取决于需求
-      });
+        switch (event.type) {
+          case StreamingEventType.status:
+            setState(() {
+              _streamingStatus = event.statusMessage;
+            });
+            break;
+          case StreamingEventType.outline:
+            setState(() {
+              _totalCards = event.totalCards;
+              _streamingStatus = '发现 ${event.totalCards} 个知识点，开始生成...';
+            });
+            break;
+          case StreamingEventType.card:
+            setState(() {
+              _generatedItems = [..._generatedItems!, event.card!];
+              _currentCardIndex = event.currentIndex;
+              _streamingStatus =
+                  '已生成 ${event.currentIndex}/${event.totalCards}';
+            });
+            break;
+          case StreamingEventType.complete:
+            setState(() {
+              _isGenerating = false;
+              _streamingStatus = null;
+            });
+            break;
+          case StreamingEventType.error:
+            setState(() {
+              _error = event.error;
+              _isGenerating = false;
+              _streamingStatus = null;
+            });
+            break;
+        }
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = e.toString();
         _isGenerating = false;
+        _streamingStatus = null;
       });
     }
   }
@@ -374,127 +454,185 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
         ? const Color(0xFF917439).withOpacity(0.3)
         : const Color(0xFFE2E8F0); // Secondary accent as border
 
-    return Dialog(
-      backgroundColor: bgColor,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side:
-            isDark ? BorderSide(color: borderColor, width: 1) : BorderSide.none,
-      ),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 750),
-        child: DefaultTabController(
-          length: 2,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '添加学习资料',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: textColor,
-                        fontFamily: 'Plus Jakarta Sans',
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close, color: subTextColor),
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: IconButton.styleFrom(
-                        backgroundColor: isDark
-                            ? Colors.white.withOpacity(0.05)
-                            : Colors.white,
-                        padding: const EdgeInsets.all(8),
-                      ),
-                    ),
-                  ],
-                ),
+    return WillPopScope(
+        onWillPop: () async {
+          if (_isGenerating) {
+            final shouldClose = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('正在生成中'),
+                content: const Text('生成任务正在进行，退出将中断生成。确定要退出吗？'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('继续生成'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child:
+                        const Text('狠心退出', style: TextStyle(color: Colors.red)),
+                  ),
+                ],
               ),
-
-              // Tabs
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color:
-                        isDark ? Colors.black.withOpacity(0.2) : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: isDark ? Border.all(color: borderColor) : null,
-                    boxShadow: [
-                      if (!isDark)
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                    ],
-                  ),
-                  child: TabBar(
-                    indicator: BoxDecoration(
-                      color: accentColor,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: accentColor.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    labelColor: isDark
-                        ? const Color(0xFF212526)
-                        : Colors.white, // Inverted text on active tab
-                    unselectedLabelColor: subTextColor,
-                    labelStyle: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 14),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerColor: Colors.transparent,
-                    tabs: const [
-                      Tab(text: '文本导入'),
-                      Tab(text: '多模态 (AI)'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Content
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(24),
-                      bottomRight: Radius.circular(24),
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(24),
-                      bottomRight: Radius.circular(24),
-                    ),
-                    child: TabBarView(
-                      children: [
-                        _buildPlainTextTab(),
-                        _buildNotebookLMTab(),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            );
+            return shouldClose ?? false;
+          }
+          return true;
+        },
+        child: Dialog(
+          backgroundColor: bgColor,
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: isDark
+                ? BorderSide(color: borderColor, width: 1)
+                : BorderSide.none,
           ),
-        ),
-      ),
-    );
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 750),
+            child: DefaultTabController(
+              length: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '添加学习资料',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: textColor,
+                            fontFamily: 'Plus Jakarta Sans',
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close, color: subTextColor),
+                          onPressed: () async {
+                            if (_isGenerating) {
+                              final shouldClose = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('正在生成中'),
+                                  content:
+                                      const Text('生成任务正在进行，退出将中断生成。确定要退出吗？'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(false),
+                                      child: const Text('继续生成'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(true),
+                                      child: const Text('狠心退出',
+                                          style: TextStyle(color: Colors.red)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (shouldClose == true) {
+                                if (context.mounted)
+                                  Navigator.of(context).pop();
+                              }
+                            } else {
+                              Navigator.of(context).pop();
+                            }
+                          },
+                          style: IconButton.styleFrom(
+                            backgroundColor: isDark
+                                ? Colors.white.withOpacity(0.05)
+                                : Colors.white,
+                            padding: const EdgeInsets.all(8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Tabs
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.black.withOpacity(0.2)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: isDark ? Border.all(color: borderColor) : null,
+                        boxShadow: [
+                          if (!isDark)
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                        ],
+                      ),
+                      child: TabBar(
+                        indicator: BoxDecoration(
+                          color: accentColor,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: accentColor.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        labelColor: isDark
+                            ? const Color(0xFF212526)
+                            : Colors.white, // Inverted text on active tab
+                        unselectedLabelColor: subTextColor,
+                        labelStyle: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14),
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        dividerColor: Colors.transparent,
+                        tabs: const [
+                          Tab(text: '文本导入'),
+                          Tab(text: '多模态 (AI)'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Content
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(24),
+                          bottomRight: Radius.circular(24),
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(24),
+                          bottomRight: Radius.circular(24),
+                        ),
+                        child: TabBarView(
+                          children: [
+                            _buildPlainTextTab(),
+                            _buildNotebookLMTab(),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ));
   }
 
   Widget _buildPlainTextTab() {
@@ -519,7 +657,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          if (_generatedItems == null) ...[
+          // 显示输入区域的条件：没有生成的items 且 不在生成中
+          if (_generatedItems == null && !_isGenerating) ...[
             // Input State
             Expanded(
               child: Column(
@@ -667,145 +806,265 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
               ],
             ),
           ] else ...[
-            // Review State
+            // Review State (包括流式生成中的状态)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '已生成 ${_generatedItems!.length} 个知识点',
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: textColor),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          if (_isGenerating) ...[
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: accentColor,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Flexible(
+                            child: Text(
+                              _isGenerating
+                                  ? (_streamingStatus ?? '正在生成...')
+                                  : '已生成 ${_generatedItems?.length ?? 0} 个知识点',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: textColor),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_isGenerating && _totalCards != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: LinearProgressIndicator(
+                            value: (_currentCardIndex ?? 0) / _totalCards!,
+                            backgroundColor: borderColor,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(accentColor),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.refresh, color: secondaryTextColor),
-                  onPressed: () {
-                    setState(() {
-                      _generatedItems = null;
-                      _isGenerating = false;
-                    });
-                  },
-                  tooltip: '重新编辑',
-                ),
+                if (!_isGenerating)
+                  IconButton(
+                    icon: Icon(Icons.refresh, color: secondaryTextColor),
+                    onPressed: () {
+                      setState(() {
+                        _generatedItems = null;
+                        _isGenerating = false;
+                        _streamingStatus = null;
+                        _totalCards = null;
+                        _currentCardIndex = null;
+                      });
+                    },
+                    tooltip: '重新编辑',
+                  ),
               ],
             ),
             const SizedBox(height: 16),
+            const SizedBox(height: 16),
             Expanded(
-              child: ListView.separated(
-                itemCount: _generatedItems!.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final item = _generatedItems![index];
-                  return Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: cardBg,
-                      border: Border.all(color: borderColor),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        if (!isDark)
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.02),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+              child: (_isGenerating &&
+                      (_generatedItems == null || _generatedItems!.isEmpty))
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: CircularProgressIndicator(strokeWidth: 3),
                           ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 32,
-                              height: 32,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? accentColor.withOpacity(0.2)
-                                    : const Color(0xFFEFF6FF),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text('${index + 1}',
-                                  style: TextStyle(
-                                      color: isDark
-                                          ? accentColor
-                                          : const Color(0xFF3B82F6),
-                                      fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 24),
+                          Text(
+                            _streamingStatus ?? '正在连接 AI...',
+                            style: TextStyle(
+                              color: secondaryTextColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                                child: Text(item.title,
-                                    style: TextStyle(
-                                        color: textColor,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16))),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? borderColor.withOpacity(0.3)
-                                    : const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(item.category,
-                                  style: TextStyle(
-                                      fontSize: 10, color: secondaryTextColor)),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'AI 正在阅读并分析您的内容\n第一张卡片通常需要 5-10 秒...',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: secondaryTextColor.withOpacity(0.7),
+                              fontSize: 13,
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                            padding: const EdgeInsets.all(12),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: (_generatedItems?.length ?? 0) +
+                          (_isGenerating ? 1 : 0),
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        // 如果是最后一项且正在生成，显示加载条
+                        if (_isGenerating &&
+                            index == (_generatedItems?.length ?? 0)) {
+                          return Container(
+                            padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.black.withOpacity(0.2)
-                                  : const Color(0xFFFFF7ED),
-                              borderRadius: BorderRadius.circular(12),
+                              color: cardBg.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                  color: isDark
-                                      ? borderColor
-                                      : const Color(0xFFFFEDD5)),
+                                  color: borderColor.withOpacity(0.5),
+                                  style: BorderStyle.solid),
                             ),
-                            child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: accentColor,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  '正在生成下一张卡片...',
+                                  style: TextStyle(
+                                    color: secondaryTextColor,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        final item = _generatedItems![index];
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: cardBg,
+                            border: Border.all(color: borderColor),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              if (!isDark)
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.02),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 children: [
-                                  Row(children: [
-                                    Icon(Icons.help_outline,
-                                        size: 14,
+                                  Container(
+                                    width: 32,
+                                    height: 32,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? accentColor.withValues(alpha: 0.2)
+                                          : const Color(0xFFEFF6FF),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text('${index + 1}',
+                                        style: TextStyle(
+                                            color: isDark
+                                                ? accentColor
+                                                : const Color(0xFF3B82F6),
+                                            fontWeight: FontWeight.bold)),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                      child: Text(item.title,
+                                          style: TextStyle(
+                                              color: textColor,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16))),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? borderColor.withOpacity(0.3)
+                                          : const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(item.category,
+                                        style: TextStyle(
+                                            fontSize: 10,
+                                            color: secondaryTextColor)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? Colors.black.withOpacity(0.2)
+                                        : const Color(0xFFFFF7ED),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
                                         color: isDark
-                                            ? accentColor
-                                            : const Color(0xFFF97316)),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                        child: Text(
-                                            '提问: ${(item.pages.first as OfficialPage).flashcardQuestion ?? "自动生成中..."}',
-                                            style: TextStyle(
-                                                fontSize: 13,
-                                                color: isDark
-                                                    ? accentColor
-                                                    : const Color(0xFF9A3412),
-                                                fontWeight: FontWeight.w500)))
-                                  ])
-                                ])),
-                      ],
+                                            ? borderColor
+                                            : const Color(0xFFFFEDD5)),
+                                  ),
+                                  child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(children: [
+                                          Icon(Icons.help_outline,
+                                              size: 14,
+                                              color: isDark
+                                                  ? accentColor
+                                                  : const Color(0xFFF97316)),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                              child: Text(
+                                                  '提问: ${(item.pages.first as OfficialPage).flashcardQuestion ?? "自动生成中..."}',
+                                                  style: TextStyle(
+                                                      fontSize: 13,
+                                                      color: isDark
+                                                          ? accentColor
+                                                          : const Color(
+                                                              0xFF9A3412),
+                                                      fontWeight:
+                                                          FontWeight.w500)))
+                                        ])
+                                      ])),
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
             const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        _generatedItems = null;
-                      });
-                    },
+                    onPressed: _isGenerating
+                        ? null
+                        : () {
+                            setState(() {
+                              _generatedItems = null;
+                              _streamingStatus = null;
+                              _totalCards = null;
+                              _currentCardIndex = null;
+                            });
+                          },
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 20),
                       side: BorderSide(color: borderColor),
@@ -819,7 +1078,10 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: _saveAll,
+                    onPressed:
+                        (_isGenerating || (_generatedItems?.isEmpty ?? true))
+                            ? null
+                            : _saveAll,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: accentColor,
                       foregroundColor: Colors.white,
@@ -827,8 +1089,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                       padding: const EdgeInsets.symmetric(vertical: 20),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)),
+                      disabledBackgroundColor: accentColor.withOpacity(0.5),
                     ),
-                    child: const Text('确认并保存'),
+                    child: Text(_isGenerating ? '生成中...' : '确认并保存'),
                   ),
                 ),
               ],

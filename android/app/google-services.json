@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "963685034908",
+    "project_id": "reado-c8d21",
+    "storage_bucket": "reado-c8d21.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:963685034908:android:7aabe607ee1d6107763659",
+        "android_client_info": {
+          "package_name": "com.example.quick_pm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkGuAPRKM9QeTeQ3agbvTUNSmtb7QNh1c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -21,10 +21,7 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return android;
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
@@ -50,23 +47,30 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBzqgEC2K7teYRsUpw5NMECQTJg3Afnnj0',
-    appId: '1:645063695535:web:3baa059a0853c6e262c85a',
-    messagingSenderId: '645063695535',
-    projectId: 'quickpm-8f9c9',
-    authDomain: 'quickpm-8f9c9.firebaseapp.com',
-    storageBucket: 'quickpm-8f9c9.firebasestorage.app',
-    measurementId: 'G-R19RZYENY9',
+    apiKey: 'AIzaSyDCShg0IQ1HyJHsi2sqfQRmAiDZFnjwOI0',
+    appId: '1:963685034908:web:d3a8f342f88f5fd4763659',
+    messagingSenderId: '963685034908',
+    projectId: 'reado-c8d21',
+    authDomain: 'reado-c8d21.firebaseapp.com',
+    storageBucket: 'reado-c8d21.firebasestorage.app',
+    measurementId: 'G-WNQG721JGL',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAEel3CbUOOl2ViY5AYjPD-lphtmalgpyc',
-    appId: '1:645063695535:ios:eac242a8a98e924062c85a',
-    messagingSenderId: '645063695535',
-    projectId: 'quickpm-8f9c9',
-    storageBucket: 'quickpm-8f9c9.firebasestorage.app',
-    iosClientId: '645063695535-qlvij3ld97okog0fqf3noa7ur0jbhht4.apps.googleusercontent.com',
+    apiKey: 'AIzaSyAcpcBHeYi0r-m5HwL7_WYPR4rVmGB6UWk',
+    appId: '1:963685034908:ios:540d02681ce7ab84763659',
+    messagingSenderId: '963685034908',
+    projectId: 'reado-c8d21',
+    storageBucket: 'reado-c8d21.firebasestorage.app',
     iosBundleId: 'com.example.quickPm',
+  );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyBkGuAPRKM9QeTeQ3agbvTUNSmtb7QNh1c',
+    appId: '1:963685034908:android:7aabe607ee1d6107763659',
+    messagingSenderId: '963685034908',
+    projectId: 'reado-c8d21',
+    storageBucket: 'reado-c8d21.firebasestorage.app',
   );
 
 }

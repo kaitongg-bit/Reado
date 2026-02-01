@@ -433,37 +433,42 @@ class HomeTab extends ConsumerWidget {
                   const SizedBox(height: 16),
 
                   if (moduleState.custom.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(32),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white.withOpacity(0.05)
-                              : Colors.grey[100],
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
+                    GestureDetector(
+                      onTap: () => _showCreateModuleDialog(context, ref),
+                      child: Container(
+                        padding: const EdgeInsets.all(32),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
                             color: isDark
-                                ? Colors.white.withOpacity(0.1)
-                                : Colors.grey[300]!,
-                            style: BorderStyle.solid,
-                          )),
-                      child: Column(
-                        children: [
-                          Icon(Icons.add_circle_outline,
-                              size: 48,
-                              color:
-                                  isDark ? Colors.grey[600] : Colors.grey[400]),
-                          const SizedBox(height: 12),
-                          Text(
-                            "创建你的第一个知识库",
-                            style: TextStyle(
-                              fontSize: 16,
-                              color:
-                                  isDark ? Colors.grey[400] : Colors.grey[600],
-                              fontWeight: FontWeight.w600,
+                                ? Colors.white.withOpacity(0.05)
+                                : Colors.grey[100],
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withOpacity(0.1)
+                                  : Colors.grey[300]!,
+                              style: BorderStyle.solid,
+                            )),
+                        child: Column(
+                          children: [
+                            Icon(Icons.add_circle_outline,
+                                size: 48,
+                                color: isDark
+                                    ? Colors.grey[600]
+                                    : Colors.grey[400]),
+                            const SizedBox(height: 12),
+                            Text(
+                              "创建你的第一个知识库",
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: isDark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     )
                   else

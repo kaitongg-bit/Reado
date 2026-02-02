@@ -284,8 +284,20 @@ class HomeTab extends ConsumerWidget {
                             child: ElevatedButton.icon(
                               onPressed: () async {
                                 final messenger = ScaffoldMessenger.of(context);
+
+                                // Check if user is logged in (though official cards don't strictly require it,
+                                // it's better for consistent state)
+                                final user = FirebaseAuth.instance.currentUser;
+                                if (user == null) {
+                                  messenger.showSnackBar(const SnackBar(
+                                    content: Text('⚠️ 请先登录后再初始化内容'),
+                                    backgroundColor: Colors.orange,
+                                  ));
+                                  return;
+                                }
+
                                 messenger.showSnackBar(const SnackBar(
-                                  content: Text('🔄 正在初始化数据库...'),
+                                  content: Text('🔄 正在从云端导入 30+ 知识卡片...'),
                                   duration: Duration(seconds: 2),
                                 ));
 
@@ -293,20 +305,46 @@ class HomeTab extends ConsumerWidget {
                                   await ref
                                       .read(feedProvider.notifier)
                                       .seedDatabase();
-                                  await ref
-                                      .read(feedProvider.notifier)
-                                      .loadAllData();
 
-                                  messenger.showSnackBar(const SnackBar(
-                                    content: Text('✅ 数据初始化成功！已导入 30 个知识点'),
-                                    backgroundColor: Colors.green,
-                                    duration: Duration(seconds: 3),
-                                  ));
+                                  // After seeding, trigger a refresh of the module progress as well
+                                  await ref
+                                      .read(moduleProvider.notifier)
+                                      .refresh();
+
+                                  if (context.mounted) {
+                                    messenger.showSnackBar(const SnackBar(
+                                      content: Text('✅ 数据初始化成功！已入脑 30+ 官方卡片'),
+                                      backgroundColor: Colors.green,
+                                      duration: Duration(seconds: 3),
+                                    ));
+                                  }
                                 } catch (e) {
-                                  messenger.showSnackBar(SnackBar(
-                                    content: Text('❌ 初始化失败: $e'),
-                                    backgroundColor: Colors.red,
-                                  ));
+                                  if (context.mounted) {
+                                    print('❌ Seeding failed: $e');
+                                    messenger.showSnackBar(SnackBar(
+                                      content: Text('❌ 初始化失败: $e'),
+                                      backgroundColor: Colors.red,
+                                      action: SnackBarAction(
+                                        label: '详情',
+                                        onPressed: () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (ctx) => AlertDialog(
+                                              title: const Text('错误详情'),
+                                              content: Text(e.toString()),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(ctx),
+                                                  child: const Text('好的'),
+                                                )
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ));
+                                  }
                                 }
                               },
                               icon: const Icon(Icons.rocket_launch),
@@ -561,6 +599,11 @@ class HomeTab extends ConsumerWidget {
               if (title.isNotEmpty) {
                 Navigator.pop(context); // Close dialog
                 try {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user == null) {
+                    throw Exception('请先登录以创建您的专属知识库');
+                  }
+
                   await ref.read(moduleProvider.notifier).createModule(
                         title,
                         descController.text.trim(),
@@ -568,15 +611,19 @@ class HomeTab extends ConsumerWidget {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('知识库 "$title" 已创建!'),
+                        content: Text('✨ 知识库 "$title" 已准备就绪!'),
                         behavior: SnackBarBehavior.floating,
+                        backgroundColor: Colors.green,
                       ),
                     );
                   }
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('错误: $e')),
+                      SnackBar(
+                        content: Text('❌ 创建失败: $e'),
+                        backgroundColor: Colors.red,
+                      ),
                     );
                   }
                 }

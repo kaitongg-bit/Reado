@@ -42,22 +42,27 @@ class ModuleNotifier extends StateNotifier<ModuleState> {
   Future<void> _loadInitialData() async {
     state = state.copyWith(isLoading: true);
 
-    // 1. Load Official Modules (Hardcoded for now, could be fetched)
-    final officials = KnowledgeModule.officials;
+    try {
+      // 1. Load Official Modules (Hardcoded for now, could be fetched)
+      final officials = KnowledgeModule.officials;
 
-    // 2. Load User Custom Modules
-    final user = FirebaseAuth.instance.currentUser;
-    List<KnowledgeModule> custom = [];
+      // 2. Load User Custom Modules
+      final user = FirebaseAuth.instance.currentUser;
+      List<KnowledgeModule> custom = [];
 
-    if (user != null) {
-      custom = await _dataService.fetchUserModules(user.uid);
+      if (user != null) {
+        custom = await _dataService.fetchUserModules(user.uid);
+      }
+
+      state = state.copyWith(
+        officials: officials,
+        custom: custom,
+      );
+    } catch (e) {
+      print('❌ Failed to load modules: $e');
+    } finally {
+      state = state.copyWith(isLoading: false);
     }
-
-    state = state.copyWith(
-      officials: officials,
-      custom: custom,
-      isLoading: false,
-    );
   }
 
   Future<void> refresh() async {
@@ -66,7 +71,9 @@ class ModuleNotifier extends StateNotifier<ModuleState> {
 
   Future<void> createModule(String title, String description) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      throw Exception('用户未登录，请先登录');
+    }
 
     try {
       final newModule =

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../../models/feed_item.dart';
@@ -31,7 +32,31 @@ abstract class DataService {
 }
 
 class FirestoreService implements DataService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // ⚠️ 修复关键：指定数据库 ID 为 'reado'，而不是使用默认的 '(default)'
+  final FirebaseFirestore _db = FirebaseFirestore.instanceFor(
+    app: Firebase.app(),
+    databaseId: 'reado',
+  );
+
+  FirestoreService() {
+    _init();
+  }
+
+  void _init() {
+    try {
+      print('🔥 FirestoreService: Initializing (DB: reado)...');
+      // ⚠️ 关键修复：禁用 Persistence 以避免 Web 端的“假离线”同步问题
+      // 特别是在切换账号或高频测试阶段
+      _db.settings = const Settings(
+        persistenceEnabled: false,
+      );
+      print('🔥 Target Project: ${_db.app.options.projectId}');
+      print('🔥 Target Database: ${_db.databaseId}');
+    } catch (e) {
+      print(
+          '⚠️ Firestore Settings Warning: $e (This is expected if set multiple times)');
+    }
+  }
 
   // Collection References
   CollectionReference get _feedRef => _db.collection('feed_items');
@@ -41,11 +66,15 @@ class FirestoreService implements DataService {
   @override
   Future<List<FeedItem>> fetchFeedItems(String moduleId) async {
     try {
-      if (kDebugMode) print('📥 Fetching items for module: $moduleId');
+      print('📥 Fetching items for module: $moduleId (with 10s timeout)');
       final querySnapshot = await _feedRef
           .where('module', isEqualTo: moduleId)
-          .orderBy('id')
-          .get();
+          // Removed .orderBy('id') to avoid requiring composite indexes which often cause silent failures if not created
+          .get()
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        print('⏱️ Firestore GET timed out for module: $moduleId');
+        throw Exception('数据库连接超时 (10s)。请检查网络或代理是否通畅。');
+      });
 
       final items = querySnapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
@@ -53,47 +82,57 @@ class FirestoreService implements DataService {
         return data;
       }).toList();
 
-      // Merge user notes for each item
+      // Merge user notes and mastery level for each item
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        for (var item in items) {
+        print('🧠 Parallel fetching metadata for ${items.length} items...');
+        await Future.wait(items.map((item) async {
           final itemId = item['id'] as String?;
-          if (itemId == null) continue;
+          if (itemId == null) return;
 
-          final userNotes = await _fetchUserNotesForItem(user.uid, itemId);
-          if (userNotes.isNotEmpty) {
-            // Merge user notes into pages array
-            final pages = List<Map<String, dynamic>>.from(item['pages'] ?? []);
-            pages.addAll(userNotes);
-            item['pages'] = pages;
-          }
+          try {
+            // 1. Fetch Notes & 2. Fetch Mastery (Parallel)
+            final results = await Future.wait([
+              _fetchUserNotesForItem(user.uid, itemId),
+              _db
+                  .collection('users')
+                  .doc(user.uid)
+                  .collection('mastery')
+                  .doc(itemId)
+                  .get()
+                  .timeout(const Duration(seconds: 5)),
+            ]);
 
-          // ✅ Merge user mastery level
-          final masteryDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .collection('mastery')
-              .doc(itemId)
-              .get();
-
-          if (masteryDoc.exists) {
-            final masteryData = masteryDoc.data();
-            if (masteryData != null && masteryData['level'] != null) {
-              item['masteryLevel'] = masteryData['level'];
+            final userNotes = results[0] as List<Map<String, dynamic>>;
+            if (userNotes.isNotEmpty) {
+              final pages =
+                  List<Map<String, dynamic>>.from(item['pages'] ?? []);
+              pages.addAll(userNotes);
+              item['pages'] = pages;
             }
+
+            final masteryDoc = results[1] as DocumentSnapshot;
+            if (masteryDoc.exists) {
+              final masteryData = masteryDoc.data() as Map<String, dynamic>?;
+              if (masteryData != null && masteryData['level'] != null) {
+                item['masteryLevel'] = masteryData['level'];
+              }
+            }
+          } catch (e) {
+            // Log & silent ignore to prevent flow crash
+            if (kDebugMode) print('⚠️ Metadata skip for $itemId: $e');
           }
-        }
+        }));
       }
 
-      // Convert to FeedItem objects
       final feedItems = items.map((data) => FeedItem.fromJson(data)).toList();
 
       if (kDebugMode)
         print('✅ Fetched ${feedItems.length} items for module $moduleId');
       return feedItems;
     } catch (e) {
-      if (kDebugMode) print('Error fetching items: $e');
-      return [];
+      print('❌ Error fetching items for $moduleId: $e');
+      rethrow; // Rethrow to let the UI know
     }
   }
 
@@ -101,7 +140,7 @@ class FirestoreService implements DataService {
   Future<List<Map<String, dynamic>>> _fetchUserNotesForItem(
       String userId, String itemId) async {
     try {
-      final noteDoc = await FirebaseFirestore.instance
+      final noteDoc = await _db
           .collection('users')
           .doc(userId)
           .collection('notes')
@@ -183,7 +222,7 @@ class FirestoreService implements DataService {
       }
 
       // 2️⃣ Official Item: Save to separate notes collection (Side-car)
-      await FirebaseFirestore.instance
+      await _db
           .collection('users')
           .doc(user.uid)
           .collection('notes')
@@ -378,11 +417,16 @@ class FirestoreService implements DataService {
   @override
   Future<List<KnowledgeModule>> fetchUserModules(String userId) async {
     try {
+      print('📥 Fetching modules for user: $userId (timeout 10s)');
       final snapshot = await _usersRef
           .doc(userId)
           .collection('modules')
           .orderBy('createdAt', descending: true)
-          .get();
+          .get()
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        print('⏱️ fetchUserModules timed out');
+        throw Exception('获取个人库列表超时');
+      });
       return snapshot.docs
           .map((doc) => KnowledgeModule.fromJson(
               doc.data() as Map<String, dynamic>, doc.id))
@@ -502,7 +546,7 @@ class FirestoreService implements DataService {
       }
 
       // 2️⃣ Official Item: Save to side-car collection
-      await FirebaseFirestore.instance
+      await _db
           .collection('users')
           .doc(user.uid)
           .collection('mastery')
@@ -555,23 +599,31 @@ class FirestoreService implements DataService {
   // SEEDING (Crucial for Step 4)
   @override
   Future<void> seedInitialData(List<FeedItem> items) async {
-    // Safety Check: Don't overwrite if data exists!
-    final snapshot = await _feedRef.limit(1).get();
-    if (snapshot.docs.isNotEmpty) {
-      print(
-          '⚠️ Database already has data. Skipping Seed to prevent overwrite.');
-      return;
+    print('🌱 Start seeding check (timeout 10s)...');
+    try {
+      // Safety Check: Don't overwrite if data exists!
+      final snapshot = await _feedRef.limit(1).get().timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw Exception('检查数据库状态超时，请确认网络连接'),
+          );
+      if (snapshot.docs.isNotEmpty) {
+        print(
+            '⚠️ Database already has data. Skipping Seed to prevent overwrite.');
+        return;
+      }
+
+      print('🚀 Database is empty. Seeding ${items.length} items...');
+      final batch = _db.batch();
+      for (var item in items) {
+        final docRef = _feedRef.doc(item.id);
+        batch.set(docRef, item.toJson());
+      }
+      await batch.commit().timeout(const Duration(seconds: 15));
+      print('✅ Seeding completed: ${items.length} items.');
+    } catch (e) {
+      print('❌ Seeding failed: $e');
+      rethrow;
     }
-
-    final batch = _db.batch();
-
-    for (var item in items) {
-      final docRef = _feedRef.doc(item.id);
-      batch.set(docRef, item.toJson());
-    }
-
-    await batch.commit();
-    print('Seeding completed: ${items.length} items.');
   }
 
   @override

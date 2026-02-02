@@ -224,7 +224,8 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
       // 即使 state 内容不变，重新赋值也会触发 notifyListeners
       state = [...state];
     } catch (e) {
-      print('Basic load failed: $e');
+      print('❌ Basic load failed: $e');
+      rethrow;
     } finally {
       print('🏁 加载状态结束');
       _ref.read(feedLoadingProvider.notifier).state = false;

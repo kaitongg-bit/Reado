@@ -8,6 +8,7 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:docx_to_text/docx_to_text.dart';
 import '../../models/feed_item.dart';
 import '../../config/api_config.dart';
+import '../../../core/services/proxy_http_client.dart';
 
 /// 内容来源类型
 enum SourceType {
@@ -258,10 +259,13 @@ class ContentExtractionService {
     required String moduleId,
   }) async {
     final apiKey = ApiConfig.getApiKey();
+    final proxyUrl = ApiConfig.geminiProxyUrl;
+    final client = proxyUrl.isNotEmpty ? ProxyHttpClient(proxyUrl) : null;
 
     final model = GenerativeModel(
       model: 'gemini-2.5-flash',
       apiKey: apiKey,
+      httpClient: client,
       generationConfig: GenerationConfig(
         responseMimeType: 'application/json',
         temperature: 0.7,
@@ -383,10 +387,13 @@ class ContentExtractionService {
     required String moduleId,
   }) async* {
     final apiKey = ApiConfig.getApiKey();
+    final proxyUrl = ApiConfig.geminiProxyUrl;
+    final client = proxyUrl.isNotEmpty ? ProxyHttpClient(proxyUrl) : null;
 
     final model = GenerativeModel(
       model: 'gemini-2.5-flash',
       apiKey: apiKey,
+      httpClient: client,
       generationConfig: GenerationConfig(
         responseMimeType: 'application/json',
         temperature: 0.7,

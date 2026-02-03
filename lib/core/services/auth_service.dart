@@ -33,6 +33,64 @@ class AuthService {
     }
   }
 
+  /// 邮箱密码登录
+  Future<UserCredential?> signInWithEmail(String email, String password) async {
+    try {
+      debugPrint('🔐 尝试邮箱密码登录: $email');
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      debugPrint('✅ 邮箱登录成功: ${credential.user?.email}');
+      return credential;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('❌ 邮箱登录失败: ${e.code} - ${e.message}');
+      throw _handleAuthException(e);
+    } catch (e) {
+      debugPrint('❌ 邮箱登录未知错误: $e');
+      throw Exception('登录失败，请稍后重试');
+    }
+  }
+
+  /// 邮箱密码注册
+  Future<UserCredential?> signUpWithEmail(String email, String password) async {
+    try {
+      debugPrint('📝 尝试邮箱密码注册: $email');
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      debugPrint('✅ 注册成功: ${credential.user?.email}');
+      return credential;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('❌ 注册失败: ${e.code} - ${e.message}');
+      throw _handleAuthException(e);
+    } catch (e) {
+      debugPrint('❌ 注册未知错误: $e');
+      throw Exception('注册失败，请稍后重试');
+    }
+  }
+
+  /// 处理 Firebase 认证异常
+  Exception _handleAuthException(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'user-not-found':
+        return Exception('该邮箱尚未注册');
+      case 'wrong-password':
+        return Exception('密码错误');
+      case 'email-already-in-use':
+        return Exception('该邮箱已被注册');
+      case 'invalid-email':
+        return Exception('邮箱格式不正确');
+      case 'weak-password':
+        return Exception('密码强度不足');
+      case 'too-many-requests':
+        return Exception('尝试次数过多，请稍后再试');
+      default:
+        return Exception(e.message ?? '认证失败');
+    }
+  }
+
   /// Google 登录
   Future<UserCredential?> signInWithGoogle() async {
     try {

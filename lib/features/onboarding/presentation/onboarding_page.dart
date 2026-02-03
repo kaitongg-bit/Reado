@@ -14,10 +14,15 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage>
     with SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
   bool _isLoading = false;
+  bool _isSignUpMode = false;
+  bool _showEmailFields = false;
+
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
-
   StreamSubscription<User?>? _authSub;
 
   @override
@@ -46,6 +51,8 @@ class _OnboardingPageState extends State<OnboardingPage>
   void dispose() {
     _authSub?.cancel();
     _controller.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -71,12 +78,45 @@ class _OnboardingPageState extends State<OnboardingPage>
     }
   }
 
+  Future<void> _handleEmailAuth() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请填写邮箱和密码')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      if (_isSignUpMode) {
+        await _authService.signUpWithEmail(email, password);
+      } else {
+        await _authService.signInWithEmail(email, password);
+      }
+      if (!mounted) return;
+      context.go('/home');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 1. Get Theme Data for Background Match
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    // Use the exact scaffold background color to match HomeTab
     final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
     final textColor = isDark ? Colors.white : Colors.black87;
     final subTextColor = isDark ? Colors.grey[400] : Colors.grey[600];
@@ -85,7 +125,7 @@ class _OnboardingPageState extends State<OnboardingPage>
       backgroundColor: backgroundColor,
       body: Stack(
         children: [
-          // 2. Subtle Ambient Background (Matching HomeTab)
+          // Ambient Background
           Positioned(
             top: -100,
             left: -100,
@@ -94,8 +134,7 @@ class _OnboardingPageState extends State<OnboardingPage>
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFFF8A65)
-                    .withOpacity(isDark ? 0.08 : 0.1), // Coral, subtle
+                color: const Color(0xFFFF8A65).withOpacity(isDark ? 0.08 : 0.1),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFFFF8A65).withOpacity(0.3),
@@ -114,8 +153,7 @@ class _OnboardingPageState extends State<OnboardingPage>
               height: 250,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.blueAccent
-                    .withOpacity(isDark ? 0.05 : 0.08), // Blue, very subtle
+                color: Colors.blueAccent.withOpacity(isDark ? 0.05 : 0.08),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.blueAccent.withOpacity(0.2),
@@ -127,164 +165,246 @@ class _OnboardingPageState extends State<OnboardingPage>
             ),
           ),
 
-          // 3. Main Content
           SafeArea(
             child: FadeTransition(
               opacity: _fadeAnimation,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Spacer(),
-
-                    // --- Brand Logo (2D Flat) ---
-                    // Using Container with shadow to give the flat icon some lift
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(30), // Squircle
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF8A65)
-                                .withOpacity(0.25), // Shadow matches logo color
-                            blurRadius: 30,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(30),
-                        child: Image.asset(
-                          'assets/images/logonew.jpg', // User's custom logo
-                          width: 120,
-                          height: 120,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
-                            width: 120,
-                            height: 120,
-                            color: Colors.grey.withOpacity(0.1),
-                            child:
-                                Icon(Icons.broken_image, color: subTextColor),
-                          ),
+              child: SingleChildScrollView(
+                child: Container(
+                  constraints: BoxConstraints(
+                    minHeight: MediaQuery.of(context).size.height -
+                        MediaQuery.of(context).padding.top -
+                        MediaQuery.of(context).padding.bottom,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 48),
+                      // Logo
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF8A65).withOpacity(0.25),
+                              blurRadius: 30,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 48),
-
-                    // --- Typography ---
-                    Text(
-                      '抖书',
-                      style: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -1.0,
-                        color: textColor,
-                        height: 1.0,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '知识极速入脑',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFFFF8A65), // Brand Coral
-                        letterSpacing: 2.0,
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    Text(
-                      '像刷短视频一样轻松掌握硬核知识\n为你打造的沉浸式卡片学习体验',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 15,
-                        height: 1.6,
-                        color: subTextColor,
-                      ),
-                    ),
-
-                    const Spacer(),
-
-                    // --- Google Sign In Button ---
-                    Container(
-                      width: double.infinity,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _signInWithGoogle,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              isDark ? const Color(0xFF1E293B) : Colors.white,
-                          foregroundColor:
-                              isDark ? Colors.white : Colors.black87,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            side: BorderSide(
-                              color: isDark
-                                  ? Colors.white.withOpacity(0.1)
-                                  : Colors.grey.withOpacity(0.2),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(30),
+                          child: Image.asset(
+                            'assets/images/logonew.jpg',
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                              width: 100,
+                              height: 100,
+                              color: Colors.grey.withOpacity(0.1),
+                              child:
+                                  Icon(Icons.broken_image, color: subTextColor),
                             ),
                           ),
                         ),
-                        child: _isLoading
-                            ? SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: isDark ? Colors.white : Colors.blue,
-                                ),
-                              )
-                            : Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  // High-res Google Logo Asset
-                                  Image.network(
-                                    'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png',
+                      ),
+
+                      const SizedBox(height: 32),
+                      Text(
+                        '抖书',
+                        style: TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1.0,
+                          color: textColor,
+                          height: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '知识极速入脑',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFFF8A65),
+                          letterSpacing: 2.0,
+                        ),
+                      ),
+
+                      const SizedBox(height: 48),
+
+                      if (_showEmailFields) ...[
+                        TextField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            hintText: '电子邮箱',
+                            prefixIcon: const Icon(Icons.email_outlined),
+                            filled: true,
+                            fillColor: isDark
+                                ? Colors.white.withOpacity(0.05)
+                                : Colors.black.withOpacity(0.03),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            hintText: '密码',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            filled: true,
+                            fillColor: isDark
+                                ? Colors.white.withOpacity(0.05)
+                                : Colors.black.withOpacity(0.03),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _handleEmailAuth,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFF8A65),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
                                     width: 24,
                                     height: 24,
-                                    errorBuilder:
-                                        (context, error, stackTrace) =>
-                                            const Icon(Icons.login, size: 24),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Text(
-                                    '使用 Google 账号登录',
-                                    style: TextStyle(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    _isSignUpMode ? '立即注册' : '登录',
+                                    style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: () {
+                            setState(() => _isSignUpMode = !_isSignUpMode);
+                          },
+                          child: Text(
+                            _isSignUpMode ? '已有账号？点击登录' : '没有账号？点击注册',
+                            style: TextStyle(color: subTextColor),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            const Expanded(child: Divider()),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text('或者',
+                                  style: TextStyle(
+                                      color: subTextColor?.withOpacity(0.5))),
+                            ),
+                            const Expanded(child: Divider()),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // Google Login
+                      Container(
+                        width: double.infinity,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _signInWithGoogle,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                isDark ? const Color(0xFF1E293B) : Colors.white,
+                            foregroundColor:
+                                isDark ? Colors.white : Colors.black87,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(
+                                color: isDark
+                                    ? Colors.white.withOpacity(0.1)
+                                    : Colors.grey.withOpacity(0.2),
                               ),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Image.network(
+                                'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png',
+                                width: 24,
+                                height: 24,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Icon(Icons.login, size: 24),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                '使用 Google 账号登录',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
 
-                    const SizedBox(height: 24),
+                      if (!_showEmailFields) ...[
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: () =>
+                              setState(() => _showEmailFields = true),
+                          child: Text(
+                            '使用邮箱密码登录',
+                            style: TextStyle(color: subTextColor),
+                          ),
+                        ),
+                      ],
 
-                    Text(
-                      '登录即代表同意用户协议与隐私政策',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: subTextColor?.withOpacity(0.6),
+                      const SizedBox(height: 48),
+                      Text(
+                        '登录即代表同意用户协议与隐私政策',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: subTextColor?.withOpacity(0.6),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+                      const SizedBox(height: 24),
+                    ],
+                  ),
                 ),
               ),
             ),

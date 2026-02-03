@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter/foundation.dart';
 import '../../models/feed_item.dart';
+import 'proxy_http_client.dart';
 
 class ContentGeneratorService {
   late final GenerativeModel _jsonModel;
@@ -309,33 +309,5 @@ A: [整理后的核心回答]
       debugPrint('❌ Summarize API Error: $e');
       throw Exception('整理笔记失败');
     }
-  }
-}
-
-class ProxyHttpClient extends http.BaseClient {
-  final http.Client _inner = http.Client();
-  final String proxyUrl;
-
-  ProxyHttpClient(this.proxyUrl);
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) {
-    if (request.url.host.contains('googleapis.com')) {
-      final proxyUri = Uri.parse(proxyUrl);
-      final newUrl = request.url.replace(
-        scheme: proxyUri.scheme,
-        host: proxyUri.host,
-      );
-
-      final newRequest = http.Request(request.method, newUrl);
-      newRequest.headers.addAll(request.headers);
-
-      if (request is http.Request) {
-        newRequest.bodyBytes = request.bodyBytes;
-      }
-
-      return _inner.send(newRequest);
-    }
-    return _inner.send(request);
   }
 }

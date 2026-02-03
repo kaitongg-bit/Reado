@@ -343,8 +343,8 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
         isDark ? Colors.black.withOpacity(0.3) : Colors.white.withOpacity(0.85);
 
     // Padding to clear the Top Header (which is in FeedPage)
-    // Header is approx 80-100px.
-    final contentPadding = const EdgeInsets.fromLTRB(24, 130, 24, 120);
+    // Reduce from 130 to 88 to fix "giant gap" issue
+    final contentPadding = const EdgeInsets.fromLTRB(24, 88, 24, 120);
 
     if (content is OfficialPage) {
       return Container(
@@ -406,7 +406,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
       );
     } else if (content is UserNotePage) {
       // No bottom padding for notes - maximize reading space
-      final notePadding = const EdgeInsets.fromLTRB(24, 130, 24, 0);
+      final notePadding = const EdgeInsets.fromLTRB(24, 88, 24, 0);
 
       return Container(
         color: isDark
@@ -749,7 +749,9 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
               16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
           height: MediaQuery.of(context).size.height * 0.75,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.9), // Semi-transparent white
+            color: Theme.of(context)
+                .canvasColor
+                .withOpacity(0.9), // Adaptive background
           ),
           child: Column(
             children: [
@@ -816,7 +818,8 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                             const SizedBox(height: 16),
                             Text(
                               '关于卡片内容，尽管问我',
-                              style: TextStyle(color: Colors.grey[400]),
+                              style:
+                                  TextStyle(color: Theme.of(context).hintColor),
                             ),
                           ],
                         ),
@@ -874,7 +877,10 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                         decoration: InputDecoration(
                           hintText: 'Ask AI...',
                           filled: true,
-                          fillColor: Colors.grey[100],
+                          fillColor:
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white.withOpacity(0.1)
+                                  : Colors.grey[100],
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(24),
                             borderSide: BorderSide.none,
@@ -915,12 +921,19 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
 
   Widget _buildMessageBubble(
       _ChatMessage msg, int index, bool isSelected, bool isPinned) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final bubbleColor = isSelected
         ? Colors.amber[100]
-        : (msg.isUser ? Colors.black : Colors.grey[100]);
+        : (msg.isUser
+            ? (isDark ? const Color(0xFF9333EA) : Colors.black)
+            : (isDark ? Colors.white.withOpacity(0.1) : Colors.grey[100]));
+
     final textColor = isSelected
         ? Colors.black
-        : (msg.isUser ? Colors.white : Colors.black87);
+        : (msg.isUser
+            ? Colors.white
+            : (isDark ? Colors.white.withOpacity(0.9) : Colors.black87));
 
     return GestureDetector(
       onLongPress: () => _toggleSelection(index),

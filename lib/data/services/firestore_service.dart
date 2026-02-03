@@ -84,45 +84,57 @@ class FirestoreService implements DataService {
 
       // Merge user notes and mastery level for each item
       final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        print('🧠 Parallel fetching metadata for ${items.length} items...');
-        await Future.wait(items.map((item) async {
-          final itemId = item['id'] as String?;
-          if (itemId == null) return;
+      if (user != null && items.isNotEmpty) {
+        print('🧠 Metadata fetching for ${items.length} items (Safe Mode)...');
 
-          try {
-            // 1. Fetch Notes & 2. Fetch Mastery (Parallel)
-            final results = await Future.wait([
-              _fetchUserNotesForItem(user.uid, itemId),
-              _db
-                  .collection('users')
-                  .doc(user.uid)
-                  .collection('mastery')
-                  .doc(itemId)
-                  .get()
-                  .timeout(const Duration(seconds: 5)),
-            ]);
+        // 🚀 优化：分块并发 (Chunked Parallelism)
+        // 以前是 Future.wait(所有)，现在我们 5 个一组，防止把浏览器 WebSocket 撑爆导致 offline
+        const int chunkSize = 5;
+        for (var i = 0; i < items.length; i += chunkSize) {
+          final chunk = items.skip(i).take(chunkSize);
+          await Future.wait(chunk.map((item) async {
+            final itemId = item['id'] as String?;
+            if (itemId == null) return;
 
-            final userNotes = results[0] as List<Map<String, dynamic>>;
-            if (userNotes.isNotEmpty) {
-              final pages =
-                  List<Map<String, dynamic>>.from(item['pages'] ?? []);
-              pages.addAll(userNotes);
-              item['pages'] = pages;
-            }
+            try {
+              // Fetch Notes & Mastery (Parallel) for this single item
+              final results = await Future.wait([
+                _fetchUserNotesForItem(user.uid, itemId),
+                _db
+                    .collection('users')
+                    .doc(user.uid)
+                    .collection('mastery')
+                    .doc(itemId)
+                    .get()
+                    .timeout(const Duration(seconds: 5)),
+              ]);
 
-            final masteryDoc = results[1] as DocumentSnapshot;
-            if (masteryDoc.exists) {
-              final masteryData = masteryDoc.data() as Map<String, dynamic>?;
-              if (masteryData != null && masteryData['level'] != null) {
-                item['masteryLevel'] = masteryData['level'];
+              final userNotes = results[0] as List<Map<String, dynamic>>;
+              if (userNotes.isNotEmpty) {
+                final pages =
+                    List<Map<String, dynamic>>.from(item['pages'] ?? []);
+                pages.addAll(userNotes);
+                item['pages'] = pages;
               }
+
+              final masteryDoc = results[1] as DocumentSnapshot;
+              if (masteryDoc.exists) {
+                final masteryData = masteryDoc.data() as Map<String, dynamic>?;
+                if (masteryData != null && masteryData['level'] != null) {
+                  item['masteryLevel'] = masteryData['level'];
+                }
+              }
+            } catch (e) {
+              // Log & silent ignore to prevent flow crash
+              if (kDebugMode) print('⚠️ Metadata skip for $itemId: $e');
             }
-          } catch (e) {
-            // Log & silent ignore to prevent flow crash
-            if (kDebugMode) print('⚠️ Metadata skip for $itemId: $e');
+          }));
+
+          // 给浏览器喘息时间，防止并发太高被 Firestore 断开
+          if (i + chunkSize < items.length) {
+            await Future.delayed(const Duration(milliseconds: 50));
           }
-        }));
+        }
       }
 
       final feedItems = items.map((data) => FeedItem.fromJson(data)).toList();

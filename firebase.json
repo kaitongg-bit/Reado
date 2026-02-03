@@ -1,1 +1,68 @@
-{"hosting":{"public":"build/web","ignore":["firebase.json","**/.*","**/node_modules/**"],"rewrites":[{"source":"**","destination":"/index.html"}]},"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"reado-c8d21","configurations":{"android":"1:963685034908:android:7aabe607ee1d6107763659","ios":"1:963685034908:ios:540d02681ce7ab84763659","web":"1:963685034908:web:d3a8f342f88f5fd4763659"}}},"ios":{"default":{"projectId":"reado-c8d21","appId":"1:963685034908:ios:540d02681ce7ab84763659","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"android":{"default":{"projectId":"reado-c8d21","appId":"1:963685034908:android:7aabe607ee1d6107763659","fileOutput":"android/app/google-services.json"}}}}}
+{
+    "functions": [
+        {
+            "source": "functions",
+            "codebase": "default",
+            "ignore": [
+                "node_modules",
+                ".git",
+                "firebase-debug.log",
+                "firebase-functions-test.log"
+            ]
+        }
+    ],
+    "hosting": {
+        "public": "build/web",
+        "ignore": [
+            "firebase.json",
+            "**/.*",
+            "**/node_modules/**"
+        ],
+        "rewrites": [
+            {
+                "source": "**",
+                "destination": "/index.html"
+            }
+        ],
+        "headers": [
+            {
+                "source": "**/*.@(js|html)",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "no-cache, no-store, must-revalidate"
+                    }
+                ]
+            }
+        ]
+    },
+    "flutter": {
+        "platforms": {
+            "dart": {
+                "lib/firebase_options.dart": {
+                    "projectId": "reado-c8d21",
+                    "configurations": {
+                        "android": "1:963685034908:android:7aabe607ee1d6107763659",
+                        "ios": "1:963685034908:ios:540d02681ce7ab84763659",
+                        "web": "1:963685034908:web:d3a8f342f88f5fd4763659"
+                    }
+                }
+            },
+            "ios": {
+                "default": {
+                    "projectId": "reado-c8d21",
+                    "appId": "1:963685034908:ios:540d02681ce7ab84763659",
+                    "uploadDebugSymbols": false,
+                    "fileOutput": "ios/Runner/GoogleService-Info.plist"
+                }
+            },
+            "android": {
+                "default": {
+                    "projectId": "reado-c8d21",
+                    "appId": "1:963685034908:android:7aabe607ee1d6107763659",
+                    "fileOutput": "android/app/google-services.json"
+                }
+            }
+        }
+    }
+}

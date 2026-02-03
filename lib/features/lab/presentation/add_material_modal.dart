@@ -454,6 +454,19 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
         ? const Color(0xFF917439).withOpacity(0.3)
         : const Color(0xFFE2E8F0); // Secondary accent as border
 
+    // 计算弹窗高度，确保 Expanded 能够正确撑开
+    final screenHeight = MediaQuery.of(context).size.height;
+    final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
+
+    // 动态计算高度：如果有键盘，则减去键盘高度；否则给一个基于屏幕比例的高度（但受限于最大值）
+    double dialogHeight;
+    if (viewInsetsBottom > 0) {
+      dialogHeight = (screenHeight - viewInsetsBottom - 32).clamp(300.0, 750.0);
+    } else {
+      // 桌面端/无键盘：占屏幕 80%，最大 750，最小 500
+      dialogHeight = (screenHeight * 0.8).clamp(500.0, 750.0);
+    }
+
     return WillPopScope(
         onWillPop: () async {
           if (_isGenerating) {
@@ -481,16 +494,23 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
         },
         child: Dialog(
           backgroundColor: bgColor,
-          insetPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: viewInsetsBottom > 0 ? 10 : 24,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
             side: isDark
                 ? BorderSide(color: borderColor, width: 1)
                 : BorderSide.none,
           ),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 750),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: double.infinity,
+            height: dialogHeight, // 🔥 显式设置高度，解决 iOS Web 下 Expanded 塌陷问题
+            constraints: const BoxConstraints(
+              maxWidth: 600,
+            ),
             child: DefaultTabController(
               length: 2,
               child: Column(
@@ -659,86 +679,105 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
         children: [
           // 显示输入区域的条件：没有生成的items 且 不在生成中
           if (_generatedItems == null && !_isGenerating) ...[
-            // Input State
+            // Input State - 使用 ScrollView 包裹整个内容
             Expanded(
-              child: Column(
-                children: [
-                  // Hint Box
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: hintBg,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: borderColor),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.lightbulb_outline,
-                            color:
-                                isDark ? accentColor : const Color(0xFF3B82F6),
-                            size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: RichText(
-                            text: TextSpan(
-                              style: TextStyle(fontSize: 12, color: textColor),
-                              children: [
-                                const TextSpan(
-                                    text: '小贴士：',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold)),
-                                const TextSpan(text: '使用 Markdown 标题 (如 '),
-                                TextSpan(
-                                    text: '# 标题',
-                                    style: TextStyle(
-                                        fontFamily: 'monospace',
-                                        color: isDark ? accentColor : null,
-                                        backgroundColor: isDark
-                                            ? Colors.transparent
-                                            : const Color(0xFFDBEAFE))),
-                                const TextSpan(
-                                    text:
-                                        ') 可手动拆分卡片，无需消耗 AI 额度。若无标题，将默认使用第一句话作为标题。'),
-                              ],
-                            ),
+              child: Container(
+                // 确保容器有背景色，避免透明造成的点击穿透问题
+                color: Colors.transparent,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    children: [
+                      // 1. 文本输入框 (Fixed Height)
+                      Container(
+                        height: 300,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: inputBg,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: borderColor),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        child: TextField(
+                          controller: _textController,
+                          maxLines: null,
+                          expands: true,
+                          style: TextStyle(
+                              fontSize: 16, height: 1.5, color: textColor),
+                          scrollPadding: const EdgeInsets.only(bottom: 150),
+                          decoration: InputDecoration(
+                            hintText:
+                                '在此粘贴文章内容、笔记或网页文本...\n\n示例：\n# 什么是 Flutter\nFlutter 是 Google 开源的 UI 工具包...\n\n# 特点\n1. 跨平台\n2. 高性能...',
+                            hintStyle: TextStyle(
+                                color: secondaryTextColor.withOpacity(0.5)),
+                            border: InputBorder.none,
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: inputBg,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: borderColor),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      child: TextField(
-                        controller: _textController,
-                        maxLines: null,
-                        expands: true,
-                        style: TextStyle(
-                            fontSize: 16, height: 1.5, color: textColor),
-                        decoration: InputDecoration(
-                          hintText:
-                              '在此粘贴文章内容、笔记或网页文本...\n\n示例：\n# 什么是 Flutter\nFlutter 是 Google 开源的 UI 工具包...\n\n# 特点\n1. 跨平台\n2. 高性能...',
-                          hintStyle: TextStyle(
-                              color: secondaryTextColor.withOpacity(0.5)),
-                          border: InputBorder.none,
+
+                      const SizedBox(height: 16),
+
+                      // 2. 小贴士 (Moved Below)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: hintBg,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: borderColor),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.lightbulb_outline,
+                                color: isDark
+                                    ? accentColor
+                                    : const Color(0xFF3B82F6),
+                                size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: RichText(
+                                text: TextSpan(
+                                  style:
+                                      TextStyle(fontSize: 12, color: textColor),
+                                  children: [
+                                    const TextSpan(
+                                        text: '小贴士：',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold)),
+                                    const TextSpan(text: '使用 Markdown 标题 (如 '),
+                                    TextSpan(
+                                        text: '# 标题',
+                                        style: TextStyle(
+                                            fontFamily: 'monospace',
+                                            color: isDark ? accentColor : null,
+                                            backgroundColor: isDark
+                                                ? Colors.transparent
+                                                : const Color(0xFFDBEAFE))),
+                                    const TextSpan(
+                                        text:
+                                            ') 可手动拆分卡片，无需消耗 AI 额度。若无标题，将默认使用第一句话作为标题。'),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
+
+                      // 底部留白，防止被键盘遮挡体验不好
+                      const SizedBox(height: 20),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
+
             const SizedBox(height: 20),
+
             if (_error != null)
               Container(
                 width: double.infinity,
@@ -1394,6 +1433,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                         TextField(
                           controller: _urlController,
                           style: TextStyle(fontSize: 15, color: textColor),
+                          scrollPadding: const EdgeInsets.only(bottom: 100),
                           decoration: InputDecoration(
                             hintText: '支持大部分网页、YouTube等',
                             hintStyle: TextStyle(
@@ -1421,7 +1461,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                               borderSide: BorderSide(color: borderColor),
                             ),
                             contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 20),
+                                horizontal: 16, vertical: 16),
                           ),
                           onChanged: (_) {
                             if (_pickedFile != null) {

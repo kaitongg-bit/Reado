@@ -422,41 +422,46 @@ class HomeTab extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    ...moduleState.officials.map((m) {
-                      // Calculate stats (Mock logic for now based on ID, ideally should be in Module object)
-                      // Keep existing logic for A/B for now to preserve stats
-                      int count = 0;
-                      double progress = 0.0;
+                    LayoutBuilder(builder: (context, constraints) {
+                      final isDesktop = constraints.maxWidth > 600;
+                      return Wrap(
+                        spacing: 20,
+                        runSpacing: 20,
+                        children: moduleState.officials.map((m) {
+                          // Calculate stats (Legacy A/B logic)
+                          int count = 0;
+                          double progress = 0.0;
+                          if (m.id == 'A') {
+                            count = hardcoreCount;
+                            progress = hardcoreProgress;
+                          } else if (m.id == 'B') {
+                            count = pmCount;
+                            progress = pmProgress;
+                          }
+                          final mastered = (progress * count).toInt();
 
-                      // TODO: Refactor statistics calculation to be cleaner
-                      if (m.id == 'A') {
-                        count = hardcoreCount;
-                        progress = hardcoreProgress;
-                      } else if (m.id == 'B') {
-                        count = pmCount;
-                        progress = pmProgress;
-                      }
-
-                      final mastered = (progress * count).toInt();
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 20),
-                        child: _KnowledgeSpaceCard(
-                          moduleId: m.id, // Pass ID
-                          title: m.title,
-                          description: m.description,
-                          cardCount: count,
-                          masteredCount: mastered,
-                          progress: progress,
-                          color: Colors.transparent,
-                          badgeText: '官方',
-                          onLoad: () => onLoadModule?.call(m.id),
-                        ),
+                          return SizedBox(
+                            width: isDesktop
+                                ? (constraints.maxWidth - 20) / 2
+                                : constraints.maxWidth,
+                            child: _KnowledgeSpaceCard(
+                              moduleId: m.id,
+                              title: m.title,
+                              description: m.description,
+                              cardCount: count,
+                              masteredCount: mastered,
+                              progress: progress,
+                              color: Colors.transparent,
+                              badgeText: '官方',
+                              onLoad: () => onLoadModule?.call(m.id),
+                            ),
+                          );
+                        }).toList(),
                       );
-                    }).toList(),
+                    }),
                   ],
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 32), // More spacing between sections
 
                   // -> User Spaces
                   Text(
@@ -510,32 +515,41 @@ class HomeTab extends ConsumerWidget {
                       ),
                     )
                   else
-                    ...moduleState.custom.map((m) {
-                      final mItems =
-                          feedItems.where((i) => i.moduleId == m.id).toList();
-                      final count = mItems.length;
-                      final learned = mItems
-                          .where(
-                              (i) => i.masteryLevel != FeedItemMastery.unknown)
-                          .length;
-                      final progress = count > 0 ? learned / count : 0.0;
+                    LayoutBuilder(builder: (context, constraints) {
+                      final isDesktop = constraints.maxWidth > 600;
+                      return Wrap(
+                        spacing: 20,
+                        runSpacing: 20,
+                        children: moduleState.custom.map((m) {
+                          final mItems = feedItems
+                              .where((i) => i.moduleId == m.id)
+                              .toList();
+                          final count = mItems.length;
+                          final learned = mItems
+                              .where((i) =>
+                                  i.masteryLevel != FeedItemMastery.unknown)
+                              .length;
+                          final progress = count > 0 ? learned / count : 0.0;
 
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 20),
-                        child: _KnowledgeSpaceCard(
-                          moduleId: m.id, // Pass ID
-                          title: m.title,
-                          description: m.description,
-                          cardCount: count,
-                          progress: progress,
-                          color: Colors.transparent,
-                          badgeText: '私有',
-                          onLoad: () => onLoadModule?.call(m.id),
-                          masteredCount: learned,
-                        ),
+                          return SizedBox(
+                            width: isDesktop
+                                ? (constraints.maxWidth - 20) / 2
+                                : constraints.maxWidth,
+                            child: _KnowledgeSpaceCard(
+                              moduleId: m.id,
+                              title: m.title,
+                              description: m.description,
+                              cardCount: count,
+                              progress: progress,
+                              color: Colors.transparent,
+                              badgeText: '私有',
+                              onLoad: () => onLoadModule?.call(m.id),
+                              masteredCount: learned,
+                            ),
+                          );
+                        }).toList(),
                       );
-                    }).toList(),
-
+                    }),
                   const SizedBox(height: 100), // Bottom padding for FAB
                 ],
               ),

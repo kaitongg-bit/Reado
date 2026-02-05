@@ -5,36 +5,60 @@ import 'package:go_router/go_router.dart';
 import '../../vault/presentation/vault_page.dart';
 import '../../feed/presentation/feed_page.dart';
 import '../../feed/presentation/feed_provider.dart';
+import 'module_provider.dart';
 import 'widgets/home_tab.dart';
 
-class HomePage extends ConsumerStatefulWidget {
-  final String? initialModule; // 用于从外部指定初始模块
+// Provider to control Home Tab programmatically
+final homeTabControlProvider = StateProvider<int>((ref) => 0);
 
-  const HomePage({super.key, this.initialModule});
+class HomePage extends ConsumerStatefulWidget {
+  final String? initialModule;
+  final int? initialTab;
+
+  const HomePage({super.key, this.initialModule, this.initialTab});
 
   @override
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  int _selectedIndex = 0;
-
   @override
   void initState() {
     super.initState();
 
-    // ✅ Load all data on first entry
+    // Sync initial parameters to provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(feedProvider.notifier).loadAllData();
-    });
+      // Prioritize initialTab > initialModule > default 0
+      if (widget.initialTab != null) {
+        ref.read(homeTabControlProvider.notifier).state = widget.initialTab!;
+      } else if (widget.initialModule != null) {
+        ref.read(homeTabControlProvider.notifier).state = 1; // Feed tab
 
-    if (widget.initialModule != null) {
-      _selectedIndex = 1; // 切换到学习 tab
-      // Save to provider
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Also save the active module
         ref
             .read(lastActiveModuleProvider.notifier)
             .setActiveModule(widget.initialModule!);
+      } else {
+        // Default to Home if no params (or current state if preserved)
+        // If we want to persist tab state across navigation, we might need more logic,
+        // but for now, if no param is passed, we let the provider keep its state or reset?
+        // Let's reset to 0 to be safe if navigating to clean /home
+        // ref.read(homeTabControlProvider.notifier).state = 0;
+      }
+
+      // Load all data on first entry
+      ref.read(feedProvider.notifier).loadAllData();
+    });
+  }
+
+  @override
+  void didUpdateWidget(HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If initialTab changes (e.g. from navigation param), update provider
+    if (widget.initialTab != null &&
+        widget.initialTab != oldWidget.initialTab) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(homeTabControlProvider.notifier).state = widget.initialTab!;
       });
     }
   }
@@ -42,38 +66,41 @@ class _HomePageState extends ConsumerState<HomePage> {
   void _loadModule(String moduleId) {
     // Save the active module to persistent storage
     ref.read(lastActiveModuleProvider.notifier).setActiveModule(moduleId);
-    setState(() {
-      _selectedIndex = 1; // 切换到学习 tab
-    });
+    // Switch to Learning tab via provider
+    ref.read(homeTabControlProvider.notifier).state = 1;
   }
 
   @override
   Widget build(BuildContext context) {
+    // Watch the tab provider - this is the source of truth for tab index
+    final selectedIndex = ref.watch(homeTabControlProvider);
+
     // Watch the persisted last active module
     final lastActiveModule = ref.watch(lastActiveModuleProvider);
-
-    // Use persisted module, or fallback to 'A'
-    final currentModuleId = lastActiveModule ?? 'A';
+    // Default to 'ALL' or 'A' if null?
+    // The requirement is to show the clicked module.
+    // Detail page saves it to lastActiveModuleProvider.
+    final currentModuleId = lastActiveModule ?? 'ALL';
 
     final screens = [
-      HomeTab(onLoadModule: _loadModule), // 传递回调
+      HomeTab(onLoadModule: _loadModule),
       FeedPage(key: ValueKey(currentModuleId), moduleId: currentModuleId),
       const VaultPage(),
     ];
 
     return Scaffold(
-      body: screens[_selectedIndex],
+      body: IndexedStack(
+        index: selectedIndex,
+        children: screens,
+      ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
+        selectedIndex: selectedIndex,
         onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
+          ref.read(homeTabControlProvider.notifier).state = index;
         },
         backgroundColor:
             Theme.of(context).bottomNavigationBarTheme.backgroundColor,
-        indicatorColor:
-            const Color(0xFFFF8A65).withOpacity(0.3), // Keeping accent color
+        indicatorColor: const Color(0xFFFF8A65).withOpacity(0.3),
         height: 70,
         elevation: 8,
         destinations: const [
@@ -88,9 +115,9 @@ class _HomePageState extends ConsumerState<HomePage> {
             label: '学习',
           ),
           NavigationDestination(
-            icon: Icon(Icons.favorite_border), // Changed to heart icon
+            icon: Icon(Icons.favorite_border),
             selectedIcon: Icon(Icons.favorite, color: Color(0xFFFF8A65)),
-            label: '收藏', // Changed from 复习 to 收藏
+            label: '收藏',
           ),
         ],
       ),

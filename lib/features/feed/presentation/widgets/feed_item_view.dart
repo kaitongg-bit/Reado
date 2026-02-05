@@ -29,9 +29,24 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
   final PageController _horizontalController = PageController();
   int _currentPageIndex = 0;
 
+  // Editing State
+  bool _isEditing = false;
+  UserNotePage? _editingNote;
+  late TextEditingController _titleController;
+  late TextEditingController _contentController;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController();
+    _contentController = TextEditingController();
+  }
+
   @override
   void dispose() {
     _horizontalController.dispose();
+    _titleController.dispose();
+    _contentController.dispose();
     super.dispose();
   }
 
@@ -121,61 +136,30 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
   }
 
   void _handleEditNote(UserNotePage note) {
-    final titleCtrl = TextEditingController(text: note.question);
-    final contentCtrl = TextEditingController(text: note.answer);
+    setState(() {
+      _isEditing = true;
+      _editingNote = note;
+      _titleController.text = note.question;
+      _contentController.text = note.answer;
+    });
+  }
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            left: 20,
-            right: 20,
-            top: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('编辑笔记',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: titleCtrl,
-              decoration: const InputDecoration(
-                labelText: '主题 / 问题',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: contentCtrl,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                labelText: '内容',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  ref.read(feedProvider.notifier).updateUserNote(
-                        widget.feedItem.id,
-                        note,
-                        titleCtrl.text,
-                        contentCtrl.text,
-                      );
-                  Navigator.pop(context);
-                },
-                child: const Text('保存更改'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  void _cancelEditNote() {
+    setState(() {
+      _isEditing = false;
+      _editingNote = null;
+    });
+  }
+
+  void _saveEditNote() {
+    if (_editingNote == null) return;
+    ref.read(feedProvider.notifier).updateUserNote(
+          widget.feedItem.id,
+          _editingNote!,
+          _titleController.text,
+          _contentController.text,
+        );
+    _cancelEditNote();
   }
 
   @override
@@ -217,6 +201,12 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
             children: List.generate(pages.length, (index) {
               final isSelected = index == _currentPageIndex;
               final isUserNote = pages[index] is UserNotePage;
+              final currentPageIsNote =
+                  pages[_currentPageIndex] is UserNotePage;
+
+              // On note pages, make unselected dots more visible
+              final unselectedOpacity = currentPageIsNote ? 0.6 : 0.35;
+
               return Container(
                 width: isSelected ? 8 : 6,
                 height: isSelected ? 8 : 6,
@@ -225,7 +215,9 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                   shape: BoxShape.circle,
                   color: isSelected
                       ? (isUserNote ? Colors.amber : Colors.white)
-                      : Colors.white.withOpacity(0.35),
+                      : (currentPageIsNote
+                          ? Colors.amber.withOpacity(unselectedOpacity)
+                          : Colors.white.withOpacity(unselectedOpacity)),
                 ),
               );
             }),
@@ -286,6 +278,23 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                 onTap: _toggleFavorite,
               ),
               const SizedBox(height: 16),
+              // Note Navigation Icon (if notes exist)
+              if (widget.feedItem.pages.length > 1) ...[
+                _buildActionButton(
+                  icon: Icons.note_alt_outlined,
+                  color: Colors.white,
+                  onTap: () {
+                    if (_horizontalController.hasClients) {
+                      _horizontalController.animateToPage(
+                        1,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
               _buildActionButton(
                 // icon: Icons.smart_toy_outlined,
                 customChild: Padding(
@@ -458,6 +467,76 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
       // No bottom padding for notes - maximize reading space
       final notePadding = const EdgeInsets.fromLTRB(24, 88, 24, 0);
 
+      // In-Place Editing Mode
+      if (_isEditing && _editingNote == content) {
+        return Container(
+          color: isDark ? const Color(0xFF2C2518) : const Color(0xFFFFFBE6),
+          padding: notePadding.copyWith(bottom: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('编辑笔记',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _titleController,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'JinghuaSong',
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                decoration: const InputDecoration(
+                  labelText: '主题 / 问题',
+                  border: OutlineInputBorder(),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: TextField(
+                  controller: _contentController,
+                  style: TextStyle(
+                    fontSize: 16,
+                    height: 1.6,
+                    fontFamily: 'JinghuaSong',
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: '笔记内容',
+                    border: OutlineInputBorder(),
+                    alignLabelWithHint: true,
+                  ),
+                  maxLines: null,
+                  expands: true,
+                  textAlignVertical: TextAlignVertical.top,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _cancelEditNote,
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _saveEditNote,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF8A65),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('保存'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }
+
       return Container(
         color: isDark
             ? const Color(0xFF2C2518) // Dark mode: Warmer dark grey
@@ -519,6 +598,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                 style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
+                    fontFamily: 'JinghuaSong', // Custom Font
                     color: Theme.of(context).colorScheme.onSurface,
                     height: 1.3),
               ),
@@ -530,28 +610,70 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
               const SizedBox(height: 20),
               Expanded(
                 child: SingleChildScrollView(
-                  child: MarkdownBody(
-                    data: content.answer,
-                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
-                        .copyWith(
-                      p: TextStyle(
-                        fontSize: 17,
-                        height: 1.7,
-                        color: isDark
-                            ? Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withOpacity(0.9)
-                            : Colors.black87.withOpacity(0.85),
+                  child: Column(
+                    children: [
+                      MarkdownBody(
+                        data: content.answer,
+                        styleSheet:
+                            MarkdownStyleSheet.fromTheme(Theme.of(context))
+                                .copyWith(
+                          p: TextStyle(
+                            fontSize: 18, // Slightly larger for reading
+                            height: 1.8,
+                            fontFamily: 'JinghuaSong',
+                            color: isDark
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withOpacity(0.9)
+                                : Colors.black87.withOpacity(0.85),
+                          ),
+                          h1: const TextStyle(
+                              fontFamily: 'JinghuaSong',
+                              fontWeight: FontWeight.bold),
+                          h2: const TextStyle(
+                              fontFamily: 'JinghuaSong',
+                              fontWeight: FontWeight.bold),
+                          h3: const TextStyle(
+                              fontFamily: 'JinghuaSong',
+                              fontWeight: FontWeight.bold),
+                          listBullet: TextStyle(
+                              fontFamily: 'JinghuaSong',
+                              color: isDark
+                                  ? Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withOpacity(0.7)
+                                  : Colors.black87),
+                          strong: const TextStyle(
+                              fontFamily: 'JinghuaSong',
+                              fontWeight: FontWeight.bold),
+                          em: const TextStyle(
+                              fontFamily: 'JinghuaSong',
+                              fontStyle: FontStyle.italic),
+                        ),
                       ),
-                      listBullet: TextStyle(
-                          color: isDark
-                              ? Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withOpacity(0.7)
-                              : Colors.black87),
-                    ),
+                      const SizedBox(height: 48),
+                      // "Swipe Left to Return" Hint
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.arrow_back,
+                              size: 14,
+                              color: isDark ? Colors.white54 : Colors.black45),
+                          const SizedBox(width: 6),
+                          Text(
+                            '左滑回到正文',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontFamily: 'JinghuaSong',
+                              color: isDark ? Colors.white54 : Colors.black45,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 40),
+                    ],
                   ),
                 ),
               ),

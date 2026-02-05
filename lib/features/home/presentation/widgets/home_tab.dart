@@ -6,7 +6,6 @@ import '../../../feed/presentation/feed_provider.dart';
 import '../../../../models/feed_item.dart';
 import '../module_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../../lab/presentation/add_material_modal.dart';
 
 class HomeTab extends ConsumerWidget {
   final Function(String moduleId)? onLoadModule; // 加载模块的回调
@@ -116,20 +115,36 @@ class HomeTab extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. Top Bar: Title & Avatar Menu
+                  // 1. Top Bar: Greeting & Avatar Menu
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '抖书',
-                        style: TextStyle(
-                          color:
-                              Theme.of(context).textTheme.bodyMedium?.color ??
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _getGreeting(),
+                            style: TextStyle(
+                              color:
+                                  isDark ? Colors.grey[400] : Colors.grey[600],
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _getUserName(),
+                            style: TextStyle(
+                              color: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.color ??
                                   (isDark ? Colors.white : Colors.black87),
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.5,
-                        ),
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ],
                       ),
                       GestureDetector(
                         onTap: () => context.push('/profile'),
@@ -371,200 +386,225 @@ class HomeTab extends ConsumerWidget {
                   if (pmCount == 0 && hardcoreCount == 0)
                     const SizedBox(height: 32),
 
-                  // 3. Knowledge Spaces Section
-                  // -> Official Spaces
-                  if (moduleState.officials.isNotEmpty) ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '官方知识库',
-                          style: TextStyle(
-                            color: isDark ? Colors.white : Colors.black87,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () => context.push('/explore'),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0D9488).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: const Color(0xFF0D9488).withOpacity(0.3),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.explore_outlined,
-                                  size: 16,
-                                  color: const Color(0xFF0D9488),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '探索',
-                                  style: TextStyle(
-                                    color: const Color(0xFF0D9488),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    LayoutBuilder(builder: (context, constraints) {
-                      final isDesktop = constraints.maxWidth > 600;
-                      return Wrap(
-                        spacing: 20,
-                        runSpacing: 20,
-                        children: moduleState.officials.map((m) {
-                          // Calculate stats (Legacy A/B logic)
-                          int count = 0;
-                          double progress = 0.0;
-                          if (m.id == 'A') {
-                            count = hardcoreCount;
-                            progress = hardcoreProgress;
-                          } else if (m.id == 'B') {
-                            count = pmCount;
-                            progress = pmProgress;
-                          }
-                          final mastered = (progress * count).toInt();
-
-                          return SizedBox(
-                            width: isDesktop
-                                ? (constraints.maxWidth - 20) / 2
-                                : constraints.maxWidth,
-                            child: _KnowledgeSpaceCard(
-                              moduleId: m.id,
-                              title: m.title,
-                              description: m.description,
-                              cardCount: count,
-                              masteredCount: mastered,
-                              progress: progress,
-                              color: Colors.transparent,
-                              badgeText: '官方',
-                              onLoad: () => onLoadModule?.call(m.id),
-                            ),
-                          );
-                        }).toList(),
-                      );
-                    }),
-                  ],
-
-                  const SizedBox(height: 32), // More spacing between sections
-
-                  // -> User Spaces
-                  Text(
-                    '我的知识库',
-                    style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black87,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  if (moduleState.custom.isEmpty)
-                    GestureDetector(
-                      onTap: () => _showCreateModuleDialog(context, ref),
-                      child: Container(
-                        padding: const EdgeInsets.all(32),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.white.withOpacity(0.05)
-                                : Colors.grey[100],
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.white.withOpacity(0.1)
-                                  : Colors.grey[300]!,
-                              style: BorderStyle.solid,
-                            )),
-                        child: Column(
-                          children: [
-                            Icon(Icons.add_circle_outline,
-                                size: 48,
-                                color: isDark
-                                    ? Colors.grey[600]
-                                    : Colors.grey[400]),
-                            const SizedBox(height: 12),
-                            Text(
-                              "创建你的第一个知识库",
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: isDark
-                                    ? Colors.grey[400]
-                                    : Colors.grey[600],
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                  // 3. Knowledge Spaces Section (Unified)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '我的知识库',
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.5,
                         ),
                       ),
-                    )
-                  else
-                    LayoutBuilder(builder: (context, constraints) {
-                      final isDesktop = constraints.maxWidth > 600;
-                      return Wrap(
-                        spacing: 20,
-                        runSpacing: 20,
-                        children: moduleState.custom.map((m) {
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => _showCreateModuleDialog(context, ref),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF8A65).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color:
+                                      const Color(0xFFFF8A65).withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.add,
+                                    size: 16,
+                                    color: const Color(0xFFFF8A65),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '新建',
+                                    style: TextStyle(
+                                      color: const Color(0xFFFF8A65),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => context.push('/explore'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0D9488).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color:
+                                      const Color(0xFF0D9488).withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.explore_outlined,
+                                    size: 16,
+                                    color: const Color(0xFF0D9488),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '探索',
+                                    style: TextStyle(
+                                      color: const Color(0xFF0D9488),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  LayoutBuilder(builder: (context, constraints) {
+                    // Responsive: 2+ cards per row
+                    final cardWidth = 160.0; // Smaller cards
+                    final crossAxisCount =
+                        (constraints.maxWidth ~/ (cardWidth + 16)).clamp(2, 4);
+
+                    // Combine all modules
+                    final allModules = [
+                      ...moduleState.officials,
+                      ...moduleState.custom,
+                    ];
+
+                    if (allModules.isEmpty) {
+                      return GestureDetector(
+                        onTap: () => _showCreateModuleDialog(context, ref),
+                        child: Container(
+                          padding: const EdgeInsets.all(32),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white.withOpacity(0.05)
+                                  : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white.withOpacity(0.1)
+                                    : Colors.grey[300]!,
+                                style: BorderStyle.solid,
+                              )),
+                          child: Column(
+                            children: [
+                              Icon(Icons.add_circle_outline,
+                                  size: 48,
+                                  color: isDark
+                                      ? Colors.grey[600]
+                                      : Colors.grey[400]),
+                              const SizedBox(height: 12),
+                              Text(
+                                "创建你的第一个知识库",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: isDark
+                                      ? Colors.grey[400]
+                                      : Colors.grey[600],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    return Wrap(
+                      spacing: 16,
+                      runSpacing: 16,
+                      children: allModules.map((m) {
+                        // Calculate stats
+                        int count = 0;
+                        double progress = 0.0;
+
+                        if (m.id == 'A') {
+                          count = hardcoreCount;
+                          progress = hardcoreProgress;
+                        } else if (m.id == 'B') {
+                          count = pmCount;
+                          progress = pmProgress;
+                        } else {
                           final mItems = feedItems
                               .where((i) => i.moduleId == m.id)
                               .toList();
-                          final count = mItems.length;
+                          count = mItems.length;
                           final learned = mItems
                               .where((i) =>
                                   i.masteryLevel != FeedItemMastery.unknown)
                               .length;
-                          final progress = count > 0 ? learned / count : 0.0;
+                          progress = count > 0 ? learned / count : 0.0;
+                        }
+                        final mastered = (progress * count).toInt();
 
-                          return SizedBox(
-                            width: isDesktop
-                                ? (constraints.maxWidth - 20) / 2
-                                : constraints.maxWidth,
-                            child: _KnowledgeSpaceCard(
-                              moduleId: m.id,
-                              title: m.title,
-                              description: m.description,
-                              cardCount: count,
-                              progress: progress,
-                              color: Colors.transparent,
-                              badgeText: '私有',
-                              onLoad: () => onLoadModule?.call(m.id),
-                              masteredCount: learned,
-                            ),
-                          );
-                        }).toList(),
-                      );
-                    }),
-                  const SizedBox(height: 100), // Bottom padding for FAB
+                        return SizedBox(
+                          width: (constraints.maxWidth -
+                                  16 * (crossAxisCount - 1)) /
+                              crossAxisCount,
+                          child: _KnowledgeSpaceCard(
+                            moduleId: m.id,
+                            title: m.title,
+                            description: m.description,
+                            cardCount: count,
+                            masteredCount: mastered,
+                            progress: progress,
+                            color: Colors.transparent,
+                            badgeText: m.isOfficial ? '官方' : '私有',
+                            onLoad: () => onLoadModule?.call(m.id),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  }),
+                  const SizedBox(height: 100), // Bottom padding
                 ],
               ),
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showCreateModuleDialog(context, ref),
-        backgroundColor: const Color(0xFFFF8A65), // Coral color
-        child: const Icon(Icons.add, color: Colors.white),
-        elevation: 8,
-        highlightElevation: 12,
-      ),
     );
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) {
+      return '早上好';
+    } else if (hour >= 12 && hour < 18) {
+      return '下午好';
+    } else if (hour >= 18 && hour < 22) {
+      return '晚上好';
+    } else {
+      return '夜深了';
+    }
+  }
+
+  String _getUserName() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null &&
+        user.displayName != null &&
+        user.displayName!.isNotEmpty) {
+      return user.displayName!;
+    }
+    return 'kita'; // Default fallback
   }
 
   void _showCreateModuleDialog(BuildContext context, WidgetRef ref) {
@@ -682,182 +722,114 @@ class _KnowledgeSpaceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Glassmorphism Styles
-    final backgroundColor = isDark
-        ? Colors.white.withOpacity(0.08)
-        : Colors.white
-            .withOpacity(0.85); // High opacity for light mode legibility
-
-    final borderColor =
-        isDark ? Colors.white.withOpacity(0.15) : Colors.grey.withOpacity(0.2);
-
-    final shadowColor =
-        isDark ? Colors.black.withOpacity(0.3) : Colors.grey.withOpacity(0.15);
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24), // Softer corners
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), // The "Glass" Effect
-        child: Container(
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: borderColor),
-            boxShadow: [
-              BoxShadow(
-                color: shadowColor,
-                blurRadius: 24,
-                spreadRadius: 0,
-                offset: const Offset(0, 8),
+    // Simplified compact card
+    return GestureDetector(
+      onTap: () => context.push('/module/$moduleId'),
+      child: Container(
+      height: 140, // Fixed height for uniformity
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withOpacity(0.08)
+            : Colors.white.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+            color: isDark
+                ? Colors.white.withOpacity(0.15)
+                : Colors.grey.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withOpacity(0.2)
+                : Colors.grey.withOpacity(0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Title and badge
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black87,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF8A65).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  badgeText,
+                  style: const TextStyle(
+                    color: Color(0xFFFF8A65),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          color:
-                              Theme.of(context).textTheme.bodyMedium?.color ??
-                                  (isDark ? Colors.white : Colors.black87),
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF8A65).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: const Color(0xFFFF8A65).withOpacity(0.3)),
-                      ),
-                      child: Text(
-                        badgeText.toUpperCase(),
-                        style: const TextStyle(
-                          color: Color(0xFFFF8A65),
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                  ],
+
+          // Stats
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$cardCount 张卡片',
+                style: TextStyle(
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  fontSize: 12,
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  description,
-                  style: TextStyle(
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    fontSize: 15,
-                    height: 1.4,
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        backgroundColor: isDark
+                            ? Colors.white.withOpacity(0.1)
+                            : Colors.grey[200],
+                        color: const Color(0xFFFF8A65),
+                        minHeight: 6,
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
-
-                // Progress Section
-                Row(
-                  children: [
-                    Text(
-                      '${(progress * 100).toInt()}%',
-                      style: TextStyle(
-                        color: isDark ? Colors.white : Colors.black87,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
-                      ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${(progress * 100).toInt()}%',
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : Colors.black54,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          backgroundColor: isDark
-                              ? Colors.white.withOpacity(0.1)
-                              : Colors.grey[200],
-                          color: const Color(0xFFFF8A65), // Coral
-                          minHeight: 8,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '$masteredCount / $cardCount 个已掌握',
-                  style: TextStyle(
-                    color: isDark ? Colors.grey[500] : Colors.grey[500],
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
                   ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton(
-                        onPressed: onLoad,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF8A65),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16)),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          elevation: 8,
-                          shadowColor: const Color(0xFFFF8A65).withOpacity(0.5),
-                        ),
-                        child: const Text('继续学习',
-                            style: TextStyle(fontWeight: FontWeight.w600)),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 1,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AddMaterialModal(
-                                targetModuleId:
-                                    moduleId), // FIXED: Pass moduleId
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(
-                              color: isDark
-                                  ? Colors.white.withOpacity(0.2)
-                                  : Colors.grey[300]!),
-                          foregroundColor:
-                              isDark ? Colors.white : Colors.black87,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16)),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Icon(Icons.add, size: 20),
-                      ),
-                    ),
-                  ],
-                )
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
-        ),
+        ],
       ),
+    ),
     );
   }
 }

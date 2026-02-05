@@ -13,6 +13,7 @@ import 'features/lab/presentation/lab_page.dart';
 import 'features/war_room/presentation/war_room_page.dart';
 import 'features/profile/presentation/profile_page.dart';
 import 'features/explore/presentation/explore_page.dart';
+import 'features/home/presentation/module_detail_page.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -41,7 +42,11 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/home',
-      builder: (context, state) => const HomePage(),
+      builder: (context, state) {
+        final tabParam = state.uri.queryParameters['tab'];
+        final initialTab = tabParam != null ? int.tryParse(tabParam) : null;
+        return HomePage(initialTab: initialTab);
+      },
     ),
     GoRoute(
       path: '/explore',
@@ -78,6 +83,15 @@ final _router = GoRouter(
     GoRoute(
       path: '/profile',
       builder: (context, state) => const ProfilePage(),
+    ),
+    GoRoute(
+      path: '/module/:moduleId',
+      pageBuilder: (context, state) {
+        final moduleId = state.pathParameters['moduleId']!;
+        return NoTransitionPage(
+          child: ModuleDetailPage(moduleId: moduleId),
+        );
+      },
     ),
   ],
 );

@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:flutter/foundation.dart';
 import '../../../models/feed_item.dart';
@@ -81,6 +82,9 @@ class _FeedPageState extends ConsumerState<FeedPage> {
             });
           }
         });
+      } else {
+        // Allow time for Cloud progress to load before defaulting to 0
+        // We will rely on the listen() in build() to perform the jump once data arrives
       }
     }
   }
@@ -103,6 +107,11 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     // If progressMap is completely empty, progress loading might not be complete yet
     // Wait for it to load (will be triggered by ref.listen when data arrives)
     if (progressMap.isEmpty) {
+      // 1. Check if we have LOCAL data that hasn't been merged to provider yet
+      // This is rare but possible if init happens super fast.
+      // But feedProgressNotifier loads local immediately.
+      // So if it's empty, it means truly no data or empty local.
+      // We'll give it a retry mechanism or wait for listener.
       print('🔄 Progress map is empty, waiting for load...');
       return;
     }
@@ -117,10 +126,12 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       // Only restore if we're NOT already at the correct position
       if (_focusedItemIndex != savedIndex) {
         print('🎯 Jumping to page $savedIndex');
+        // IMPORTANT: Must update state so UI builds the right initial page
+        setState(() => _focusedItemIndex = savedIndex);
+
         Future.delayed(const Duration(milliseconds: 50), () {
           if (mounted && _verticalController.hasClients) {
             _verticalController.jumpToPage(savedIndex);
-            setState(() => _focusedItemIndex = savedIndex);
             print('✅ Position restored to $savedIndex');
           }
         });
@@ -421,9 +432,10 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                             ],
                           ),
                         ),
-                        // Right: Grid Toggle
+                        // Right: View All (back to detail page)
                         GestureDetector(
-                          onTap: () => setState(() => _isSingleView = false),
+                          onTap: () =>
+                              context.push('/module/${widget.moduleId}'),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 14, vertical: 7),
@@ -439,7 +451,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                               ),
                             ),
                             child: Text(
-                              '双列',
+                              '全部',
                               style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
@@ -531,268 +543,314 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   }
 
   Widget _buildGridView(List<FeedItem> items, bool isDark) {
-    return GridView.builder(
-      padding: EdgeInsets.fromLTRB(
-          16,
-          MediaQuery.of(context).padding.top + kToolbarHeight + 16,
-          16,
-          100), // More bottom padding
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.8,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        final previewText = _getPreviewText(item);
-        final isFocused = index == _focusedItemIndex;
-
-        // Glassmorphism Card Style
-        final backgroundColor = isDark
-            ? Colors.white.withOpacity(0.08)
-            : Colors.white.withOpacity(0.65);
-
-        final borderColor = isFocused
-            ? Colors.blueAccent
-            : (isDark
-                ? Colors.white.withOpacity(0.1)
-                : Colors.white.withOpacity(0.5));
-
-        return GestureDetector(
-          onTap: () {
-            // 💾 Explicitly save index on tap from Grid
-            ref
-                .read(feedProgressProvider.notifier)
-                .setProgress(widget.moduleId, index);
-
-            setState(() {
-              _focusedItemIndex = index; // Ensure we sync before switching
-              _isSingleView = true;
-            });
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (_verticalController.hasClients) {
-                _verticalController.jumpToPage(index);
-              }
-            });
-          },
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: Builder(builder: (context) {
-                    final content = Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        // Web optimization: Higher opacity background if no blur
-                        color: kIsWeb
-                            ? (isDark
-                                ? Colors.black.withOpacity(0.8)
-                                : Colors.white.withOpacity(0.95))
-                            : backgroundColor,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: borderColor, width: isFocused ? 2 : 1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: isDark
-                                ? Colors.black.withOpacity(0.2)
-                                : Colors.grey.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Header: Module Tag
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              if (item.moduleId == 'SEARCH')
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: _getModuleColor(item.moduleId)
-                                        .withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    _getModuleName(item.moduleId),
-                                    style: TextStyle(
-                                        fontSize: 10,
-                                        color: _getModuleColor(item.moduleId),
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              const Spacer(),
-                              if (item.isFavorited)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 4),
-                                  child: const Icon(Icons.favorite,
-                                      size: 16, color: Colors.redAccent),
-                                ),
-                              if (item.isCustom)
-                                SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: PopupMenuButton<String>(
-                                    padding: EdgeInsets.zero,
-                                    icon: Icon(Icons.more_horiz,
-                                        size: 16,
-                                        color: isDark
-                                            ? Colors.white70
-                                            : Colors.black54),
-                                    onSelected: (value) {
-                                      if (value == 'delete') {
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: const Text('删除知识卡片？'),
-                                            content:
-                                                const Text('删除后无法恢复，确定要删除吗？'),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(context),
-                                                child: const Text('取消'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () {
-                                                  ref
-                                                      .read(
-                                                          feedProvider.notifier)
-                                                      .deleteFeedItem(item.id);
-                                                  Navigator.pop(context);
-                                                },
-                                                child: const Text('删除',
-                                                    style: TextStyle(
-                                                        color: Colors.red)),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }
-                                    },
-                                    itemBuilder: (context) => [
-                                      const PopupMenuItem(
-                                        value: 'delete',
-                                        height: 32,
-                                        child: Text('删除',
-                                            style: TextStyle(
-                                                fontSize: 13,
-                                                color: Colors.red)),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                            ],
-                          ),
-
-                          if (item.moduleId == 'SEARCH')
-                            const SizedBox(height: 8),
-
-                          // Title
-                          Text(
-                            item.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              height: 1.2,
-                              color: isDark ? Colors.white : Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-
-                          // Preview Content
-                          Expanded(
-                            child: Text(
-                              previewText,
-                              maxLines: 5,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark
-                                      ? Colors.grey[400]
-                                      : Colors.grey[600],
-                                  height: 1.4),
-                            ),
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          // Footer
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: _getModuleColor(item.moduleId)
-                                      .withOpacity(0.2),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(_getModuleIcon(item.moduleId),
-                                    size: 10,
-                                    color: _getModuleColor(item.moduleId)),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '抖书',
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    color: isDark
-                                        ? Colors.grey[500]
-                                        : Colors.grey[500]),
-                              ),
-                            ],
-                          )
-                        ],
-                      ),
-                    );
-
-                    return kIsWeb
-                        ? content
-                        : BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                            child: content,
-                          );
-                  }),
-                ),
-              ),
-              if (isFocused)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.blueAccent,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 4,
-                            offset: Offset(0, 2))
-                      ],
-                    ),
-                    child: const Text("在看",
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold)),
-                  ),
-                ),
-            ],
+    return Column(
+      children: [
+        // Search Bar at top
+        Container(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            MediaQuery.of(context).padding.top + kToolbarHeight + 8,
+            16,
+            8,
           ),
-        );
-      },
+          child: TextField(
+            style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+            decoration: InputDecoration(
+              hintText: '搜索当前知识库...',
+              hintStyle: TextStyle(
+                  color: isDark ? Colors.grey[500] : Colors.grey[400]),
+              prefixIcon: Icon(Icons.search,
+                  color: isDark ? Colors.grey[500] : Colors.grey[400]),
+              filled: true,
+              fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            onSubmitted: (value) {
+              // TODO: Implement search functionality
+              print('Searching for: $value');
+            },
+          ),
+        ),
+        // Grid View
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.65, // Smaller cards
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final previewText = _getPreviewText(item);
+              final isFocused = index == _focusedItemIndex;
+
+              // Glassmorphism Card Style
+              final backgroundColor = isDark
+                  ? Colors.white.withOpacity(0.08)
+                  : Colors.white.withOpacity(0.65);
+
+              final borderColor = isFocused
+                  ? Colors.blueAccent
+                  : (isDark
+                      ? Colors.white.withOpacity(0.1)
+                      : Colors.white.withOpacity(0.5));
+
+              return GestureDetector(
+                onTap: () {
+                  // 💾 Explicitly save index on tap from Grid
+                  ref
+                      .read(feedProgressProvider.notifier)
+                      .setProgress(widget.moduleId, index);
+
+                  setState(() {
+                    _focusedItemIndex =
+                        index; // Ensure we sync before switching
+                    _isSingleView = true;
+                  });
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (_verticalController.hasClients) {
+                      _verticalController.jumpToPage(index);
+                    }
+                  });
+                },
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: Builder(builder: (context) {
+                          final content = Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              // Web optimization: Higher opacity background if no blur
+                              color: kIsWeb
+                                  ? (isDark
+                                      ? Colors.black.withOpacity(0.8)
+                                      : Colors.white.withOpacity(0.95))
+                                  : backgroundColor,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                  color: borderColor, width: isFocused ? 2 : 1),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: isDark
+                                      ? Colors.black.withOpacity(0.2)
+                                      : Colors.grey.withOpacity(0.1),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Header: Module Tag
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    if (item.moduleId == 'SEARCH')
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: _getModuleColor(item.moduleId)
+                                              .withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          _getModuleName(item.moduleId),
+                                          style: TextStyle(
+                                              fontSize: 10,
+                                              color: _getModuleColor(
+                                                  item.moduleId),
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    const Spacer(),
+                                    if (item.isFavorited)
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(right: 4),
+                                        child: const Icon(Icons.favorite,
+                                            size: 16, color: Colors.redAccent),
+                                      ),
+                                    if (item.isCustom)
+                                      SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: PopupMenuButton<String>(
+                                          padding: EdgeInsets.zero,
+                                          icon: Icon(Icons.more_horiz,
+                                              size: 16,
+                                              color: isDark
+                                                  ? Colors.white70
+                                                  : Colors.black54),
+                                          onSelected: (value) {
+                                            if (value == 'delete') {
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) =>
+                                                    AlertDialog(
+                                                  title: const Text('删除知识卡片？'),
+                                                  content: const Text(
+                                                      '删除后无法恢复，确定要删除吗？'),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.pop(
+                                                              context),
+                                                      child: const Text('取消'),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: () {
+                                                        ref
+                                                            .read(feedProvider
+                                                                .notifier)
+                                                            .deleteFeedItem(
+                                                                item.id);
+                                                        Navigator.pop(context);
+                                                      },
+                                                      child: const Text('删除',
+                                                          style: TextStyle(
+                                                              color:
+                                                                  Colors.red)),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            }
+                                          },
+                                          itemBuilder: (context) => [
+                                            const PopupMenuItem(
+                                              value: 'delete',
+                                              height: 32,
+                                              child: Text('删除',
+                                                  style: TextStyle(
+                                                      fontSize: 13,
+                                                      color: Colors.red)),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                  ],
+                                ),
+
+                                if (item.moduleId == 'SEARCH')
+                                  const SizedBox(height: 8),
+
+                                // Title
+                                Text(
+                                  item.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    height: 1.2,
+                                    color:
+                                        isDark ? Colors.white : Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+
+                                // Preview Content
+                                Expanded(
+                                  child: Text(
+                                    previewText,
+                                    maxLines: 5,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark
+                                            ? Colors.grey[400]
+                                            : Colors.grey[600],
+                                        height: 1.4),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                // Footer
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: _getModuleColor(item.moduleId)
+                                            .withOpacity(0.2),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(_getModuleIcon(item.moduleId),
+                                          size: 10,
+                                          color:
+                                              _getModuleColor(item.moduleId)),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '抖书',
+                                      style: TextStyle(
+                                          fontSize: 10,
+                                          color: isDark
+                                              ? Colors.grey[500]
+                                              : Colors.grey[500]),
+                                    ),
+                                  ],
+                                )
+                              ],
+                            ),
+                          );
+
+                          return kIsWeb
+                              ? content
+                              : BackdropFilter(
+                                  filter:
+                                      ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                                  child: content,
+                                );
+                        }),
+                      ),
+                    ),
+                    if (isFocused)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blueAccent,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: Colors.black26,
+                                  blurRadius: 4,
+                                  offset: Offset(0, 2))
+                            ],
+                          ),
+                          child: const Text("在看",
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

@@ -195,7 +195,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(30),
                           child: Image.asset(
-                            'assets/images/logonew.jpg',
+                            'assets/images/Group 1.png',
                             width: 100,
                             height: 100,
                             fit: BoxFit.cover,

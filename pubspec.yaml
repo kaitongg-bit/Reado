@@ -26,6 +26,7 @@ dependencies:
   syncfusion_flutter_pdf: ^32.1.25
   flutter_dotenv: ^6.0.0
   docx_to_text: ^1.0.1
+  flutter_svg: ^2.2.3
 
 
 
@@ -39,4 +40,9 @@ flutter:
   assets:
     - .env
     - assets/images/
+    - assets/fonts/
+  fonts:
+    - family: JinghuaSong
+      fonts:
+        - asset: assets/fonts/京華老宋体v2.002.ttf
 

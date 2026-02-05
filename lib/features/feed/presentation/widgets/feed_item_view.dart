@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../models/feed_item.dart';
 import '../feed_provider.dart';
 
@@ -286,7 +287,14 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
               ),
               const SizedBox(height: 16),
               _buildActionButton(
-                icon: Icons.smart_toy_outlined,
+                // icon: Icons.smart_toy_outlined,
+                customChild: Padding(
+                  padding: const EdgeInsets.all(
+                      8.0), // Increased padding for smaller icon
+                  child: SvgPicture.asset(
+                    'assets/images/Group 2.svg',
+                  ),
+                ),
                 isPrimary: true,
                 onTap: () => _showAskAISheet(context),
               ),
@@ -357,35 +365,77 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
               children: [
                 // No redundant header here
 
-                MarkdownBody(
-                  data: content.markdownContent,
-                  styleSheet:
-                      MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                    h1: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        height: 1.3,
-                        letterSpacing: -0.5,
-                        color: Theme.of(context).colorScheme.onSurface),
-                    p: TextStyle(
-                        fontSize: 18,
-                        height: 1.8,
+                DefaultTextStyle(
+                  style: TextStyle(
+                      fontFamily: 'JinghuaSong',
+                      color: Theme.of(context).colorScheme.onSurface),
+                  child: MarkdownBody(
+                    data: content.markdownContent,
+                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
+                        .copyWith(
+                      h1: TextStyle(
+                          fontFamily: 'JinghuaSong',
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          height: 1.3,
+                          letterSpacing: -0.5,
+                          color: Theme.of(context).colorScheme.onSurface),
+                      h2: TextStyle(
+                        fontFamily: 'JinghuaSong',
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
+                        height: 1.5,
+                      ),
+                      h3: const TextStyle(
+                          fontFamily: 'JinghuaSong',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20),
+                      h4: const TextStyle(
+                          fontFamily: 'JinghuaSong',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18),
+                      h5: const TextStyle(
+                          fontFamily: 'JinghuaSong',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16),
+                      h6: const TextStyle(
+                          fontFamily: 'JinghuaSong',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14),
+                      p: TextStyle(
+                          fontFamily: 'JinghuaSong',
+                          fontSize: 18,
+                          height: 1.8,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withOpacity(0.9),
+                          letterSpacing: 0.2),
+                      listBullet: TextStyle(
                         color: Theme.of(context)
                             .colorScheme
                             .onSurface
-                            .withOpacity(0.9),
-                        letterSpacing: 0.2),
-                    h2: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
-                      height: 1.5,
-                    ),
-                    listBullet: TextStyle(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withOpacity(0.7),
+                            .withOpacity(0.7),
+                      ),
+                      strong: const TextStyle(
+                          fontFamily: 'JinghuaSong',
+                          fontWeight: FontWeight.bold),
+                      em: const TextStyle(
+                          fontFamily: 'JinghuaSong',
+                          fontStyle: FontStyle.italic),
+                      blockquote: const TextStyle(
+                          fontFamily: 'JinghuaSong', color: Colors.grey),
+                      code: const TextStyle(
+                          fontFamily: 'JinghuaSong',
+                          backgroundColor: Colors.transparent),
+                      codeblockPadding: const EdgeInsets.all(8),
+                      codeblockDecoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white10
+                            : Colors.grey[200],
+                      ),
                     ),
                   ),
                 ),
@@ -410,8 +460,8 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
 
       return Container(
         color: isDark
-            ? Theme.of(context).cardColor // Use new #212526
-            : Colors.white.withOpacity(0.95), // Light mode: clean white
+            ? const Color(0xFF2C2518) // Dark mode: Warmer dark grey
+            : const Color(0xFFFFFBE6), // Light mode: Soft yellowish paper
         padding: notePadding,
         child: SelectionArea(
           child: Column(
@@ -441,40 +491,23 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                       ],
                     ),
                   ),
+
                   const Spacer(),
-                  PopupMenuButton<String>(
-                    icon: Icon(Icons.more_horiz,
-                        color: isDark ? Colors.white54 : Colors.black45,
-                        size: 20),
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        _handleEditNote(content);
-                      } else if (value == 'delete') {
-                        _handleDeleteNote(content);
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit, size: 18),
-                            SizedBox(width: 8),
-                            Text('编辑笔记'),
-                          ],
-                        ),
+                  // Direct Action Buttons instead of Menu
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit,
+                            size: 20, color: Colors.grey),
+                        tooltip: '编辑笔记',
+                        onPressed: () => _handleEditNote(content),
                       ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete,
-                                size: 18, color: Colors.redAccent),
-                            SizedBox(width: 8),
-                            Text('删除笔记',
-                                style: TextStyle(color: Colors.redAccent)),
-                          ],
-                        ),
+                      IconButton(
+                        icon: const Icon(Icons.delete,
+                            size: 20, color: Colors.redAccent),
+                        tooltip: '删除笔记',
+                        onPressed: () => _handleDeleteNote(content),
                       ),
                     ],
                   ),
@@ -531,7 +564,8 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
   }
 
   Widget _buildActionButton({
-    required IconData icon,
+    IconData? icon,
+    Widget? customChild,
     // Removed label required
     required VoidCallback onTap,
     bool isPrimary = false,
@@ -544,8 +578,8 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
         height: 48,
         decoration: BoxDecoration(
             color: isPrimary
-                ? const Color(0xFF9333EA)
-                : Colors.black.withOpacity(0.3), // Changed primary to Purple
+                ? const Color(0xFFFF8A65) // Orange/Coral
+                : Colors.black.withOpacity(0.3), // Changed primary to Orange
             shape: BoxShape.circle,
             border:
                 Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
@@ -555,7 +589,8 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                   blurRadius: 10,
                   offset: const Offset(0, 4))
             ]),
-        child: Icon(icon, color: color, size: 24),
+        alignment: Alignment.center,
+        child: customChild ?? Icon(icon, color: color, size: 24),
       ),
     );
   }
@@ -761,20 +796,10 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF9333EA).withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.smart_toy,
-                            color: Color(0xFF9333EA), size: 18),
-                      ),
-                      const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('AI 导师',
+                          const Text('AI 囤囤鼠',
                               style: TextStyle(
                                   fontSize: 16, fontWeight: FontWeight.bold)),
                           if (_isSelectionMode)
@@ -875,7 +900,7 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                       child: TextField(
                         controller: _controller,
                         decoration: InputDecoration(
-                          hintText: 'Ask AI...',
+                          hintText: '问问囤囤鼠...',
                           filled: true,
                           fillColor:
                               Theme.of(context).brightness == Brightness.dark
@@ -899,7 +924,7 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                       child: CircleAvatar(
                         radius: 20,
                         backgroundColor:
-                            _isLoading ? Colors.grey : const Color(0xFF9333EA),
+                            _isLoading ? Colors.grey : const Color(0xFFFF8A65),
                         child: _isLoading
                             ? const SizedBox(
                                 width: 20,
@@ -992,9 +1017,13 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                                 styleSheet: MarkdownStyleSheet.fromTheme(
                                         Theme.of(context))
                                     .copyWith(
-                                  p: TextStyle(color: textColor, height: 1.5),
+                                  p: TextStyle(
+                                      color: textColor,
+                                      height: 1.5,
+                                      fontFamily: 'JinghuaSong'),
                                   strong: const TextStyle(
-                                      fontWeight: FontWeight.bold),
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'JinghuaSong'),
                                 ),
                               ),
                       ],

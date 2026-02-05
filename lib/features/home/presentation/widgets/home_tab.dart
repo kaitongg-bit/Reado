@@ -65,43 +65,63 @@ class HomeTab extends ConsumerWidget {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
-          // Ambient Background - Top Left
+          // 0. Full Screen Background Gradient (Subtle)
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDark
+                    ? [
+                        const Color(0xFF1E1E1E),
+                        const Color(0xFF121212),
+                      ]
+                    : [
+                        const Color(0xFFFFF6F3), // Light warm tint top-left
+                        const Color(0xFFF3F6FF), // Light cool tint bottom-right
+                      ],
+              ),
+            ),
+          ),
+
+          // 1. Ambient Background - Top Left (Warmer/Orange)
           Positioned(
-            top: -100,
+            top: -120,
             left: -100,
             child: Container(
-              width: 200,
-              height: 200,
+              width: 300,
+              height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.transparent,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFFF8A65)
-                        .withOpacity(isDark ? 0.15 : 0.2), // Coral glow
-                    blurRadius: 120,
-                    spreadRadius: 60,
+                    color: const Color(0xFFFF8A65).withOpacity(
+                        isDark ? 0.15 : 0.25), // Stronger visibility
+                    blurRadius: 140,
+                    spreadRadius: 80,
                   ),
                 ],
               ),
             ),
           ),
 
-          // Ambient Background - Bottom Right
+          // 2. Ambient Background - Bottom Right (Cooler/Blue)
           Positioned(
-            bottom: 50,
-            right: -50,
+            bottom: -50,
+            right: -80,
             child: Container(
-              width: 200,
-              height: 200,
+              width: 350,
+              height: 350,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.transparent,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.blueAccent.withOpacity(isDark ? 0.1 : 0.15),
-                    blurRadius: 150,
-                    spreadRadius: 40,
+                    color: const Color(0xFF64B5F6).withOpacity(
+                        isDark ? 0.12 : 0.2), // Stronger visibility
+                    blurRadius: 160,
+                    spreadRadius: 80,
                   ),
                 ],
               ),
@@ -726,110 +746,111 @@ class _KnowledgeSpaceCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => context.push('/module/$moduleId'),
       child: Container(
-      height: 140, // Fixed height for uniformity
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withOpacity(0.08)
-            : Colors.white.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: isDark
-                ? Colors.white.withOpacity(0.15)
-                : Colors.grey.withOpacity(0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withOpacity(0.2)
-                : Colors.grey.withOpacity(0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Title and badge
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : Colors.black87,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    height: 1.2,
+        height: 140, // Fixed height for uniformity
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withOpacity(0.08)
+              : Colors.white.withOpacity(0.85),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: isDark
+                  ? Colors.white.withOpacity(0.15)
+                  : Colors.grey.withOpacity(0.2)),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withOpacity(0.2)
+                  : Colors.grey.withOpacity(0.1),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Title and badge
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      height: 1.2,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF8A65).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  badgeText,
-                  style: const TextStyle(
-                    color: Color(0xFFFF8A65),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF8A65).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    badgeText,
+                    style: const TextStyle(
+                      color: Color(0xFFFF8A65),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
 
-          // Stats
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '$cardCount 张卡片',
-                style: TextStyle(
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  fontSize: 12,
+            // Stats
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$cardCount 张卡片',
+                  style: TextStyle(
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    fontSize: 12,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        backgroundColor: isDark
-                            ? Colors.white.withOpacity(0.1)
-                            : Colors.grey[200],
-                        color: const Color(0xFFFF8A65),
-                        minHeight: 6,
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          backgroundColor: isDark
+                              ? Colors.white.withOpacity(0.1)
+                              : Colors.grey[200],
+                          color: const Color(0xFFFF8A65),
+                          minHeight: 6,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${(progress * 100).toInt()}%',
-                    style: TextStyle(
-                      color: isDark ? Colors.white70 : Colors.black54,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                    const SizedBox(width: 8),
+                    Text(
+                      '${(progress * 100).toInt()}%',
+                      style: TextStyle(
+                        color: isDark ? Colors.white70 : Colors.black54,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 }

@@ -7,6 +7,7 @@ import '../../../../data/services/content_extraction_service.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../feed/presentation/feed_page.dart';
 import '../providers/batch_import_provider.dart';
+import '../../../../core/providers/credit_provider.dart';
 
 class AddMaterialModal extends ConsumerStatefulWidget {
   final String? targetModuleId;
@@ -44,16 +45,13 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
 
   /// AI 智能拆解 - 从粘贴的文本生成知识卡片（流式版本）
   Future<void> _generate() async {
-    if (_textController.text.trim().isEmpty) return;
-
-    setState(() {
-      _isGenerating = true;
-      _error = null;
-      _generatedItems = []; // 初始化为空列表
-      _streamingStatus = '正在分析文章结构...';
-      _totalCards = null;
-      _currentCardIndex = null;
-    });
+    // Check points before starting
+    final canUse = await ref.read(creditProvider.notifier).useAI();
+    if (!canUse) {
+      if (!mounted) return;
+      _showInsufficientCreditsDialog();
+      return;
+    }
 
     try {
       final moduleId = widget.targetModuleId ?? 'custom';
@@ -143,11 +141,13 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
 
   /// 2. 统一解析入口 (URL 或 File)
   Future<void> _performParse() async {
-    setState(() {
-      _isExtractingUrl = true; // Reusing this bool for general "Parsing" state
-      _error = null;
-      _urlError = null;
-    });
+    // Check points before parsing
+    final canUse = await ref.read(creditProvider.notifier).useAI();
+    if (!canUse) {
+      if (!mounted) return;
+      _showInsufficientCreditsDialog();
+      return;
+    }
 
     try {
       ExtractionResult? result;
@@ -188,16 +188,13 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
 
   /// 开始 AI 生成（流式版本）
   Future<void> _startGeneration() async {
-    if (_extractionResult == null) return;
-
-    setState(() {
-      _isGenerating = true;
-      _error = null;
-      _generatedItems = []; // 初始化为空列表
-      _streamingStatus = '正在分析文章结构...';
-      _totalCards = null;
-      _currentCardIndex = null;
-    });
+    // Check points before starting cards generation
+    final canUse = await ref.read(creditProvider.notifier).useAI();
+    if (!canUse) {
+      if (!mounted) return;
+      _showInsufficientCreditsDialog();
+      return;
+    }
 
     try {
       final moduleId = widget.targetModuleId ?? 'custom';
@@ -2108,6 +2105,41 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     } else {
       return '${(seconds / 60).toStringAsFixed(1)} 分钟';
     }
+  }
+
+  void _showInsufficientCreditsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Center(
+          child: Icon(Icons.stars, color: Color(0xFFFFB300), size: 48),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('积分不足',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            const Text('执行 AI 解析或生成卡片需要 10 积分。您可以去分享知识库获取更多奖励！',
+                textAlign: TextAlign.center),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('了解'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pop(); // Close modal
+              // User will likely go to module detail or home to share
+            },
+            child: const Text('去分享奖励'),
+          ),
+        ],
+      ),
+    );
   }
 
   // New Minimal Chip for Coming Soon Sources

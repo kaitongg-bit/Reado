@@ -6,6 +6,7 @@ import '../../../feed/presentation/feed_provider.dart';
 import '../../../../models/feed_item.dart';
 import '../module_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../../core/providers/credit_provider.dart';
 
 class HomeTab extends ConsumerWidget {
   final Function(String moduleId)? onLoadModule; // 加载模块的回调
@@ -166,6 +167,47 @@ class HomeTab extends ConsumerWidget {
                           ),
                         ],
                       ),
+                      const Spacer(),
+                      // Credits display
+                      Consumer(
+                        builder: (context, ref, child) {
+                          final creditsAsync = ref.watch(creditProvider);
+                          return creditsAsync.when(
+                            data: (stats) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color:
+                                    const Color(0xFFFFB300).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color:
+                                      const Color(0xFFFFB300).withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.stars,
+                                      size: 16, color: Color(0xFFFFB300)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${stats.credits}',
+                                    style: const TextStyle(
+                                      color: Color(0xFFE65100),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            loading: () => const SizedBox.shrink(),
+                            error: (_, __) => const SizedBox.shrink(),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 12),
                       GestureDetector(
                         onTap: () => context.push('/profile'),
                         child: Container(

@@ -7,6 +7,7 @@ import '../../../core/theme/theme_provider.dart' show themeProvider;
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../../models/feed_item.dart';
+import '../../../core/providers/credit_provider.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -21,6 +22,34 @@ class ProfilePage extends ConsumerWidget {
     void handleLogout() async {
       await FirebaseAuth.instance.signOut();
       if (context.mounted) context.go('/onboarding');
+    }
+
+    void _showCreditRules(BuildContext context) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('积分规则 💰'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildRuleItem(Icons.fiber_new, '新用户注册', '+200 积分'),
+              _buildRuleItem(Icons.auto_awesome, 'AI 智能拆解/解析', '-10 积分/次'),
+              _buildRuleItem(Icons.share, '分享知识库链接', '+50 积分/次'),
+              _buildRuleItem(Icons.person_add, '邀请好友加入', '+50 积分/位'),
+              const SizedBox(height: 16),
+              const Text('💡 积分不足时，只需分享您喜欢的知识库给好友即可立即获得积分！',
+                  style: TextStyle(fontSize: 13, color: Colors.grey)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('我知道了'),
+            ),
+          ],
+        ),
+      );
     }
 
     // Helper to show edit dialog
@@ -53,7 +82,7 @@ class ProfilePage extends ConsumerWidget {
       ),
       body: Stack(
         children: [
-          // Ambient Background - Top Left
+          // Background effects...
           Positioned(
             top: -100,
             left: -100,
@@ -74,34 +103,12 @@ class ProfilePage extends ConsumerWidget {
               ),
             ),
           ),
-
-          // Ambient Background - Bottom Right
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.transparent,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blueAccent.withOpacity(isDark ? 0.1 : 0.15),
-                    blurRadius: 150,
-                    spreadRadius: 40,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  // Avatar & Info
+                  // Avatar section...
                   StreamBuilder<User?>(
                     stream: FirebaseAuth.instance.userChanges(),
                     builder: (context, snapshot) {
@@ -235,6 +242,31 @@ class ProfilePage extends ConsumerWidget {
                               icon: Icons.school,
                               color: Colors.blue,
                               isDark: isDark)),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Consumer(
+                          builder: (context, ref, child) {
+                            final statsAsync = ref.watch(creditProvider);
+                            return _StatCard(
+                              label: '我的积分',
+                              value: statsAsync.when(
+                                data: (stats) => '${stats.credits}',
+                                loading: () => '...',
+                                error: (_, __) => '0',
+                              ),
+                              icon: Icons.stars,
+                              color: const Color(0xFFFFB300),
+                              isDark: isDark,
+                              subtitle: statsAsync.when(
+                                data: (stats) => '推广点击: ${stats.shareClicks}',
+                                loading: () => '',
+                                error: (_, __) => '',
+                              ),
+                              onTap: () => _showCreditRules(context),
+                            );
+                          },
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -243,7 +275,6 @@ class ProfilePage extends ConsumerWidget {
                   _SectionHeader(title: '设置', isDark: isDark),
                   const SizedBox(height: 16),
 
-                  // Theme Toggle
                   _GlassTile(
                     icon: isDark ? Icons.light_mode : Icons.dark_mode,
                     title: '外观',
@@ -261,35 +292,15 @@ class ProfilePage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  // Pro (Coming Soon)
                   _GlassTile(
                     icon: Icons.workspace_premium,
-                    title: '升级专业版',
-                    subtitle: '解锁高级 AI 功能',
+                    title: '积分任务',
+                    subtitle: '分享赚取更多积分',
                     isDark: isDark,
-                    trailing: _ComingSoonBadge(isDark: isDark),
+                    onTap: () => _showCreditRules(context),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
                   ),
                   const SizedBox(height: 12),
-
-                  // Language
-                  _GlassTile(
-                    icon: Icons.language,
-                    title: '语言',
-                    subtitle: '简体中文',
-                    isDark: isDark,
-                    trailing: _ComingSoonBadge(isDark: isDark),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Contact Us
-                  _GlassTile(
-                    icon: Icons.support_agent,
-                    title: '联系客服',
-                    subtitle: '获取帮助',
-                    isDark: isDark,
-                    trailing: _ComingSoonBadge(isDark: isDark),
-                  ),
-                  const SizedBox(height: 32),
 
                   // Log Out
                   InkWell(
@@ -324,56 +335,87 @@ class ProfilePage extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _buildRuleItem(IconData icon, String title, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.orangeAccent),
+          const SizedBox(width: 12),
+          Expanded(child: Text(title)),
+          Text(value,
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, color: Colors.green)),
+        ],
+      ),
+    );
+  }
 }
 
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
+  final String? subtitle;
   final IconData icon;
   final Color color;
   final bool isDark;
+  final VoidCallback? onTap;
 
   const _StatCard(
       {required this.label,
       required this.value,
+      this.subtitle,
       required this.icon,
       required this.color,
-      required this.isDark});
+      required this.isDark,
+      this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white.withOpacity(0.05)
-                : Colors.white.withOpacity(0.6),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-                color: isDark
-                    ? Colors.white.withOpacity(0.1)
-                    : Colors.white.withOpacity(0.5)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, color: color, size: 28),
-              const SizedBox(height: 12),
-              Text(value,
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black87)),
-              const SizedBox(height: 4),
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600])),
-            ],
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withOpacity(0.05)
+                  : Colors.white.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                  color: isDark
+                      ? Colors.white.withOpacity(0.1)
+                      : Colors.white.withOpacity(0.5)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: color, size: 28),
+                const SizedBox(height: 12),
+                Text(value,
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87)),
+                if (subtitle != null && subtitle!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(subtitle!,
+                      style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.orangeAccent)),
+                ],
+                const SizedBox(height: 4),
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600])),
+              ],
+            ),
           ),
         ),
       ),
@@ -489,33 +531,6 @@ class _GlassTile extends StatelessWidget {
   }
 }
 
-class _ComingSoonBadge extends StatelessWidget {
-  final bool isDark;
-  const _ComingSoonBadge({required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.blue.withOpacity(0.2)
-            : Colors.blue.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.withOpacity(0.3)),
-      ),
-      child: const Text(
-        '敬请期待',
-        style: TextStyle(
-          color: Colors.blue,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-}
-
 class _EditProfileDialog extends StatefulWidget {
   final User user;
   const _EditProfileDialog({required this.user});
@@ -529,7 +544,6 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   late String _selectedAvatarUrl;
   bool _isSaving = false;
 
-  // Curated list of official avatars (Adventurer style for Explore theme)
   final List<String> _officialAvatars = [
     'https://api.dicebear.com/7.x/adventurer/png?seed=Felix',
     'https://api.dicebear.com/7.x/adventurer/png?seed=Aneka',
@@ -550,9 +564,6 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
     super.initState();
     _nameController = TextEditingController(text: widget.user.displayName);
     _selectedAvatarUrl = widget.user.photoURL ?? _officialAvatars[0];
-
-    // Ensure selected avatar is one of the official ones or default if custom/google
-    // If not in generic list, we just display it as current selection, user can switch
   }
 
   @override
@@ -597,7 +608,6 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Avatar Selection
               Center(
                 child: Container(
                   width: 80,
@@ -617,14 +627,12 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                 ),
               ),
               const SizedBox(height: 20),
-
               Text('选择头像',
                   style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.grey[400] : Colors.grey[600])),
               const SizedBox(height: 10),
-
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -653,10 +661,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                   );
                 },
               ),
-
               const SizedBox(height: 24),
-
-              // Name Input
               TextField(
                 controller: _nameController,
                 style: TextStyle(color: isDark ? Colors.white : Colors.black87),

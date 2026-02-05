@@ -29,6 +29,11 @@ abstract class DataService {
       String userId, String moduleId, int index); // Save reading progress
   Future<Map<String, int>> fetchAllModuleProgress(
       String userId); // Fetch all progress
+  Future<Map<String, int>> fetchUserStats(String userId); // 获取积分和点击数
+  Stream<Map<String, int>> userStatsStream(String userId); // 实时监听积分和点击数
+  Future<void> logShareClick(String referrerId); // 记录分享点击
+  Future<int> fetchUserCredits(String userId); // [Deprecated] 获取用户积分
+  Future<void> updateUserCredits(String userId, int amount); // 更新积分（增量更新）
 }
 
 class FirestoreService implements DataService {
@@ -669,6 +674,77 @@ class FirestoreService implements DataService {
     } catch (e) {
       print('Error fetching progress: $e');
       return {};
+    }
+  }
+
+  @override
+  Stream<Map<String, int>> userStatsStream(String userId) {
+    return _usersRef.doc(userId).snapshots().map((doc) {
+      if (!doc.exists) {
+        return {'credits': 200, 'shareClicks': 0};
+      }
+      final data = doc.data() as Map<String, dynamic>?;
+      return {
+        'credits': (data?['credits'] as int?) ?? 200,
+        'shareClicks': (data?['shareClicks'] as int?) ?? 0,
+      };
+    });
+  }
+
+  @override
+  Future<Map<String, int>> fetchUserStats(String userId) async {
+    try {
+      final doc = await _usersRef.doc(userId).get();
+      if (!doc.exists) {
+        await _usersRef.doc(userId).set({
+          'credits': 200,
+          'shareClicks': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        return {'credits': 200, 'shareClicks': 0};
+      }
+
+      final data = doc.data() as Map<String, dynamic>?;
+      return {
+        'credits': (data?['credits'] as int?) ?? 200,
+        'shareClicks': (data?['shareClicks'] as int?) ?? 0,
+      };
+    } catch (e) {
+      print('Error fetching stats: $e');
+      return {'credits': 200, 'shareClicks': 0};
+    }
+  }
+
+  @Deprecated('Use fetchUserStats')
+  Future<int> fetchUserCredits(String userId) async {
+    final stats = await fetchUserStats(userId);
+    return stats['credits']!;
+  }
+
+  @override
+  Future<void> updateUserCredits(String userId, int amount) async {
+    try {
+      // 使用 FieldValue.increment 保证原子性，非常适合积分场景
+      await _usersRef.doc(userId).update({
+        'credits': FieldValue.increment(amount),
+      });
+      print('💰 Credits updated for $userId: $amount');
+    } catch (e) {
+      print('Error updating credits: $e');
+    }
+  }
+
+  Future<void> logShareClick(String referrerId) async {
+    try {
+      // 增加点击次并奖励 50 积分
+      await _usersRef.doc(referrerId).update({
+        'shareClicks': FieldValue.increment(1),
+        'credits': FieldValue.increment(50),
+        'lastShareClickAt': FieldValue.serverTimestamp(),
+      });
+      print('📈 Share click tracked and rewarded for $referrerId');
+    } catch (e) {
+      print('Error logging share click: $e');
     }
   }
 }

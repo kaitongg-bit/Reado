@@ -1,13 +1,17 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:html' as html;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../../models/feed_item.dart';
 import '../../../models/knowledge_module.dart';
 import 'module_provider.dart';
 import 'home_page.dart'; // Import for homeTabControlProvider
 import '../../lab/presentation/add_material_modal.dart';
+import '../../../../core/providers/credit_provider.dart';
 
 class ModuleDetailPage extends ConsumerWidget {
   final String moduleId;
@@ -62,9 +66,50 @@ class ModuleDetailPage extends ConsumerWidget {
                   IconButton(
                     icon: const Icon(Icons.share),
                     onPressed: () {
-                      // TODO: Implement share functionality
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user == null) return;
+
+                      // 1. 生成专属链接
+                      // 生产环境使用实际域名，开发环境使用 window.location.origin
+                      final String baseUrl = html.window.location.origin;
+                      // 显式添加 /#/ 以确保 Web Hash 模式下的路由匹配
+                      final String shareUrl =
+                          "$baseUrl/#/module/$moduleId?ref=${user.uid}";
+
+                      // 2. 复制到剪贴板
+                      Clipboard.setData(ClipboardData(
+                          text: '嘿！我正在使用 Reado 学习这个超棒的知识库，快来看看：\n$shareUrl'));
+
+                      // 3. 奖励积分 (动作奖励)
+                      ref.read(creditProvider.notifier).rewardShare(amount: 10);
+
+                      // 4. 显示提示
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('分享功能即将推出')),
+                        SnackBar(
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.stars, color: Color(0xFFFFB300)),
+                                  SizedBox(width: 8),
+                                  Text('分享成功！获得 10 积分动作奖励 🎁'),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              const Text('当好友通过您的链接加入时，您将再获得 50 积分！',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.white)),
+                              const SizedBox(height: 4),
+                              Text('专属链接已复制: $shareUrl',
+                                  style: const TextStyle(
+                                      fontSize: 10, color: Colors.white70)),
+                            ],
+                          ),
+                          backgroundColor: const Color(0xFF2E7D32),
+                          behavior: SnackBarBehavior.floating,
+                        ),
                       );
                     },
                   ),

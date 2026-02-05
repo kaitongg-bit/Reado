@@ -36,15 +36,23 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     bool isSearch = widget.moduleId == 'SEARCH';
 
     // Handle special case: initialIndex = -1 means "jump to last item"
-    // We'll handle this after loading completes
-    final bool jumpToLast = widget.initialIndex == -1;
+    // OR from global provider intent
+    final providerInitialIndex = ref.read(feedInitialIndexProvider);
+    final bool jumpToLast =
+        widget.initialIndex == -1 || providerInitialIndex == -1;
 
-    // Priority: initialIndex > savedProgress > 0
-    final progressMap = ref.read(feedProgressProvider);
-    final savedIndex =
-        (widget.initialIndex != null && widget.initialIndex! >= 0)
-            ? widget.initialIndex!
-            : progressMap[widget.moduleId] ?? 0;
+    // Priority: jumpToLast > widget.initialIndex > providerInitialIndex > savedProgress
+    int savedIndex = 0;
+    if (jumpToLast) {
+      savedIndex = 0;
+    } else if (widget.initialIndex != null && widget.initialIndex! >= 0) {
+      savedIndex = widget.initialIndex!;
+    } else if (providerInitialIndex != null && providerInitialIndex >= 0) {
+      savedIndex = providerInitialIndex;
+    } else {
+      final progressMap = ref.read(feedProgressProvider);
+      savedIndex = progressMap[widget.moduleId] ?? 0;
+    }
 
     _focusedItemIndex = savedIndex;
     _verticalController = PageController(initialPage: savedIndex);
@@ -58,33 +66,32 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     } else {
       Future.microtask(() {
         ref.read(feedProvider.notifier).loadModule(widget.moduleId);
-        // Save this module as the last active module
         ref
             .read(lastActiveModuleProvider.notifier)
             .setActiveModule(widget.moduleId);
+
+        if (providerInitialIndex != null) {
+          ref.read(feedInitialIndexProvider.notifier).state = null;
+        }
       });
 
-      // After loading completes (via provider rebuild), jump to last if requested
       if (jumpToLast) {
-        // Use a slight delay to let the provider update
-        Future.delayed(const Duration(milliseconds: 500), () {
+        print('🚀 [JUMP TO LAST] Scheduled for: ${widget.moduleId}');
+        Future.delayed(const Duration(milliseconds: 600), () {
           if (!mounted) return;
           final items = ref.read(feedProvider);
           if (items.isNotEmpty) {
             final lastIndex = items.length - 1;
+            print('🚀 [JUMP TO LAST] Executing at index $lastIndex');
             setState(() {
               _focusedItemIndex = lastIndex;
+              _initialPositionRestored = true;
             });
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (_verticalController.hasClients) {
-                _verticalController.jumpToPage(lastIndex);
-              }
-            });
+            if (_verticalController.hasClients) {
+              _verticalController.jumpToPage(lastIndex);
+            }
           }
         });
-      } else {
-        // Allow time for Cloud progress to load before defaulting to 0
-        // We will rely on the listen() in build() to perform the jump once data arrives
       }
     }
   }
@@ -96,11 +103,16 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   }
 
   int _focusedItemIndex = 0;
-  bool _initialPositionRestored = false; // Track if we've restored position
+  bool _initialPositionRestored = false;
 
-  /// Attempt to restore scroll position from saved progress
   void _tryRestorePosition(int itemCount) {
     if (_initialPositionRestored || !mounted) return;
+
+    final providerInitialIndex = ref.read(feedInitialIndexProvider);
+    if (widget.initialIndex == -1 || providerInitialIndex == -1) {
+      print('🚀 [JUMP TO LAST] Blocking progress restore');
+      return;
+    }
 
     final progressMap = ref.read(feedProgressProvider);
 
@@ -166,6 +178,30 @@ class _FeedPageState extends ConsumerState<FeedPage> {
           if (_verticalController.hasClients) {
             _verticalController.jumpToPage(newIndex);
           }
+        });
+      }
+    });
+
+    // 🎧 Listen for Global Jump Intent (e.g. "Start Learning Now")
+    ref.listen<int?>(feedInitialIndexProvider, (prev, next) {
+      if (next != null && feedItems.isNotEmpty) {
+        int targetIndex = next;
+        if (targetIndex == -1) targetIndex = feedItems.length - 1;
+
+        if (targetIndex >= 0 && targetIndex < feedItems.length) {
+          setState(() {
+            _focusedItemIndex = targetIndex;
+            _isSingleView = true;
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_verticalController.hasClients) {
+              _verticalController.jumpToPage(targetIndex);
+            }
+          });
+        }
+        // Consume intent
+        Future.microtask(() {
+          ref.read(feedInitialIndexProvider.notifier).state = null;
         });
       }
     });

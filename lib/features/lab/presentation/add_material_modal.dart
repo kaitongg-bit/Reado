@@ -7,6 +7,8 @@ import '../../../../data/services/content_extraction_service.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../feed/presentation/feed_page.dart';
 import '../providers/batch_import_provider.dart';
+import 'package:go_router/go_router.dart';
+import '../../home/presentation/home_page.dart';
 import '../../../../core/providers/credit_provider.dart';
 
 class AddMaterialModal extends ConsumerStatefulWidget {
@@ -426,16 +428,19 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                 // Get the module we just added to
                 final activeModuleId = widget.targetModuleId ?? 'custom';
 
-                // 直接导航到 FeedPage，使用 -1 表示跳到最后一张（新添加的）
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => FeedPage(
-                      moduleId: activeModuleId,
-                      initialIndex:
-                          -1, // Special: jump to last item after loading
-                    ),
-                  ),
-                );
+                // 1. 设置当前模块
+                ref
+                    .read(lastActiveModuleProvider.notifier)
+                    .setActiveModule(activeModuleId);
+
+                // 2. 设置跳转到最后一项的意图
+                ref.read(feedInitialIndexProvider.notifier).state = -1;
+
+                // 3. 切换到“学习”标签页 (index 1)
+                ref.read(homeTabControlProvider.notifier).state = 1;
+
+                // 4. 返回主页 (确保 UI 刷新且带有底部栏)
+                context.go('/');
               },
               child: const Text('立即学习'),
             ),

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -38,6 +39,10 @@ class ModuleDetailPage extends ConsumerWidget {
         .where((i) => i.masteryLevel != FeedItemMastery.unknown)
         .length;
     final progress = cardCount > 0 ? learned / cardCount : 0.0;
+
+    // Get current progress for this module
+    final currentProgress = ref.watch(feedProgressProvider);
+    final currentModuleIndex = currentProgress[moduleId] ?? 0;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -116,12 +121,33 @@ class ModuleDetailPage extends ConsumerWidget {
                         flex: 2,
                         child: ElevatedButton.icon(
                           onPressed: () {
-                            // Save active module before navigating
+                            // 1. Filter items for this module to find how many we have
+                            final moduleItems = feedItems
+                                .where((item) => item.moduleId == moduleId)
+                                .toList();
+
+                            // 2. Determine random starting index
+                            int targetIndex = 0;
+                            if (moduleItems.isNotEmpty) {
+                              targetIndex =
+                                  Random().nextInt(moduleItems.length);
+                            }
+
+                            // 3. Save active module
                             ref
                                 .read(lastActiveModuleProvider.notifier)
                                 .setActiveModule(moduleId);
-                            // Navigate to HomePage's Feed tab
-                            context.go('/home?tab=1');
+
+                            // 4. Set progress to the random index
+                            ref
+                                .read(feedProgressProvider.notifier)
+                                .setProgress(moduleId, targetIndex);
+
+                            // 5. Switch to Feed tab via provider
+                            ref.read(homeTabControlProvider.notifier).state = 1;
+
+                            // 6. Pop back to HomePage
+                            context.pop();
                           },
                           icon: const Icon(Icons.play_arrow),
                           label: const Text('开始学习',
@@ -170,7 +196,9 @@ class ModuleDetailPage extends ConsumerWidget {
                 itemCount: moduleItems.length,
                 itemBuilder: (context, index) {
                   final item = moduleItems[index];
-                  return _buildCompactCard(context, item, index, isDark, ref);
+                  final isCurrentlyViewing = index == currentModuleIndex;
+                  return _buildCompactCard(
+                      context, item, index, isDark, ref, isCurrentlyViewing);
                 },
               ),
             ),
@@ -202,7 +230,7 @@ class ModuleDetailPage extends ConsumerWidget {
   }
 
   Widget _buildCompactCard(BuildContext context, FeedItem item, int index,
-      bool isDark, WidgetRef ref) {
+      bool isDark, WidgetRef ref, bool isCurrentlyViewing) {
     // Get preview text
     String previewText = '';
     if (item.pages.isNotEmpty) {
@@ -238,15 +266,31 @@ class ModuleDetailPage extends ConsumerWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withOpacity(0.05)
-              : Colors.white.withOpacity(0.7),
+          color: isCurrentlyViewing
+              ? (isDark
+                  ? const Color(0xFFCDFF64).withOpacity(0.1)
+                  : const Color(0xFFCDFF64).withOpacity(0.05))
+              : (isDark
+                  ? Colors.white.withOpacity(0.05)
+                  : Colors.white.withOpacity(0.7)),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isDark
-                ? Colors.white.withOpacity(0.1)
-                : Colors.grey.withOpacity(0.2),
+            color: isCurrentlyViewing
+                ? const Color(0xFFCDFF64)
+                : (isDark
+                    ? Colors.white.withOpacity(0.1)
+                    : Colors.grey.withOpacity(0.2)),
+            width: isCurrentlyViewing ? 2.0 : 1.0,
           ),
+          boxShadow: isCurrentlyViewing
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFCDFF64).withOpacity(0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : null,
         ),
         child: Row(
           children: [
@@ -256,9 +300,11 @@ class ModuleDetailPage extends ConsumerWidget {
               height: 32,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: item.masteryLevel != FeedItemMastery.unknown
-                    ? const Color(0xFFCDFF64).withOpacity(0.3)
-                    : Colors.grey.withOpacity(0.2),
+                color: isCurrentlyViewing
+                    ? const Color(0xFFCDFF64)
+                    : (item.masteryLevel != FeedItemMastery.unknown
+                        ? const Color(0xFFCDFF64).withOpacity(0.3)
+                        : Colors.grey.withOpacity(0.2)),
                 shape: BoxShape.circle,
               ),
               child: Text(
@@ -266,7 +312,9 @@ class ModuleDetailPage extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
+                  color: isCurrentlyViewing
+                      ? (isDark ? Colors.black87 : const Color(0xFF7C9A00))
+                      : (isDark ? Colors.white : Colors.black87),
                 ),
               ),
             ),
@@ -282,7 +330,9 @@ class ModuleDetailPage extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: isCurrentlyViewing
+                          ? FontWeight.bold
+                          : FontWeight.w600,
                       color: isDark ? Colors.white : Colors.black87,
                     ),
                   ),
@@ -303,8 +353,12 @@ class ModuleDetailPage extends ConsumerWidget {
             ),
             // Arrow
             Icon(
-              Icons.chevron_right,
-              color: isDark ? Colors.grey[600] : Colors.grey[400],
+              isCurrentlyViewing
+                  ? Icons.play_circle_filled
+                  : Icons.chevron_right,
+              color: isCurrentlyViewing
+                  ? (isDark ? const Color(0xFFCDFF64) : const Color(0xFF7C9A00))
+                  : (isDark ? Colors.grey[600] : Colors.grey[400]),
             ),
           ],
         ),

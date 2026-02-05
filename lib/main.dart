@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/gestures.dart';
 import 'firebase_options.dart';
@@ -8,8 +9,19 @@ import 'core/theme/theme_provider.dart' show AppTheme;
 import 'package:flutter/material.dart' as flutter;
 import 'core/router/router_provider.dart';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize configurations
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    if (kDebugMode)
+      print('⚠️ .env file not found, using environment variables only.');
+  }
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );

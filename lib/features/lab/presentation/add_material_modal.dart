@@ -54,6 +54,15 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     }
 
     try {
+      setState(() {
+        _isGenerating = true;
+        _generatedItems = [];
+        _error = null;
+        _streamingStatus = '开始分析内容...';
+        _totalCards = null;
+        _currentCardIndex = null;
+      });
+
       final moduleId = widget.targetModuleId ?? 'custom';
       final extraction =
           ContentExtractionService.extractFromText(_textController.text);
@@ -197,6 +206,15 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     }
 
     try {
+      setState(() {
+        _isGenerating = true;
+        _generatedItems = [];
+        _error = null;
+        _streamingStatus = '开始联系 AI...';
+        _totalCards = null;
+        _currentCardIndex = null;
+      });
+
       final moduleId = widget.targetModuleId ?? 'custom';
 
       await for (final event

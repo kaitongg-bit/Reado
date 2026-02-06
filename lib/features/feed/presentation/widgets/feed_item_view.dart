@@ -367,99 +367,118 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
       return Container(
         color: backgroundColor, // Semi-transparent base
         child: SelectionArea(
-          child: SingleChildScrollView(
-            padding: contentPadding,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // No redundant header here
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return ScrollConfiguration(
+                behavior:
+                    ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: contentPadding,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight:
+                          constraints.maxHeight - contentPadding.vertical + 1,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // No redundant header here
 
-                DefaultTextStyle(
-                  style: TextStyle(
-                      fontFamily: 'JinghuaSong',
-                      color: Theme.of(context).colorScheme.onSurface),
-                  child: MarkdownBody(
-                    data: content.markdownContent,
-                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
-                        .copyWith(
-                      h1: TextStyle(
-                          fontFamily: 'JinghuaSong',
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                          height: 1.3,
-                          letterSpacing: -0.5,
-                          color: Theme.of(context).colorScheme.onSurface),
-                      h2: TextStyle(
-                        fontFamily: 'JinghuaSong',
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
-                        height: 1.5,
-                      ),
-                      h3: const TextStyle(
-                          fontFamily: 'JinghuaSong',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20),
-                      h4: const TextStyle(
-                          fontFamily: 'JinghuaSong',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18),
-                      h5: const TextStyle(
-                          fontFamily: 'JinghuaSong',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16),
-                      h6: const TextStyle(
-                          fontFamily: 'JinghuaSong',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14),
-                      p: TextStyle(
-                          fontFamily: 'JinghuaSong',
-                          fontSize: 18,
-                          height: 1.8,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withOpacity(0.9),
-                          letterSpacing: 0.2),
-                      listBullet: TextStyle(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withOpacity(0.7),
-                      ),
-                      strong: const TextStyle(
-                          fontFamily: 'JinghuaSong',
-                          fontWeight: FontWeight.bold),
-                      em: const TextStyle(
-                          fontFamily: 'JinghuaSong',
-                          fontStyle: FontStyle.italic),
-                      blockquote: const TextStyle(
-                          fontFamily: 'JinghuaSong', color: Colors.grey),
-                      code: const TextStyle(
-                          fontFamily: 'JinghuaSong',
-                          backgroundColor: Colors.transparent),
-                      codeblockPadding: const EdgeInsets.all(8),
-                      codeblockDecoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white10
-                            : Colors.grey[200],
-                      ),
+                        DefaultTextStyle(
+                          style: TextStyle(
+                              fontFamily: 'JinghuaSong',
+                              color: Theme.of(context).colorScheme.onSurface),
+                          child: MarkdownBody(
+                            data: content.markdownContent,
+                            styleSheet:
+                                MarkdownStyleSheet.fromTheme(Theme.of(context))
+                                    .copyWith(
+                              h1: TextStyle(
+                                  fontFamily: 'JinghuaSong',
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.3,
+                                  letterSpacing: -0.5,
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface),
+                              h2: TextStyle(
+                                fontFamily: 'JinghuaSong',
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onSurface,
+                                height: 1.5,
+                              ),
+                              h3: const TextStyle(
+                                  fontFamily: 'JinghuaSong',
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20),
+                              h4: const TextStyle(
+                                  fontFamily: 'JinghuaSong',
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18),
+                              h5: const TextStyle(
+                                  fontFamily: 'JinghuaSong',
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16),
+                              h6: const TextStyle(
+                                  fontFamily: 'JinghuaSong',
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14),
+                              p: TextStyle(
+                                  fontFamily: 'JinghuaSong',
+                                  fontSize: 18,
+                                  height: 1.8,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withOpacity(0.9),
+                                  letterSpacing: 0.2),
+                              listBullet: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withOpacity(0.7),
+                              ),
+                              strong: const TextStyle(
+                                  fontFamily: 'JinghuaSong',
+                                  fontWeight: FontWeight.bold),
+                              em: const TextStyle(
+                                  fontFamily: 'JinghuaSong',
+                                  fontStyle: FontStyle.italic),
+                              blockquote: const TextStyle(
+                                  fontFamily: 'JinghuaSong',
+                                  color: Colors.grey),
+                              code: const TextStyle(
+                                  fontFamily: 'JinghuaSong',
+                                  backgroundColor: Colors.transparent),
+                              codeblockPadding: const EdgeInsets.all(8),
+                              codeblockDecoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(4),
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.white10
+                                    : Colors.grey[200],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 48),
+                        // Dynamic Flashcard Section
+                        if (content.flashcardQuestion != null) ...[
+                          _FlashcardWidget(
+                            question: content.flashcardQuestion!,
+                            answer: content.flashcardAnswer ?? '',
+                            isDark: isDark,
+                          ),
+                          const SizedBox(height: 40),
+                        ],
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 48),
-                // Dynamic Flashcard Section
-                if (content.flashcardQuestion != null) ...[
-                  _FlashcardWidget(
-                    question: content.flashcardQuestion!,
-                    answer: content.flashcardAnswer ?? '',
-                    isDark: isDark,
-                  ),
-                  const SizedBox(height: 40),
-                ],
-              ],
-            ),
+              );
+            },
           ),
         ),
       );

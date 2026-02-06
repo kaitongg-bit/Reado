@@ -60,7 +60,7 @@ class ModuleDetailPage extends ConsumerWidget {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back),
-                    onPressed: () => context.pop(),
+                    onPressed: () => context.go('/'),
                   ),
                   const Spacer(),
                   IconButton(

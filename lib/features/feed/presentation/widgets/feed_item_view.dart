@@ -301,7 +301,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                   padding: const EdgeInsets.all(
                       8.0), // Increased padding for smaller icon
                   child: SvgPicture.asset(
-                    'assets/images/Group 2.svg',
+                    'assets/images/reado_traced.svg',
                   ),
                 ),
                 isPrimary: true,

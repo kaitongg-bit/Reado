@@ -141,22 +141,8 @@ class ProfilePage extends ConsumerWidget {
                                     child: SizedBox(
                                       width: 100,
                                       height: 100,
-                                      child: user.photoURL != null
-                                          ? Image.network(
-                                              user.photoURL!,
-                                              fit: BoxFit.cover,
-                                              errorBuilder:
-                                                  (context, error, stackTrace) {
-                                                return Image.network(
-                                                  'https://api.dicebear.com/7.x/adventurer/png?seed=${user.uid}',
-                                                  fit: BoxFit.cover,
-                                                );
-                                              },
-                                            )
-                                          : Image.network(
-                                              'https://api.dicebear.com/7.x/adventurer/png?seed=${user.uid}',
-                                              fit: BoxFit.cover,
-                                            ),
+                                      child: _buildAvatarImage(
+                                          user.photoURL, user.uid),
                                     ),
                                   ),
                                 ),
@@ -348,6 +334,33 @@ class ProfilePage extends ConsumerWidget {
               style: const TextStyle(
                   fontWeight: FontWeight.bold, color: Colors.green)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAvatarImage(String? url, String uid) {
+    if (url == null || url.isEmpty) {
+      return Image.asset(
+        'assets/images/avatars/avatar_1.png',
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => const Icon(Icons.person),
+      );
+    }
+
+    if (url.startsWith('assets/')) {
+      return Image.asset(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => const Icon(Icons.person),
+      );
+    }
+
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: Colors.orangeAccent.withOpacity(0.1),
+        child: const Icon(Icons.person, size: 40, color: Colors.orangeAccent),
       ),
     );
   }
@@ -545,18 +558,18 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   bool _isSaving = false;
 
   final List<String> _officialAvatars = [
-    'https://api.dicebear.com/7.x/adventurer/png?seed=Felix',
-    'https://api.dicebear.com/7.x/adventurer/png?seed=Aneka',
-    'https://api.dicebear.com/7.x/adventurer/png?seed=Zack',
-    'https://api.dicebear.com/7.x/adventurer/png?seed=Midnight',
-    'https://api.dicebear.com/7.x/adventurer/png?seed=Luna',
-    'https://api.dicebear.com/7.x/adventurer/png?seed=Jasper',
-    'https://api.dicebear.com/7.x/adventurer/png?seed=Willow',
-    'https://api.dicebear.com/7.x/adventurer/png?seed=River',
-    'https://api.dicebear.com/7.x/adventurer/png?seed=Bear',
-    'https://api.dicebear.com/7.x/adventurer/png?seed=Fox',
-    'https://api.dicebear.com/7.x/adventurer/png?seed=Owl',
-    'https://api.dicebear.com/7.x/adventurer/png?seed=Cat',
+    'assets/images/avatars/avatar_1.png',
+    'assets/images/avatars/avatar_2.png',
+    'assets/images/avatars/avatar_3.png',
+    'assets/images/avatars/avatar_4.png',
+    'assets/images/avatars/avatar_5.png',
+    'assets/images/avatars/avatar_6.png',
+    'assets/images/avatars/avatar_7.png',
+    'assets/images/avatars/avatar_8.png',
+    'assets/images/avatars/avatar_9.png',
+    'assets/images/avatars/avatar_10.png',
+    'assets/images/avatars/avatar_11.png',
+    'assets/images/avatars/avatar_12.png',
   ];
 
   @override
@@ -622,7 +635,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                     ],
                   ),
                   child: ClipOval(
-                    child: Image.network(_selectedAvatarUrl, fit: BoxFit.cover),
+                    child: _buildAvatarImagePreview(_selectedAvatarUrl, isDark),
                   ),
                 ),
               ),
@@ -655,7 +668,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                             : null,
                       ),
                       child: ClipOval(
-                        child: Image.network(url, fit: BoxFit.cover),
+                        child: _buildAvatarImagePreview(url, isDark),
                       ),
                     ),
                   );
@@ -699,6 +712,31 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
               : const Text('保存'),
         ),
       ],
+    );
+  }
+
+  Widget _buildAvatarImagePreview(String url, bool isDark) {
+    if (url.startsWith('assets/')) {
+      return Image.asset(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: isDark
+              ? Colors.white.withOpacity(0.05)
+              : Colors.black.withOpacity(0.05),
+          child: const Icon(Icons.person, size: 24, color: Colors.grey),
+        ),
+      );
+    }
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: isDark
+            ? Colors.white.withOpacity(0.05)
+            : Colors.black.withOpacity(0.05),
+        child: const Icon(Icons.person, size: 24, color: Colors.grey),
+      ),
     );
   }
 }

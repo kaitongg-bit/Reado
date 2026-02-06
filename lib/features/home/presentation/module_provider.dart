@@ -43,15 +43,21 @@ class ModuleNotifier extends StateNotifier<ModuleState> {
     state = state.copyWith(isLoading: true);
 
     try {
-      // 1. Load Official Modules (Hardcoded for now, could be fetched)
-      final officials = KnowledgeModule.officials;
-
-      // 2. Load User Custom Modules
       final user = FirebaseAuth.instance.currentUser;
+
+      List<KnowledgeModule> officials = KnowledgeModule.officials;
       List<KnowledgeModule> custom = [];
 
       if (user != null) {
+        // 1. Fetch Custom Modules
         custom = await _dataService.fetchUserModules(user.uid);
+
+        // 2. Fetch Hidden Official IDs and filter
+        final hiddenIds = await _dataService.fetchHiddenModuleIds(user.uid);
+        if (hiddenIds.isNotEmpty) {
+          officials =
+              officials.where((m) => !hiddenIds.contains(m.id)).toList();
+        }
       }
 
       state = state.copyWith(
@@ -83,6 +89,32 @@ class ModuleNotifier extends StateNotifier<ModuleState> {
       );
     } catch (e) {
       print('Failed to create module: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteModule(String moduleId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final isOfficial = state.officials.any((m) => m.id == moduleId);
+
+    try {
+      if (isOfficial) {
+        // Hiding official module: Store in user's hidden modules list
+        await _dataService.hideOfficialModule(user.uid, moduleId);
+        state = state.copyWith(
+          officials: state.officials.where((m) => m.id != moduleId).toList(),
+        );
+      } else {
+        // Deleting custom module
+        await _dataService.deleteModule(user.uid, moduleId);
+        state = state.copyWith(
+          custom: state.custom.where((m) => m.id != moduleId).toList(),
+        );
+      }
+    } catch (e) {
+      print('Failed to delete/hide module: $e');
       rethrow;
     }
   }

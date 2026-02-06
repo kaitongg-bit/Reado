@@ -113,11 +113,81 @@ class ModuleDetailPage extends ConsumerWidget {
                       );
                     },
                   ),
-                  IconButton(
+                  PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert),
-                    onPressed: () {
-                      // TODO: More options
+                    onSelected: (value) async {
+                      if (value == 'delete' || value == 'hide') {
+                        final isHide = value == 'hide';
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text(isHide ? '隐藏此知识库？' : '彻底删除知识库？'),
+                            content: Text(isHide
+                                ? '知识库将被隐藏，您可以在“个人中心 - 隐藏的内容”中恢复。'
+                                : '警告：此操作不可逆！该知识库及其包含的所有知识点将永久移除。'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('取消'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: Text(isHide ? '隐藏' : '彻底删除',
+                                    style: const TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirmed == true) {
+                          if (isHide) {
+                            // Logic to hide (even if custom)
+                            final user = FirebaseAuth.instance.currentUser;
+                            if (user != null) {
+                              await ref
+                                  .read(dataServiceProvider)
+                                  .hideOfficialModule(user.uid, moduleId);
+                              ref.read(moduleProvider.notifier).refresh();
+                            }
+                          } else {
+                            await ref
+                                .read(moduleProvider.notifier)
+                                .deleteModule(moduleId);
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text(isHide ? '已隐藏知识库' : '已删除知识库')),
+                            );
+                            context.pop();
+                          }
+                        }
+                      }
                     },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'hide',
+                        child: Row(
+                          children: [
+                            Icon(Icons.visibility_off_outlined,
+                                color: Colors.orange, size: 20),
+                            SizedBox(width: 8),
+                            Text('隐藏', style: TextStyle(color: Colors.orange)),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline,
+                                color: Colors.red, size: 20),
+                            SizedBox(width: 8),
+                            Text('永久删除', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -396,15 +466,83 @@ class ModuleDetailPage extends ConsumerWidget {
                 ],
               ),
             ),
-            // Arrow
-            Icon(
-              isCurrentlyViewing
-                  ? Icons.play_circle_filled
-                  : Icons.chevron_right,
-              color: isCurrentlyViewing
-                  ? (isDark ? const Color(0xFFCDFF64) : const Color(0xFF7C9A00))
-                  : (isDark ? Colors.grey[600] : Colors.grey[400]),
-            ),
+            // Arrow / Actions
+            if (true) // Allow hiding official cards too based on USER request
+              PopupMenuButton<String>(
+                icon: Icon(
+                  Icons.more_horiz,
+                  color: isCurrentlyViewing
+                      ? (isDark
+                          ? const Color(0xFFCDFF64)
+                          : const Color(0xFF7C9A00))
+                      : (isDark ? Colors.grey[600] : Colors.grey[400]),
+                ),
+                padding: EdgeInsets.zero,
+                onSelected: (value) async {
+                  if (value == 'delete' || value == 'hide') {
+                    final isHide = value == 'hide';
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Text(isHide ? '隐藏此知识卡？' : '删除知识卡？'),
+                        content:
+                            Text(isHide ? '知识卡将被隐藏，可以在设置中恢复。' : '删除后无法恢复。'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('取消'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: Text(isHide ? '隐藏' : '删除',
+                                style: const TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmed == true) {
+                      if (isHide) {
+                        await ref
+                            .read(feedProvider.notifier)
+                            .hideFeedItem(item.id);
+                      } else {
+                        await ref
+                            .read(feedProvider.notifier)
+                            .deleteFeedItem(item.id);
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(isHide ? '已隐藏知识卡' : '已移除知识卡')),
+                      );
+                    }
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'hide',
+                    height: 32,
+                    child: Text('隐藏',
+                        style: TextStyle(fontSize: 13, color: Colors.orange)),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    height: 32,
+                    child: Text('永久删除',
+                        style: TextStyle(fontSize: 13, color: Colors.red)),
+                  ),
+                ],
+              )
+            else
+              Icon(
+                isCurrentlyViewing
+                    ? Icons.play_circle_filled
+                    : Icons.chevron_right,
+                color: isCurrentlyViewing
+                    ? (isDark
+                        ? const Color(0xFFCDFF64)
+                        : const Color(0xFF7C9A00))
+                    : (isDark ? Colors.grey[600] : Colors.grey[400]),
+              ),
           ],
         ),
       ),

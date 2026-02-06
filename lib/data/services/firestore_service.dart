@@ -22,6 +22,8 @@ abstract class DataService {
   Future<void> saveCustomFeedItem(
       FeedItem item, String userId); // 保存AI生成的自定义知识点
   Future<List<KnowledgeModule>> fetchUserModules(String userId);
+  Future<List<KnowledgeModule>> fetchAllUserModules(
+      String userId); // Includes hidden ones
   Future<KnowledgeModule> createModule(
       String userId, String title, String description);
   Future<int> fixOrphanItems(String userId, String targetModuleId);
@@ -34,6 +36,15 @@ abstract class DataService {
   Future<void> logShareClick(String referrerId); // 记录分享点击
   Future<int> fetchUserCredits(String userId); // [Deprecated] 获取用户积分
   Future<void> updateUserCredits(String userId, int amount); // 更新积分（增量更新）
+
+  // Deletion & Hiding
+  Future<void> deleteModule(String userId, String moduleId);
+  Future<void> hideOfficialModule(String userId, String moduleId);
+  Future<void> hideOfficialFeedItem(String userId, String itemId);
+  Future<void> unhideOfficialModule(String userId, String moduleId);
+  Future<void> unhideOfficialFeedItem(String userId, String itemId);
+  Future<Set<String>> fetchHiddenModuleIds(String userId);
+  Future<List<FeedItem>> fetchHiddenFeedItems(String userId);
 }
 
 class FirestoreService implements DataService {
@@ -144,6 +155,16 @@ class FirestoreService implements DataService {
 
       final feedItems = items.map((data) => FeedItem.fromJson(data)).toList();
 
+      // 4. Filter out hidden items
+      if (user != null) {
+        final hiddenSnapshot =
+            await _usersRef.doc(user.uid).collection('hidden_items').get();
+        final hiddenIds = hiddenSnapshot.docs.map((doc) => doc.id).toSet();
+        if (hiddenIds.isNotEmpty) {
+          feedItems.removeWhere((item) => hiddenIds.contains(item.id));
+        }
+      }
+
       if (kDebugMode)
         print('✅ Fetched ${feedItems.length} items for module $moduleId');
       return feedItems;
@@ -200,6 +221,16 @@ class FirestoreService implements DataService {
       }).toList();
 
       print('✅ 找到 ${items.length} 个自定义知识点');
+
+      // Filter by hidden items
+      final hiddenSnapshot =
+          await _usersRef.doc(userId).collection('hidden_items').get();
+      final hiddenIds = hiddenSnapshot.docs.map((doc) => doc.id).toSet();
+
+      if (hiddenIds.isNotEmpty) {
+        items.removeWhere((item) => hiddenIds.contains(item.id));
+      }
+
       return items;
     } catch (e) {
       print('❌ 获取自定义内容失败: $e');
@@ -433,24 +464,53 @@ class FirestoreService implements DataService {
 
   @override
   Future<List<KnowledgeModule>> fetchUserModules(String userId) async {
+    final modules = await fetchAllUserModules(userId);
     try {
-      print('📥 Fetching modules for user: $userId (timeout 10s)');
+      // Filter by hidden modules
+      final hiddenSnapshot =
+          await _usersRef.doc(userId).collection('hidden_modules').get();
+      final hiddenIds = hiddenSnapshot.docs.map((doc) => doc.id).toSet();
+
+      if (hiddenIds.isNotEmpty) {
+        modules.removeWhere((m) => hiddenIds.contains(m.id));
+      }
+      return modules;
+    } catch (e) {
+      print('Error filtering modules: $e');
+      return modules;
+    }
+  }
+
+  @override
+  Future<List<KnowledgeModule>> fetchAllUserModules(String userId) async {
+    try {
+      print('📥 Fetching all modules for user: $userId');
       final snapshot = await _usersRef
           .doc(userId)
           .collection('modules')
           .orderBy('createdAt', descending: true)
           .get()
-          .timeout(const Duration(seconds: 10), onTimeout: () {
-        print('⏱️ fetchUserModules timed out');
-        throw Exception('获取个人库列表超时');
-      });
+          .timeout(const Duration(seconds: 10));
+
       return snapshot.docs
           .map((doc) => KnowledgeModule.fromJson(
               doc.data() as Map<String, dynamic>, doc.id))
           .toList();
     } catch (e) {
-      print('Error fetching modules: $e');
+      print('Error fetching all user modules: $e');
       return [];
+    }
+  }
+
+  @override
+  Future<Set<String>> fetchHiddenModuleIds(String userId) async {
+    try {
+      final snapshot =
+          await _usersRef.doc(userId).collection('hidden_modules').get();
+      return snapshot.docs.map((doc) => doc.id).toSet();
+    } catch (e) {
+      print('Error fetching hidden module IDs: $e');
+      return {};
     }
   }
 
@@ -745,6 +805,118 @@ class FirestoreService implements DataService {
       print('📈 Share click tracked and rewarded for $referrerId');
     } catch (e) {
       print('Error logging share click: $e');
+    }
+  }
+
+  @override
+  Future<void> deleteModule(String userId, String moduleId) async {
+    try {
+      await _usersRef.doc(userId).collection('modules').doc(moduleId).delete();
+      print('🗑️ Deleted custom module: $moduleId');
+    } catch (e) {
+      print('❌ Error deleting module: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> hideOfficialModule(String userId, String moduleId) async {
+    try {
+      await _usersRef
+          .doc(userId)
+          .collection('hidden_modules')
+          .doc(moduleId)
+          .set({
+        'hiddenAt': FieldValue.serverTimestamp(),
+      });
+      print('👁️ Hidden official module: $moduleId');
+    } catch (e) {
+      print('❌ Error hiding module: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> hideOfficialFeedItem(String userId, String itemId) async {
+    try {
+      await _usersRef.doc(userId).collection('hidden_items').doc(itemId).set({
+        'hiddenAt': FieldValue.serverTimestamp(),
+      });
+      print('👁️ Hidden official feed item: $itemId');
+    } catch (e) {
+      print('❌ Error hiding feed item: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> unhideOfficialModule(String userId, String moduleId) async {
+    try {
+      await _usersRef
+          .doc(userId)
+          .collection('hidden_modules')
+          .doc(moduleId)
+          .delete();
+      print('🔓 Unhidden official module: $moduleId');
+    } catch (e) {
+      print('❌ Error unhiding module: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> unhideOfficialFeedItem(String userId, String itemId) async {
+    try {
+      await _usersRef
+          .doc(userId)
+          .collection('hidden_items')
+          .doc(itemId)
+          .delete();
+      print('🔓 Unhidden official feed item: $itemId');
+    } catch (e) {
+      print('❌ Error unhiding feed item: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<FeedItem>> fetchHiddenFeedItems(String userId) async {
+    try {
+      final snapshot =
+          await _usersRef.doc(userId).collection('hidden_items').get();
+      final hiddenIds = snapshot.docs.map((doc) => doc.id).toList();
+
+      if (hiddenIds.isEmpty) return [];
+
+      final items = <FeedItem>[];
+      for (var i = 0; i < hiddenIds.length; i += 10) {
+        final chunk = hiddenIds.skip(i).take(10).toList();
+
+        // 1. Check official feed_items
+        final officialQuery =
+            await _feedRef.where(FieldPath.documentId, whereIn: chunk).get();
+        items.addAll(officialQuery.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          data['firestoreId'] = doc.id;
+          return FeedItem.fromJson(data);
+        }));
+
+        // 2. Check user's custom_items
+        final customQuery = await _usersRef
+            .doc(userId)
+            .collection('custom_items')
+            .where(FieldPath.documentId, whereIn: chunk)
+            .get();
+        items.addAll(customQuery.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          data['isCustom'] = true;
+          return FeedItem.fromJson(data);
+        }));
+      }
+      return items;
+    } catch (e) {
+      print('Error fetching hidden feed items: $e');
+      return [];
     }
   }
 }

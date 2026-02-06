@@ -35,10 +35,10 @@ class ProfilePage extends ConsumerWidget {
             children: [
               _buildRuleItem(Icons.fiber_new, '新用户注册', '+200 积分'),
               _buildRuleItem(Icons.auto_awesome, 'AI 智能拆解/解析', '-10 积分/次'),
-              _buildRuleItem(Icons.share, '分享知识库链接', '+50 积分/次'),
+              _buildRuleItem(Icons.share, '点击分享按钮', '+10 积分/次'),
               _buildRuleItem(Icons.person_add, '邀请好友加入', '+50 积分/位'),
               const SizedBox(height: 16),
-              const Text('💡 积分不足时，只需分享您喜欢的知识库给好友即可立即获得积分！',
+              const Text('💡 积分不足时，只需点击分享您喜欢的知识库即可立即获得奖励！',
                   style: TextStyle(fontSize: 13, color: Colors.grey)),
             ],
           ),
@@ -46,6 +46,62 @@ class ProfilePage extends ConsumerWidget {
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('我知道了'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    void _showMasteryInfo(BuildContext context) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('如何算“已掌握”？🎓'),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('在沉浸式阅读中，点击底部的【记入复习】并将卡片标记为：',
+                  style: TextStyle(height: 1.5)),
+              SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(Icons.sentiment_satisfied_alt,
+                      color: Colors.green, size: 20),
+                  SizedBox(width: 8),
+                  Text('熟练 (Expert)',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.sentiment_neutral, color: Colors.blue, size: 20),
+                  SizedBox(width: 8),
+                  Text('一般 (Medium)',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.sentiment_dissatisfied,
+                      color: Colors.orange, size: 20),
+                  SizedBox(width: 8),
+                  Text('生疏 (Newbie)',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              SizedBox(height: 16),
+              Text('系统会将这些标记过的知识点统计为“已掌握”，你可以在【复习】页面统一进行回顾。',
+                  style:
+                      TextStyle(fontSize: 13, color: Colors.grey, height: 1.4)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('了解了'),
             ),
           ],
         ),
@@ -219,41 +275,46 @@ class ProfilePage extends ConsumerWidget {
                   const SizedBox(height: 40),
 
                   // Stats Grid
-                  Row(
-                    children: [
-                      Expanded(
-                          child: _StatCard(
-                              label: '知识点',
-                              value: '$masteredCount 已掌握',
-                              icon: Icons.school,
-                              color: Colors.blue,
-                              isDark: isDark)),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Consumer(
-                          builder: (context, ref, child) {
-                            final statsAsync = ref.watch(creditProvider);
-                            return _StatCard(
-                              label: '我的积分',
-                              value: statsAsync.when(
-                                data: (stats) => '${stats.credits}',
-                                loading: () => '...',
-                                error: (_, __) => '0',
-                              ),
-                              icon: Icons.stars,
-                              color: const Color(0xFFFFB300),
-                              isDark: isDark,
-                              subtitle: statsAsync.when(
-                                data: (stats) => '推广点击: ${stats.shareClicks}',
-                                loading: () => '',
-                                error: (_, __) => '',
-                              ),
-                              onTap: () => _showCreditRules(context),
-                            );
-                          },
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                            child: _StatCard(
+                          label: '知识点',
+                          value: '$masteredCount 已掌握',
+                          icon: Icons.school,
+                          color: Colors.blue,
+                          isDark: isDark,
+                          onTap: () => _showMasteryInfo(context),
+                        )),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Consumer(
+                            builder: (context, ref, child) {
+                              final statsAsync = ref.watch(creditProvider);
+                              return _StatCard(
+                                label: '我的积分',
+                                value: statsAsync.when(
+                                  data: (stats) => '${stats.credits}',
+                                  loading: () => '...',
+                                  error: (_, __) => '0',
+                                ),
+                                icon: Icons.stars,
+                                color: const Color(0xFFFFB300),
+                                isDark: isDark,
+                                subtitle: statsAsync.when(
+                                  data: (stats) => '推广点击: ${stats.shareClicks}',
+                                  loading: () => '',
+                                  error: (_, __) => '',
+                                ),
+                                onTap: () => _showCreditRules(context),
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 16),
 
@@ -279,13 +340,15 @@ class ProfilePage extends ConsumerWidget {
                   const SizedBox(height: 12),
 
                   _GlassTile(
-                    icon: Icons.workspace_premium,
-                    title: '积分任务',
-                    subtitle: '分享赚取更多积分',
+                    icon: Icons.visibility_off_outlined,
+                    title: '隐藏的内容',
+                    subtitle: '恢复被隐藏的知识库或卡片',
                     isDark: isDark,
-                    onTap: () => _showCreditRules(context),
+                    onTap: () => context.push('/profile/hidden'),
                     trailing: const Icon(Icons.chevron_right, size: 20),
                   ),
+                  const SizedBox(height: 12),
+
                   const SizedBox(height: 12),
 
                   // Log Out
@@ -406,8 +469,18 @@ class _StatCard extends StatelessWidget {
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, color: color, size: 28),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Icon(icon, color: color, size: 28),
+                    if (onTap != null)
+                      Icon(Icons.info_outline,
+                          size: 16,
+                          color: isDark ? Colors.white38 : Colors.black26),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 Text(value,
                     style: TextStyle(
@@ -421,7 +494,8 @@ class _StatCard extends StatelessWidget {
                           fontSize: 10,
                           fontWeight: FontWeight.w500,
                           color: Colors.orangeAccent)),
-                ],
+                ] else
+                  const SizedBox(height: 19), // Spacer for consistency
                 const SizedBox(height: 4),
                 Text(label,
                     style: TextStyle(

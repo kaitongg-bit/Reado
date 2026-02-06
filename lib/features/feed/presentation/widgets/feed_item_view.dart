@@ -361,7 +361,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
 
     // Padding to clear the Top Header (which is in FeedPage)
     // Reduce from 130 to 88 to fix "giant gap" issue
-    final contentPadding = const EdgeInsets.fromLTRB(24, 88, 24, 120);
+    final contentPadding = const EdgeInsets.fromLTRB(24, 88, 24, 140);
 
     if (content is OfficialPage) {
       return Container(

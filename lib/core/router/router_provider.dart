@@ -12,6 +12,7 @@ import '../../features/feed/presentation/feed_provider.dart';
 import '../../features/onboarding/presentation/onboarding_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/credit_provider.dart';
+import '../../features/profile/presentation/hidden_content_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -75,6 +76,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfilePage(),
+        routes: [
+          GoRoute(
+            path: 'hidden',
+            builder: (context, state) => const HiddenContentPage(),
+          ),
+        ],
       ),
       GoRoute(
         path: '/module/:moduleId',

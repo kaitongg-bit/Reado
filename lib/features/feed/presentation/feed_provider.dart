@@ -56,7 +56,7 @@ class LastActiveModuleNotifier extends StateNotifier<String?> {
       await prefs.setString('last_active_module', moduleId);
       print('📍 Last active module saved: $moduleId');
     } catch (e) {
-      print('Failed to save last active module: $e');
+      // print('Failed to save last active module: $e');
     }
   }
 }
@@ -79,51 +79,35 @@ class FeedProgressNotifier extends StateNotifier<Map<String, int>> {
 
   Future<void> _loadProgress() async {
     try {
-      // 1. Load Local FIRST (instant restore)
       final prefs = await SharedPreferences.getInstance();
       final jsonStr = prefs.getString('feed_progress');
       Map<String, int> localProgress = {};
       if (jsonStr != null) {
-        print('📦 Local data found: $jsonStr');
         final decoded = json.decode(jsonStr) as Map<String, dynamic>;
         localProgress =
             decoded.map((key, value) => MapEntry(key, value as int));
-        state = localProgress; // Immediate local restore
-        print('📦 Local progress loaded: $localProgress');
-      } else {
-        print('📦 No local data found');
+        state = localProgress;
       }
 
-      // 2. Wait for Firebase Auth to initialize (up to 2 seconds)
       User? user = FirebaseAuth.instance.currentUser;
       for (int i = 0; i < 10 && user == null; i++) {
         await Future.delayed(const Duration(milliseconds: 200));
         user = FirebaseAuth.instance.currentUser;
       }
 
-      // 3. Load Cloud (Authoritative) if user available
       if (user != null) {
-        print('☁️ Fetching progress for user ${user.uid}...');
         final cloudProgress =
             await _dataService.fetchAllModuleProgress(user.uid);
-        print('☁️ Cloud progress received: $cloudProgress');
         if (cloudProgress.isNotEmpty) {
-          // Merge: Cloud overwrites Local for same keys
           final merged = {...localProgress, ...cloudProgress};
-          print('🔀 Merged progress: $merged');
-
           if (merged.toString() != state.toString()) {
             state = merged;
-            // Update Local Cache
             await prefs.setString('feed_progress', json.encode(merged));
-            print('✅ Sync with Cloud complete. Final state: $state');
           }
-        } else {
-          print('☁️ Cloud returned empty, keeping local: $state');
         }
       }
     } catch (e) {
-      print('❌ Failed to load progress: $e');
+      // Quiet fail
     }
   }
 
@@ -429,13 +413,33 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     if (index == -1) return;
 
     final item = _allItems[index];
-    if (!item.isCustom) return; // Only allow deleting custom items
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
 
     // Optimistic UI update
     _allItems = List.from(_allItems)..removeAt(index);
     state = List.from(state)..removeWhere((i) => i.id == itemId);
 
-    await _dataService.deleteCustomFeedItem(itemId);
+    if (item.isCustom) {
+      await _dataService.deleteCustomFeedItem(itemId);
+    } else {
+      // For official items, we "hide" them for this user
+      await _dataService.hideOfficialFeedItem(currentUser.uid, itemId);
+    }
+  }
+
+  Future<void> hideFeedItem(String itemId) async {
+    final index = _allItems.indexWhere((i) => i.id == itemId);
+    if (index == -1) return;
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    // Optimistic UI update
+    _allItems = List.from(_allItems)..removeAt(index);
+    state = List.from(state)..removeWhere((i) => i.id == itemId);
+
+    await _dataService.hideOfficialFeedItem(currentUser.uid, itemId);
   }
 
   void deleteUserNote(String itemId, UserNotePage note) {
@@ -490,6 +494,11 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     await _dataService.seedInitialData(MockData.initialFeedItems);
     await loadAllData();
     print("Done.");
+  }
+
+  /// 刷新所有数据
+  Future<void> refreshAll() async {
+    await loadAllData();
   }
 }
 

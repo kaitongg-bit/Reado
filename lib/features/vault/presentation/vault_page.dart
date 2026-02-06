@@ -231,8 +231,11 @@ class _VaultPageState extends ConsumerState<VaultPage> {
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                           itemCount: filteredItems.length,
                           itemBuilder: (context, index) {
-                            final item = filteredItems[index];
-                            return _ReviewCard(item: item, isDark: isDark);
+                            return _ReviewCard(
+                              items: filteredItems,
+                              currentIndex: index,
+                              isDark: isDark,
+                            );
                           },
                         ),
                 ),
@@ -275,10 +278,17 @@ class _VaultPageState extends ConsumerState<VaultPage> {
 }
 
 class _ReviewCard extends StatelessWidget {
-  final FeedItem item;
+  final List<FeedItem> items;
+  final int currentIndex;
   final bool isDark;
 
-  const _ReviewCard({required this.item, required this.isDark});
+  const _ReviewCard({
+    required this.items,
+    required this.currentIndex,
+    required this.isDark,
+  });
+
+  FeedItem get item => items[currentIndex];
 
   @override
   Widget build(BuildContext context) {
@@ -293,7 +303,12 @@ class _ReviewCard extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => SRSReviewPage(item: item)),
+          MaterialPageRoute(
+            builder: (context) => SRSReviewPage(
+              items: items,
+              initialIndex: currentIndex,
+            ),
+          ),
         );
       },
       child: Container(

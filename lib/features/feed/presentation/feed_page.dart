@@ -468,33 +468,142 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                             ],
                           ),
                         ),
-                        // Right: View All (back to detail page)
-                        GestureDetector(
-                          onTap: () =>
-                              context.push('/module/${widget.moduleId}'),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 7),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.white.withOpacity(0.15)
-                                  : Colors.black.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: isDark
-                                    ? Colors.white.withOpacity(0.2)
-                                    : Colors.black.withOpacity(0.1),
+                        Row(
+                          children: [
+                            // Right: View All (back to detail page)
+                            GestureDetector(
+                              onTap: () =>
+                                  context.push('/module/${widget.moduleId}'),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 7),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white.withOpacity(0.15)
+                                      : Colors.black.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.white.withOpacity(0.2)
+                                        : Colors.black.withOpacity(0.1),
+                                  ),
+                                ),
+                                child: Text(
+                                  '全部',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black87),
+                                ),
                               ),
                             ),
-                            child: Text(
-                              '全部',
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
+                            const SizedBox(width: 10),
+                            // More Options (Delete)
+                            PopupMenuButton<String>(
+                              icon: Icon(Icons.more_horiz,
                                   color:
-                                      isDark ? Colors.white : Colors.black87),
+                                      isDark ? Colors.white70 : Colors.black54),
+                              padding: EdgeInsets.zero,
+                              onSelected: (value) async {
+                                if (value == 'delete' || value == 'hide') {
+                                  final isHide = value == 'hide';
+                                  final item = feedItems[_focusedItemIndex];
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title:
+                                          Text(isHide ? '隐藏此知识卡？' : '彻底删除知识卡？'),
+                                      content: Text(isHide
+                                          ? '知识卡将被隐藏，您可以在“个人中心 - 隐藏的内容”中恢复。'
+                                          : '警告：此操作不可逆！该知识卡将永久从云端移除。'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                          child: const Text('取消'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                          child: Text(isHide ? '隐藏' : '彻底删除',
+                                              style: const TextStyle(
+                                                  color: Colors.red)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirmed == true) {
+                                    final bool isLast = _focusedItemIndex ==
+                                        feedItems.length - 1;
+
+                                    if (isHide) {
+                                      await ref
+                                          .read(feedProvider.notifier)
+                                          .hideFeedItem(item.id);
+                                    } else {
+                                      await ref
+                                          .read(feedProvider.notifier)
+                                          .deleteFeedItem(item.id);
+                                    }
+
+                                    // 🚀 CRITICAL: Handle auto-scroll / refresh UI immediately
+                                    if (mounted && _isSingleView) {
+                                      if (isLast && _focusedItemIndex > 0) {
+                                        // If deleted the last one, jump to the previous one
+                                        setState(() => _focusedItemIndex--);
+                                        _verticalController
+                                            .jumpToPage(_focusedItemIndex);
+                                      } else {
+                                        // If deleted a middle one, PageView stays at same index
+                                        // which now contains the next item. No jump needed,
+                                        // but we must refresh progress tracking for the "new" current item.
+                                        ref
+                                            .read(feedProgressProvider.notifier)
+                                            .setProgress(widget.moduleId,
+                                                _focusedItemIndex);
+                                      }
+                                    }
+
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          content: Text(
+                                              isHide ? '已隐藏知识卡' : '已移除知识卡')),
+                                    );
+                                  }
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'hide',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.visibility_off_outlined,
+                                          color: Colors.orange, size: 20),
+                                      SizedBox(width: 8),
+                                      Text('隐藏',
+                                          style:
+                                              TextStyle(color: Colors.orange)),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete_outline,
+                                          color: Colors.red, size: 20),
+                                      SizedBox(width: 8),
+                                      Text('永久删除',
+                                          style: TextStyle(color: Colors.red)),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     ),

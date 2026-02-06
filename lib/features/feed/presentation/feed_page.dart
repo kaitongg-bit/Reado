@@ -109,8 +109,27 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     if (_initialPositionRestored || !mounted) return;
 
     final providerInitialIndex = ref.read(feedInitialIndexProvider);
+
+    // Special case: Jump to last
     if (widget.initialIndex == -1 || providerInitialIndex == -1) {
       print('🚀 [JUMP TO LAST] Blocking progress restore');
+      return;
+    }
+
+    // PRIORITY: Use providerInitialIndex if set (e.g., from search navigation)
+    if (providerInitialIndex != null && providerInitialIndex >= 0) {
+      print(
+          '🔍 [FROM PROVIDER] Using feedInitialIndexProvider: $providerInitialIndex');
+      if (providerInitialIndex < itemCount) {
+        setState(() => _focusedItemIndex = providerInitialIndex);
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (mounted && _verticalController.hasClients) {
+            _verticalController.jumpToPage(providerInitialIndex);
+            print('✅ Jumped to provider index $providerInitialIndex');
+          }
+        });
+        _initialPositionRestored = true;
+      }
       return;
     }
 

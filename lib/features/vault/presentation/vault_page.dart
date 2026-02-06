@@ -155,10 +155,17 @@ class _VaultPageState extends ConsumerState<VaultPage> {
                                     color: isDark
                                         ? Colors.grey[500]
                                         : Colors.grey[500]),
-                                prefixIcon: Icon(Icons.search,
-                                    color: isDark
-                                        ? Colors.grey[500]
-                                        : Colors.grey[500]),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(
+                                    Icons.search,
+                                    color: Color(0xFFFF8A65),
+                                  ),
+                                  onPressed: () {
+                                    // Search is already reactive via onChanged
+                                    // This button can trigger focus loss or just be visual
+                                    FocusScope.of(context).unfocus();
+                                  },
+                                ),
                                 filled: true,
                                 fillColor: isDark
                                     ? Colors.black.withOpacity(0.2)

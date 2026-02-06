@@ -256,61 +256,8 @@ class HomeTab extends ConsumerWidget {
                               ),
                               const SizedBox(height: 28), // Space to Search bar
 
-                              // 2. Search Bar (Glassmorphism)
-                              Container(
-                                decoration: BoxDecoration(boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  )
-                                ]),
-                                child: TextField(
-                                  style: TextStyle(
-                                      color: isDark
-                                          ? Colors.white
-                                          : Colors.black87),
-                                  decoration: InputDecoration(
-                                    hintText: '搜索知识...',
-                                    hintStyle: TextStyle(
-                                        color: isDark
-                                            ? Colors.grey[500]
-                                            : Colors.grey[400]),
-                                    prefixIcon: Icon(Icons.search,
-                                        color: isDark
-                                            ? Colors.grey[500]
-                                            : Colors.grey[400]),
-                                    filled: true,
-                                    fillColor: isDark
-                                        ? const Color(0xFF1E1E1E)
-                                        : Colors.white,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                      borderSide: BorderSide(
-                                          color: isDark
-                                              ? Colors.white.withOpacity(0.1)
-                                              : Colors.transparent),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                      borderSide: const BorderSide(
-                                          color: Colors.orangeAccent, width: 2),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 20,
-                                        vertical: 12), // Reduced from 16
-                                  ),
-                                  onSubmitted: (value) {
-                                    if (value.isNotEmpty) {
-                                      context.push('/search?q=$value');
-                                    }
-                                  },
-                                ),
-                              ),
+                              // 2. Search Bar (Glassmorphism) with Button
+                              _SearchBar(isDark: isDark),
                               const SizedBox(height: 32), // Reduced from 40
 
                               // 初始化数据库按钮（显眼位置）
@@ -980,6 +927,94 @@ class _KnowledgeSpaceCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// Search Bar Widget with Button
+class _SearchBar extends StatefulWidget {
+  final bool isDark;
+
+  const _SearchBar({required this.isDark});
+
+  @override
+  State<_SearchBar> createState() => _SearchBarState();
+}
+
+class _SearchBarState extends State<_SearchBar> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _performSearch() {
+    final query = _controller.text.trim();
+    if (query.isNotEmpty) {
+      context.push('/search?q=$query');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: TextField(
+        controller: _controller,
+        style: TextStyle(
+          color: widget.isDark ? Colors.white : Colors.black87,
+        ),
+        decoration: InputDecoration(
+          hintText: '搜索知识...',
+          hintStyle: TextStyle(
+            color: widget.isDark ? Colors.grey[500] : Colors.grey[400],
+          ),
+          suffixIcon: IconButton(
+            onPressed: _performSearch,
+            icon: const Icon(
+              Icons.search,
+              color: Color(0xFFFF8A65),
+            ),
+            tooltip: '搜索',
+          ),
+          filled: true,
+          fillColor: widget.isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(
+              color: widget.isDark
+                  ? Colors.white.withOpacity(0.1)
+                  : Colors.transparent,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: Colors.orangeAccent,
+              width: 2,
+            ),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 12,
+          ),
+        ),
+        onSubmitted: (_) => _performSearch(),
       ),
     );
   }

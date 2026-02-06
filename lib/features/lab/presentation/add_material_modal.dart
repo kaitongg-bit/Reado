@@ -6,8 +6,6 @@ import '../../../../models/feed_item.dart';
 import '../../../../data/services/content_extraction_service.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../providers/batch_import_provider.dart';
-import 'package:go_router/go_router.dart';
-import '../../home/presentation/home_page.dart';
 import '../../../../core/providers/credit_provider.dart';
 
 class AddMaterialModal extends ConsumerStatefulWidget {
@@ -423,51 +421,16 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
 
       if (!mounted) return;
 
-      // 4. Show confirmation dialog
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('导入成功'),
-          content: const Text('知识卡片已生成，是否立即开始学习？'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                // Just close the dialog and the modal
-                Navigator.of(context).pop(); // Close dialog
-                Navigator.of(context).pop(); // Close modal
-              },
-              child: const Text('稍后'),
-            ),
-            FilledButton(
-              onPressed: () {
-                // Close dialog first
-                Navigator.of(context).pop();
-
-                // Close the modal
-                Navigator.of(context).pop();
-
-                // Get the module we just added to
-                final activeModuleId = widget.targetModuleId ?? 'custom';
-
-                // 1. 设置当前模块
-                ref
-                    .read(lastActiveModuleProvider.notifier)
-                    .setActiveModule(activeModuleId);
-
-                // 2. 设置跳转到最后一项的意图
-                ref.read(feedInitialIndexProvider.notifier).state = -1;
-
-                // 3. 切换到“学习”标签页 (index 1)
-                ref.read(homeTabControlProvider.notifier).state = 1;
-
-                // 4. 返回主页 (确保 UI 刷新且带有底部栏)
-                context.go('/');
-              },
-              child: const Text('立即学习'),
-            ),
-          ],
+      // 4. Show success message and close
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ 导入成功！知识卡片已添加到学习库'),
+          backgroundColor: Colors.green,
         ),
       );
+
+      // Close the modal
+      Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
 
@@ -1483,7 +1446,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                                           const SizedBox(width: 8),
                                           Expanded(
                                               child: Text(
-                                                  '提问: ${(item.pages.first as OfficialPage).flashcardQuestion ?? "自动生成中..."}',
+                                                  '提问: ${(item.pages.first as OfficialPage).flashcardQuestion ?? "无"}',
                                                   style: TextStyle(
                                                       fontSize: 13,
                                                       color: isDark

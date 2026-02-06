@@ -13,6 +13,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/credit_provider.dart';
 import '../../features/profile/presentation/hidden_content_page.dart';
 import '../../features/profile/presentation/about_page.dart';
+import '../../features/search/presentation/search_results_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -69,7 +70,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) {
           final query = state.uri.queryParameters['q'] ?? '';
           return NoTransitionPage(
-            child: FeedPage(moduleId: 'SEARCH', searchQuery: query),
+            child: SearchResultsPage(query: query),
           );
         },
       ),

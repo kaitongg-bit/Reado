@@ -37,18 +37,20 @@ class _FeedPageState extends ConsumerState<FeedPage> {
 
     // Handle special case: initialIndex = -1 means "jump to last item"
     // OR from global provider intent
-    final providerInitialIndex = ref.read(feedInitialIndexProvider);
-    final bool jumpToLast =
-        widget.initialIndex == -1 || providerInitialIndex == -1;
+    final intent = ref.read(feedInitialIndexProvider);
+    final bool jumpToLast = widget.initialIndex ==
+        -1; // || providerInitialIndex == -1; // Removed legacy int check
 
-    // Priority: jumpToLast > widget.initialIndex > providerInitialIndex > savedProgress
+    // Priority: jumpToLast > widget.initialIndex > intent > savedProgress
     int savedIndex = 0;
     if (jumpToLast) {
       savedIndex = 0;
     } else if (widget.initialIndex != null && widget.initialIndex! >= 0) {
       savedIndex = widget.initialIndex!;
-    } else if (providerInitialIndex != null && providerInitialIndex >= 0) {
-      savedIndex = providerInitialIndex;
+    } else if (intent != null &&
+        intent.moduleId == widget.moduleId &&
+        intent.index >= 0) {
+      savedIndex = intent.index;
     } else {
       final progressMap = ref.read(feedProgressProvider);
       savedIndex = progressMap[widget.moduleId] ?? 0;
@@ -69,10 +71,6 @@ class _FeedPageState extends ConsumerState<FeedPage> {
         ref
             .read(lastActiveModuleProvider.notifier)
             .setActiveModule(widget.moduleId);
-
-        if (providerInitialIndex != null) {
-          ref.read(feedInitialIndexProvider.notifier).state = null;
-        }
       });
 
       if (jumpToLast) {
@@ -108,24 +106,23 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   void _tryRestorePosition(int itemCount) {
     if (_initialPositionRestored || !mounted) return;
 
-    final providerInitialIndex = ref.read(feedInitialIndexProvider);
+    final intent = ref.read(feedInitialIndexProvider);
 
-    // Special case: Jump to last
-    if (widget.initialIndex == -1 || providerInitialIndex == -1) {
-      print('🚀 [JUMP TO LAST] Blocking progress restore');
-      return;
-    }
+    // Special case: Jump to last (Not currently using intent logic, but keeping legacy check if needed or removed)
+    // Legacy support for "Start Learning" usually sets tab index, not specific feed index
 
-    // PRIORITY: Use providerInitialIndex if set (e.g., from search navigation)
-    if (providerInitialIndex != null && providerInitialIndex >= 0) {
+    // PRIORITY: Use intent if set (e.g., from search navigation) AND matches this module
+    if (intent != null &&
+        intent.moduleId == widget.moduleId &&
+        intent.index >= 0) {
       print(
-          '🔍 [FROM PROVIDER] Using feedInitialIndexProvider: $providerInitialIndex');
-      if (providerInitialIndex < itemCount) {
-        setState(() => _focusedItemIndex = providerInitialIndex);
+          '🔍 [FROM PROVIDER] Using intent for ${widget.moduleId}: ${intent.index}');
+      if (intent.index < itemCount) {
+        setState(() => _focusedItemIndex = intent.index);
         Future.delayed(const Duration(milliseconds: 50), () {
           if (mounted && _verticalController.hasClients) {
-            _verticalController.jumpToPage(providerInitialIndex);
-            print('✅ Jumped to provider index $providerInitialIndex');
+            _verticalController.jumpToPage(intent.index);
+            print('✅ Jumped to provider index ${intent.index}');
           }
         });
         _initialPositionRestored = true;
@@ -201,11 +198,13 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       }
     });
 
-    // 🎧 Listen for Global Jump Intent (e.g. "Start Learning Now")
-    ref.listen<int?>(feedInitialIndexProvider, (prev, next) {
-      if (next != null && feedItems.isNotEmpty) {
-        int targetIndex = next;
-        if (targetIndex == -1) targetIndex = feedItems.length - 1;
+    // 🎧 Listen for Global Jump Intent (e.g. from Search)
+    ref.listen<FeedNavigationIntent?>(feedInitialIndexProvider, (prev, next) {
+      if (next != null &&
+          next.moduleId == widget.moduleId &&
+          feedItems.isNotEmpty) {
+        int targetIndex = next.index;
+        // if (targetIndex == -1) targetIndex = feedItems.length - 1; // Legacy
 
         if (targetIndex >= 0 && targetIndex < feedItems.length) {
           setState(() {
@@ -218,8 +217,11 @@ class _FeedPageState extends ConsumerState<FeedPage> {
             }
           });
         }
-        // Consume intent
+        // Consume intent AFTER processing successfully
         Future.microtask(() {
+          // Careful: Only consume if it matches current module
+          // Actually, since it's a global provider, consuming it is checking off "the" request.
+          // If we consumed it, we assume we handled it.
           ref.read(feedInitialIndexProvider.notifier).state = null;
         });
       }

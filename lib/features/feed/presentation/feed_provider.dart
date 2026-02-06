@@ -20,9 +20,17 @@ final libraryIdsProvider = StateProvider<List<String>>((ref) => []);
 // Loading state for feed data
 final feedLoadingProvider = StateProvider<bool>((ref) => true);
 
+// Navigation Intent Class
+class FeedNavigationIntent {
+  final String moduleId;
+  final int index;
+
+  FeedNavigationIntent({required this.moduleId, required this.index});
+}
+
 // Provider to handle jump requests to specific items in the feed
-// -1 means "jump to last", null means "no jump requested"
-final feedInitialIndexProvider = StateProvider<int?>((ref) => null);
+final feedInitialIndexProvider =
+    StateProvider<FeedNavigationIntent?>((ref) => null);
 
 // Provider to persist the last active module ID
 final lastActiveModuleProvider =

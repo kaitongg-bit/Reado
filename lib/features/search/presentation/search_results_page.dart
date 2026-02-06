@@ -69,7 +69,8 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
     ref.read(lastActiveModuleProvider.notifier).setActiveModule(item.moduleId);
 
     // 3. Set the initial index for feed (this takes priority in FeedPage)
-    ref.read(feedInitialIndexProvider.notifier).state = index;
+    ref.read(feedInitialIndexProvider.notifier).state =
+        FeedNavigationIntent(moduleId: item.moduleId, index: index);
 
     // 4. Switch to Learning tab (this will trigger FeedPage rebuild)
     ref.read(homeTabControlProvider.notifier).state = 1;

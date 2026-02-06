@@ -93,7 +93,7 @@ class ProfilePage extends ConsumerWidget {
                 ],
               ),
               SizedBox(height: 16),
-              Text('系统会将这些标记过的知识点统计为“已掌握”，你可以在【复习】页面统一进行回顾。',
+              Text('系统会将这些标记过的知识点统计为“已掌握”，你可以在【收藏】页面统一进行回顾。',
                   style:
                       TextStyle(fontSize: 13, color: Colors.grey, height: 1.4)),
             ],

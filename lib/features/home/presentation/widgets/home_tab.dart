@@ -132,130 +132,104 @@ class HomeTab extends ConsumerWidget {
           // Main Content
           SafeArea(
             child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics()),
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. Top Bar: Greeting & Avatar Menu
+                  // 1. Conversational Header Row
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _getGreeting(),
-                            style: TextStyle(
-                              color:
-                                  isDark ? Colors.grey[400] : Colors.grey[600],
-                              fontSize: 14,
+                      // Left Area: Greeting & Quote
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${_getGreeting()}，${_getUserName()}',
+                              style: TextStyle(
+                                color: isDark ? Colors.white : Colors.black87,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -0.5,
+                              ),
                             ),
+                            const SizedBox(height: 6),
+                            // Simple text quote without heavy containers
+                            _buildSimpleQuote(isDark, pmCount + hardcoreCount),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // Right Area: Credits & Avatar
+                      Row(
+                        children: [
+                          // Credits
+                          Consumer(
+                            builder: (context, ref, child) {
+                              final creditsAsync = ref.watch(creditProvider);
+                              return creditsAsync.when(
+                                data: (stats) => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFB300)
+                                        .withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.stars,
+                                          size: 14, color: Color(0xFFFFB300)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${stats.credits}',
+                                        style: const TextStyle(
+                                          color: Color(0xFFE65100),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                loading: () => const SizedBox.shrink(),
+                                error: (_, __) => const SizedBox.shrink(),
+                              );
+                            },
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _getUserName(),
-                            style: TextStyle(
-                              color: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.color ??
-                                  (isDark ? Colors.white : Colors.black87),
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: -0.5,
+                          const SizedBox(width: 12),
+                          // Avatar
+                          GestureDetector(
+                            onTap: () => context.push('/profile'),
+                            child: CircleAvatar(
+                              radius: 18,
+                              backgroundColor:
+                                  isDark ? Colors.grey[800] : Colors.grey[200],
+                              backgroundImage:
+                                  FirebaseAuth.instance.currentUser?.photoURL !=
+                                          null
+                                      ? NetworkImage(FirebaseAuth
+                                          .instance.currentUser!.photoURL!)
+                                      : null,
+                              child:
+                                  FirebaseAuth.instance.currentUser?.photoURL ==
+                                          null
+                                      ? Icon(Icons.person,
+                                          size: 20,
+                                          color: isDark
+                                              ? Colors.white70
+                                              : Colors.grey[600])
+                                      : null,
                             ),
                           ),
                         ],
                       ),
-                      const Spacer(),
-                      // Credits display
-                      Consumer(
-                        builder: (context, ref, child) {
-                          final creditsAsync = ref.watch(creditProvider);
-                          return creditsAsync.when(
-                            data: (stats) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color:
-                                    const Color(0xFFFFB300).withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color:
-                                      const Color(0xFFFFB300).withOpacity(0.3),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.stars,
-                                      size: 16, color: Color(0xFFFFB300)),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${stats.credits}',
-                                    style: const TextStyle(
-                                      color: Color(0xFFE65100),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            loading: () => const SizedBox.shrink(),
-                            error: (_, __) => const SizedBox.shrink(),
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 12),
-                      GestureDetector(
-                        onTap: () => context.push('/profile'),
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.white.withOpacity(0.2)
-                                  : Colors.grey.withOpacity(0.2),
-                              width: 1,
-                            ),
-                          ),
-                          child: ClipOval(
-                            child: FirebaseAuth
-                                        .instance.currentUser?.photoURL !=
-                                    null
-                                ? Image.network(
-                                    FirebaseAuth
-                                        .instance.currentUser!.photoURL!,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => CircleAvatar(
-                                      backgroundColor: isDark
-                                          ? Colors.grey[800]
-                                          : Colors.grey[100],
-                                      child: Icon(Icons.person,
-                                          color: isDark
-                                              ? Colors.white
-                                              : Colors.black87),
-                                    ),
-                                  )
-                                : CircleAvatar(
-                                    backgroundColor: isDark
-                                        ? Colors.grey[800]
-                                        : Colors.grey[100],
-                                    child: Icon(Icons.person,
-                                        color: isDark
-                                            ? Colors.white
-                                            : Colors.black87),
-                                  ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 28), // Space to Search bar
 
                   // 2. Search Bar (Glassmorphism)
                   Container(
@@ -297,7 +271,7 @@ class HomeTab extends ConsumerWidget {
                               color: Colors.orangeAccent, width: 2),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 16),
+                            horizontal: 20, vertical: 12), // Reduced from 16
                       ),
                       onSubmitted: (value) {
                         if (value.isNotEmpty) {
@@ -306,7 +280,7 @@ class HomeTab extends ConsumerWidget {
                       },
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 32), // Reduced from 40
 
                   // 初始化数据库按钮（显眼位置）
                   if (pmCount == 0 && hardcoreCount == 0)
@@ -642,6 +616,29 @@ class HomeTab extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSimpleQuote(bool isDark, int totalItems) {
+    final quotes = [
+      '今天学了吗？你这个囤囤鼠 🐹',
+      '卷又卷不赢，躺又躺不平？那就学一点点吧 📖',
+      '你的大脑正在渴望新的知识，快喂喂它 💡',
+      '现在的努力，是为了以后能理直气壮地摸鱼 🐟',
+      '碎片时间也是时间，哪怕入脑一个点也是赚到 ✨',
+      '知识入脑带来的多巴胺，比短视频香多了 🧠',
+      if (totalItems < 5) '💡 还没开始？点击下方导入官方卡片开启旅程吧',
+    ];
+    final index = DateTime.now().minute % quotes.length;
+
+    return Text(
+      quotes[index],
+      style: TextStyle(
+        fontSize: 13,
+        color: isDark ? Colors.grey[400] : Colors.grey[600],
+        fontWeight: FontWeight.w400,
+        fontStyle: FontStyle.italic,
       ),
     );
   }

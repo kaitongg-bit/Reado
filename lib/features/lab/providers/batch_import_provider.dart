@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../data/services/content_extraction_service.dart';
 import '../../../models/feed_item.dart';
 import '../../feed/presentation/feed_provider.dart';
+import '../../../core/providers/credit_provider.dart';
 
 enum BatchType { url, file, text }
 
@@ -181,7 +182,7 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
         final feedItem = FeedItem(
           id: 'custom_${DateTime.now().millisecondsSinceEpoch}_${item.id}',
           moduleId: moduleId,
-          title: extraction!.title,
+          title: extraction.title,
           category: '用户导入',
           readingTimeMinutes: (extraction.content.length / 500).ceil(),
           pages: [OfficialPage(extraction.content)],
@@ -207,8 +208,15 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
 
         await for (final event
             in ContentExtractionService.generateKnowledgeCardsStream(
-          extraction!,
+          extraction,
           moduleId: moduleId,
+          onChunkProcess: (credits) async {
+            // 每开始一个 chunk，扣除对应等级的积分
+            final canUse =
+                await ref.read(creditProvider.notifier).useAI(amount: credits);
+            // 批量处理中如果不满足积分，将直接返回 false 中断流处理
+            return canUse;
+          },
         )) {
           if (event.type == StreamingEventType.outline) {
             // just outline

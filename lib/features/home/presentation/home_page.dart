@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-
 import '../../vault/presentation/vault_page.dart';
 import '../../feed/presentation/feed_page.dart';
 import '../../feed/presentation/feed_provider.dart';
-import 'module_provider.dart';
 import 'widgets/home_tab.dart';
 
 // Provider to control Home Tab programmatically

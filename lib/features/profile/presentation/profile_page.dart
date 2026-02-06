@@ -34,12 +34,33 @@ class ProfilePage extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildRuleItem(Icons.fiber_new, '新用户注册', '+200 积分'),
-              _buildRuleItem(Icons.auto_awesome, 'AI 智能拆解/解析', '-10 积分/次'),
+              _buildRuleItem(
+                  Icons.chat_bubble_outline, 'AI 聊天 & 陪练', '目前免费 ⚡️'),
+              _buildRuleItem(
+                  Icons.description_outlined, '内容提取 / 解析', '目前免费 ⚡️'),
+              _buildRuleItem(Icons.auto_awesome, 'AI 智能拆解', '10-40 积分/次'),
               _buildRuleItem(Icons.share, '点击分享按钮', '+10 积分/次'),
               _buildRuleItem(Icons.person_add, '邀请好友加入', '+50 积分/位'),
               const SizedBox(height: 16),
               const Text('💡 积分不足时，只需点击分享您喜欢的知识库即可立即获得奖励！',
                   style: TextStyle(fontSize: 13, color: Colors.grey)),
+              const Divider(height: 24),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orangeAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border:
+                      Border.all(color: Colors.orangeAccent.withOpacity(0.2)),
+                ),
+                child: const Text(
+                  '⚠️ 系统目前处于内测阶段，暂未开启积分支付与充值功能，敬请期待。',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.orangeAccent,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
             ],
           ),
           actions: [
@@ -61,7 +82,7 @@ class ProfilePage extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('在沉浸式阅读中，点击底部的【记入复习】并将卡片标记为：',
+              Text('在沉浸式阅读中，点击底部的【记入收藏】并将卡片标记为：',
                   style: TextStyle(height: 1.5)),
               SizedBox(height: 12),
               Row(
@@ -345,6 +366,16 @@ class ProfilePage extends ConsumerWidget {
                     subtitle: '恢复被隐藏的知识库或卡片',
                     isDark: isDark,
                     onTap: () => context.push('/profile/hidden'),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                  ),
+                  const SizedBox(height: 12),
+
+                  _GlassTile(
+                    icon: Icons.info_outline,
+                    title: '关于 Reado',
+                    subtitle: '了解功能指南与设计理念',
+                    isDark: isDark,
+                    onTap: () => context.push('/profile/about'),
                     trailing: const Icon(Icons.chevron_right, size: 20),
                   ),
                   const SizedBox(height: 12),

@@ -1,9 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../../data/services/firestore_service.dart';
 import '../../../models/knowledge_module.dart';
 import '../../../models/feed_item.dart';
 import '../../home/presentation/module_provider.dart';

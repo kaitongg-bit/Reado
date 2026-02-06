@@ -97,6 +97,21 @@ class StreamingGenerationEvent {
 
 /// 内容提取服务
 class ContentExtractionService {
+  /// 根据字符数计算所需的积分逻辑
+  /// 梯度：
+  /// 0 - 5k: 10（基础分析费）
+  /// 5k - 15k: 20（中度分析费）
+  /// 15k+: 每多 15k 字增加 20 积分（因为需要多出一个块分段处理）
+  static int calculateRequiredCredits(int charCount) {
+    if (charCount <= 5000) return 10;
+    if (charCount <= 15000) return 20;
+
+    // 超过 15k 开启分段计算
+    final int baseLimit = 15000;
+    final int chunkCount = (charCount / baseLimit).ceil();
+    return chunkCount * 20;
+  }
+
   /// 从 URL 提取内容
   ///
   /// 优先级：
@@ -279,6 +294,9 @@ class ContentExtractionService {
 
 ## 核心要求
 
+### 0. 语言语言约束
+- **强制要求**：无论原始学习资料使用何种语言（英文、日文、德文等），生成的知识卡片中的所有字段（title, category, content, flashcard 里的 question 和 answer）**必须全部且只能使用简体中文**。
+
 ### 1. 知识点拆分原则
 - **独立性**：每个知识点应该是一个独立的概念或技能
 - **适度粒度**：不要太大（难以消化）也不要太小（过于琐碎）
@@ -378,14 +396,38 @@ class ContentExtractionService {
     return items;
   }
 
-  /// 流式生成知识卡片 - 分两步：先获取大纲，再逐个生成
-  ///
-  /// 第一步：快速分析，返回知识点大纲（标题列表）
-  /// 第二步：逐个生成详细卡片，每完成一张 yield 给 UI
+  /// 流式生成知识卡片 - 支持超长文本分段处理
   static Stream<StreamingGenerationEvent> generateKnowledgeCardsStream(
     ExtractionResult extraction, {
     required String moduleId,
+    required Future<bool> Function(int) onChunkProcess, // 传入需要扣除的积分数
   }) async* {
+    const int baseLimit = 15000;
+    const double graceFactor = 1.2; // 20% 的宽容度
+
+    final content = extraction.content;
+    final List<String> chunks = [];
+
+    if (content.length <= baseLimit * graceFactor) {
+      // 在宽容范围内，只当做一个块处理
+      chunks.add(content);
+    } else {
+      // 确实太长了，需要分段。
+      // 采用“等分”策略，而不是固定大小切块，避免出现一个极小的尾巴
+      final int count = (content.length / baseLimit).ceil();
+      final int chunkSize = (content.length / count).ceil();
+
+      for (int i = 0; i < count; i++) {
+        final start = i * chunkSize;
+        final end = (i + 1) * chunkSize > content.length
+            ? content.length
+            : (i + 1) * chunkSize;
+        if (start < end) {
+          chunks.add(content.substring(start, end));
+        }
+      }
+    }
+
     final apiKey = ApiConfig.getApiKey();
     final proxyUrl = ApiConfig.geminiProxyUrl;
     final client = proxyUrl.isNotEmpty ? ProxyHttpClient(proxyUrl) : null;
@@ -402,10 +444,17 @@ class ContentExtractionService {
       ),
     );
 
-    // ========== 第一步：快速获取大纲 ==========
-    yield StreamingGenerationEvent.status('正在分析文章结构...');
+    // 已经计算好的 chunks 循环
+    for (int chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+      final chunkContent = chunks[chunkIndex];
 
-    const outlinePrompt = '''
+      if (chunks.length > 1) {
+        yield StreamingGenerationEvent.status(
+            '正在处理第 ${chunkIndex + 1}/${chunks.length} 段内容...');
+      }
+
+      // ========== 第一步：获取当前 Chunk 的大纲 ==========
+      const outlinePrompt = '''
 你是一位资深的教育内容专家。请快速分析用户提供的学习资料，识别出其中的核心知识点。
 
 ## 任务
@@ -414,7 +463,10 @@ class ContentExtractionService {
 3. 每个知识点用一个简洁的标题概括（10-20字）
 
 ## 输出格式
-严格按照以下 JSON 格式输出（只输出 JSON，不要有其他文字）：
+严格按照以下 JSON 格式输出（只输出 JSON，不要有其他文字）。
+**重要提示：所有输出内容必须使用简体中文，即使原文是英文。**
+
+严格按照以下 JSON 格式输出：
 
 {
   "topics": [
@@ -424,64 +476,85 @@ class ContentExtractionService {
 }
 ''';
 
-    final outlineContent = [
-      Content.text('$outlinePrompt\n\n## 用户的学习资料：\n\n${extraction.content}')
-    ];
+      final outlineContent = [
+        Content.text('$outlinePrompt\n\n## 用户的学习资料：\n\n$chunkContent')
+      ];
 
-    if (kDebugMode) print('🔍 Step 1: Getting outline...');
+      try {
+        final outlineResponse = await model.generateContent(outlineContent);
 
-    final outlineResponse = await model.generateContent(outlineContent);
-    final outlineText = outlineResponse.text;
+        // --- 扣费逻辑调整：根据单块权重扣费 ---
+        // 单块处理通常对应 20 积分档次（由调用方根据 calculateRequiredCredits 计算总额）
+        final chunkCredits =
+            chunks.length == 1 && content.length <= 5000 ? 10 : 20;
+        final canContinue = await onChunkProcess(chunkCredits);
 
-    if (outlineText == null) {
-      throw Exception('AI 未返回大纲');
-    }
+        if (!canContinue) {
+          yield StreamingGenerationEvent.error(
+              chunks.length > 1 ? '积分不足，已停止处理后续分段' : '积分不足，无法开始生成');
+          return;
+        }
 
-    // 解析大纲
-    String cleanedOutline = outlineText.trim();
-    if (cleanedOutline.startsWith('```json')) {
-      cleanedOutline = cleanedOutline.substring(7);
-    }
-    if (cleanedOutline.startsWith('```')) {
-      cleanedOutline = cleanedOutline.substring(3);
-    }
-    if (cleanedOutline.endsWith('```')) {
-      cleanedOutline = cleanedOutline.substring(0, cleanedOutline.length - 3);
-    }
-    cleanedOutline = cleanedOutline.trim();
+        final outlineText = outlineResponse.text;
 
-    final outlineJson = jsonDecode(cleanedOutline) as Map<String, dynamic>;
-    final topics = (outlineJson['topics'] as List).cast<Map<String, dynamic>>();
+        if (outlineText == null) continue;
 
-    if (kDebugMode) print('📋 Found ${topics.length} topics');
+        // 解析大纲
+        String cleanedOutline = outlineText.trim();
+        if (cleanedOutline.startsWith('```json')) {
+          cleanedOutline = cleanedOutline.substring(7);
+        }
+        if (cleanedOutline.startsWith('```')) {
+          cleanedOutline = cleanedOutline.substring(3);
+        }
+        if (cleanedOutline.endsWith('```')) {
+          cleanedOutline =
+              cleanedOutline.substring(0, cleanedOutline.length - 3);
+        }
+        cleanedOutline = cleanedOutline.trim();
 
-    yield StreamingGenerationEvent.outline(topics.length);
+        final outlineJson = jsonDecode(cleanedOutline) as Map<String, dynamic>;
+        final String topicsField = outlineJson.containsKey('topics')
+            ? 'topics'
+            : (outlineJson.containsKey('items') ? 'items' : '');
 
-    // ========== 第二步：逐个生成卡片 ==========
-    for (int i = 0; i < topics.length; i++) {
-      final topic = topics[i];
-      final title = topic['title'] as String;
-      final category = topic['category'] as String? ?? 'AI Generated';
-      final difficulty = topic['difficulty'] as String? ?? 'Medium';
+        if (topicsField.isEmpty) continue;
 
-      yield StreamingGenerationEvent.status(
-          '正在生成: $title (${i + 1}/${topics.length})');
+        final topics =
+            (outlineJson[topicsField] as List).cast<Map<String, dynamic>>();
 
-      if (kDebugMode) print('🎯 Generating card ${i + 1}: $title');
+        if (chunks.length > 1) {
+          yield StreamingGenerationEvent.status(
+              '第 ${chunkIndex + 1} 段发现 ${topics.length} 个知识点，正在生成...');
+        } else {
+          yield StreamingGenerationEvent.outline(topics.length);
+        }
 
-      final cardPrompt = '''
+        // ========== 第二步：逐个生成卡片 ==========
+        for (int i = 0; i < topics.length; i++) {
+          final topic = topics[i];
+          final String title = topic['title'] as String;
+          final String category =
+              topic['category'] as String? ?? 'AI Generated';
+          final String difficulty = topic['difficulty'] as String? ?? 'Medium';
+
+          yield StreamingGenerationEvent.status(
+              '正在生成: $title (${i + 1}/${topics.length})');
+
+          final cardPrompt = '''
 你是一位资深的教育内容专家。请针对以下知识点，生成一张详细的知识卡片。
 
 ## 知识点标题
 $title
 
 ## 参考资料（从中提取相关内容）
-${extraction.content}
+$chunkContent
 
 ## 要求
 1. **正文内容**：300-800 字，通俗易懂，采用"是什么 → 为什么 → 怎么做"的结构
 2. **Flashcard**：一个具体的测试问题 + 简洁但完整的答案（100-200字）
 3. 使用 Markdown 格式
+4. **语言要求**：输出的所有内容必须使用简体中文。
 
 ## 输出格式
 严格按照以下 JSON 格式输出：
@@ -498,53 +571,55 @@ ${extraction.content}
 }
 ''';
 
-      final cardContent = [Content.text(cardPrompt)];
-      final cardResponse = await model.generateContent(cardContent);
-      final cardText = cardResponse.text;
+          final cardContent = [Content.text(cardPrompt)];
+          final cardResponse = await model.generateContent(cardContent);
+          final cardText = cardResponse.text;
 
-      if (cardText == null) {
-        if (kDebugMode) print('⚠️ Failed to generate card: $title');
-        continue;
-      }
+          if (cardText == null) continue;
 
-      // 解析卡片
-      String cleanedCard = cardText.trim();
-      if (cleanedCard.startsWith('```json')) {
-        cleanedCard = cleanedCard.substring(7);
-      }
-      if (cleanedCard.startsWith('```')) {
-        cleanedCard = cleanedCard.substring(3);
-      }
-      if (cleanedCard.endsWith('```')) {
-        cleanedCard = cleanedCard.substring(0, cleanedCard.length - 3);
-      }
-      cleanedCard = cleanedCard.trim();
+          // 解析卡片
+          String cleanedCard = cardText.trim();
+          if (cleanedCard.startsWith('```json')) {
+            cleanedCard = cleanedCard.substring(7);
+          }
+          if (cleanedCard.startsWith('```')) {
+            cleanedCard = cleanedCard.substring(3);
+          }
+          if (cleanedCard.endsWith('```')) {
+            cleanedCard = cleanedCard.substring(0, cleanedCard.length - 3);
+          }
+          cleanedCard = cleanedCard.trim();
 
-      try {
-        final cardJson = jsonDecode(cleanedCard) as Map<String, dynamic>;
-        final id = 'custom_${DateTime.now().millisecondsSinceEpoch}_$i';
+          try {
+            final cardJson = jsonDecode(cleanedCard) as Map<String, dynamic>;
+            final id =
+                'custom_${DateTime.now().millisecondsSinceEpoch}_${chunkIndex}_$i';
 
-        final feedItem = FeedItem(
-          id: id,
-          moduleId: moduleId,
-          title: cardJson['title'] ?? title,
-          category: cardJson['category'] ?? category,
-          difficulty: cardJson['difficulty'] ?? difficulty,
-          readingTimeMinutes: 5,
-          isCustom: true,
-          pages: [
-            OfficialPage(
-              cardJson['content'] ?? '',
-              flashcardQuestion: cardJson['flashcard']?['question'],
-              flashcardAnswer: cardJson['flashcard']?['answer'],
-            ),
-          ],
-        );
+            final feedItem = FeedItem(
+              id: id,
+              moduleId: moduleId,
+              title: cardJson['title'] ?? title,
+              category: cardJson['category'] ?? category,
+              difficulty: cardJson['difficulty'] ?? difficulty,
+              readingTimeMinutes: 5,
+              isCustom: true,
+              pages: [
+                OfficialPage(
+                  cardJson['content'] ?? '',
+                  flashcardQuestion: cardJson['flashcard']?['question'],
+                  flashcardAnswer: cardJson['flashcard']?['answer'],
+                ),
+              ],
+            );
 
-        yield StreamingGenerationEvent.card(feedItem, i + 1, topics.length);
-        if (kDebugMode) print('✅ Card ${i + 1} generated');
+            yield StreamingGenerationEvent.card(feedItem, i + 1, topics.length);
+          } catch (e) {
+            if (kDebugMode) print('❌ Failed to parse card: $e');
+          }
+        }
       } catch (e) {
-        if (kDebugMode) print('❌ Failed to parse card $i: $e');
+        if (kDebugMode) print('⚠️ Chunk processing error: $e');
+        continue;
       }
     }
 

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../feed/presentation/widgets/feed_item_view.dart';
-import '../../../models/feed_item.dart';
 
 class LabPage extends ConsumerStatefulWidget {
   const LabPage({super.key});
@@ -14,7 +13,6 @@ class LabPage extends ConsumerStatefulWidget {
 
 class _LabPageState extends ConsumerState<LabPage> {
   final PageController _pageController = PageController();
-  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -107,7 +105,6 @@ class _LabPageState extends ConsumerState<LabPage> {
                     controller: _pageController,
                     itemCount: items.length,
                     onPageChanged: (index) {
-                      setState(() => _currentIndex = index);
                       if (!isDesktop && index == 0) {
                         _showMobileToast(context);
                       }

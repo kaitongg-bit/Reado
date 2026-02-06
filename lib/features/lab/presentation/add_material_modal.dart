@@ -5,7 +5,6 @@ import 'package:file_picker/file_picker.dart';
 import '../../../../models/feed_item.dart';
 import '../../../../data/services/content_extraction_service.dart';
 import '../../feed/presentation/feed_provider.dart';
-import '../../feed/presentation/feed_page.dart';
 import '../providers/batch_import_provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../home/presentation/home_page.dart';
@@ -47,13 +46,17 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
 
   /// AI 智能拆解 - 从粘贴的文本生成知识卡片（流式版本）
   Future<void> _generate() async {
-    // Check points before starting
-    final canUse = await ref.read(creditProvider.notifier).useAI();
-    if (!canUse) {
-      if (!mounted) return;
-      _showInsufficientCreditsDialog();
-      return;
-    }
+    final text = _textController.text.trim();
+    if (text.isEmpty) return;
+
+    final charCount = text.length;
+    final credits =
+        ContentExtractionService.calculateRequiredCredits(charCount);
+    final estTime = _calculateEstimatedTime(charCount);
+
+    final confirm =
+        await _showGenerationConfirmDialog(credits, estTime, charCount);
+    if (confirm != true) return;
 
     try {
       setState(() {
@@ -73,6 +76,16 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
           in ContentExtractionService.generateKnowledgeCardsStream(
         extraction,
         moduleId: moduleId,
+        onChunkProcess: (credits) async {
+          // 每开始一个 chunk，扣除对应等级的积分
+          final canUse =
+              await ref.read(creditProvider.notifier).useAI(amount: credits);
+          if (!canUse) {
+            if (mounted) _showInsufficientCreditsDialog();
+            return false;
+          }
+          return true;
+        },
       )) {
         if (!mounted) return;
 
@@ -99,6 +112,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
           case StreamingEventType.complete:
             setState(() {
               _isGenerating = false;
+              _totalCards = null; // 重置进度条
               _streamingStatus = null;
             });
             break;
@@ -152,14 +166,6 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
 
   /// 2. 统一解析入口 (URL 或 File)
   Future<void> _performParse() async {
-    // Check points before parsing
-    final canUse = await ref.read(creditProvider.notifier).useAI();
-    if (!canUse) {
-      if (!mounted) return;
-      _showInsufficientCreditsDialog();
-      return;
-    }
-
     try {
       ExtractionResult? result;
       // Priority: File > URL (Since picking file clears URL usually, but let's check)
@@ -199,13 +205,16 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
 
   /// 开始 AI 生成（流式版本）
   Future<void> _startGeneration() async {
-    // Check points before starting cards generation
-    final canUse = await ref.read(creditProvider.notifier).useAI();
-    if (!canUse) {
-      if (!mounted) return;
-      _showInsufficientCreditsDialog();
-      return;
-    }
+    if (_extractionResult == null) return;
+
+    final charCount = _extractionResult!.content.length;
+    final credits =
+        ContentExtractionService.calculateRequiredCredits(charCount);
+    final estTime = _calculateEstimatedTime(charCount);
+
+    final confirm =
+        await _showGenerationConfirmDialog(credits, estTime, charCount);
+    if (confirm != true) return;
 
     try {
       setState(() {
@@ -223,6 +232,16 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
           in ContentExtractionService.generateKnowledgeCardsStream(
         _extractionResult!,
         moduleId: moduleId,
+        onChunkProcess: (credits) async {
+          // 每开始一个 chunk，扣除对应等级的积分
+          final canUse =
+              await ref.read(creditProvider.notifier).useAI(amount: credits);
+          if (!canUse) {
+            if (mounted) _showInsufficientCreditsDialog();
+            return false;
+          }
+          return true;
+        },
       )) {
         if (!mounted) return;
 
@@ -249,6 +268,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
           case StreamingEventType.complete:
             setState(() {
               _isGenerating = false;
+              _totalCards = null; // 重置进度条
               _streamingStatus = null;
             });
             break;
@@ -263,6 +283,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       }
     } catch (e) {
       if (!mounted) return;
+
       setState(() {
         _error = e.toString();
         _isGenerating = false;
@@ -462,8 +483,6 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
 
     // Palette
     final bgColor = isDark ? const Color(0xFF212526) : const Color(0xFFF8FAFC);
-    final cardColor =
-        isDark ? const Color(0xFF212526) : Colors.white; // Main container bg
     final textColor =
         isDark ? const Color(0xFFe6e8d1) : const Color(0xFF1E293B);
     final subTextColor = isDark
@@ -975,6 +994,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     final accentColor =
         isDark ? const Color(0xFFee8f4b) : const Color(0xFFFF8A65);
 
+    final batchState = ref.watch(batchImportProvider);
+    final hasQueueItems = batchState.queue.isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -1047,7 +1069,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                                       TextStyle(fontSize: 12, color: textColor),
                                   children: [
                                     const TextSpan(
-                                        text: '小贴士：',
+                                        text: '直接导模式的小贴士：',
                                         style: TextStyle(
                                             fontWeight: FontWeight.bold)),
                                     const TextSpan(text: '使用 Markdown 标题 (如 '),
@@ -1106,7 +1128,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
               children: [
                 Expanded(
                   child: TextButton.icon(
-                    onPressed: _isGenerating ? null : _parseLocally,
+                    onPressed: hasQueueItems
+                        ? () => _showQueueConflictMessage()
+                        : (_isGenerating ? null : _parseLocally),
                     icon: const Icon(Icons.format_align_left),
                     label: const Text('直接导入'),
                     style: TextButton.styleFrom(
@@ -1203,7 +1227,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                       ],
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: _isGenerating ? null : _generate,
+                          onPressed: hasQueueItems
+                              ? () => _showQueueConflictMessage()
+                              : (_isGenerating ? null : _generate),
                           icon: _isGenerating
                               ? const SizedBox(
                                   width: 20,
@@ -1530,7 +1556,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Palette
-    final cardBg = isDark ? const Color(0xFF212526) : Colors.white;
+
     final inputBg =
         isDark ? const Color(0xFF2d3233) : Colors.white; // Input field bg
     final borderColor = isDark
@@ -1544,196 +1570,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     final accentColor =
         isDark ? const Color(0xFFee8f4b) : const Color(0xFFFF8A65);
 
-    if (_generatedItems != null) {
-      // Review State
-      return Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '已生成 ${_generatedItems!.length} 个知识点',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.refresh, color: secondaryTextColor),
-                  onPressed: () {
-                    setState(() {
-                      _generatedItems = null;
-                      _isExtractingUrl = false;
-                      _extractionResult = null;
-                    });
-                  },
-                  tooltip: '重新开始',
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView.separated(
-                itemCount: _generatedItems!.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final item = _generatedItems![index];
-                  return Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: cardBg,
-                      border: Border.all(color: borderColor),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        if (!isDark)
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.02),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 32,
-                              height: 32,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? accentColor.withOpacity(0.2)
-                                    : const Color(0xFFEFF6FF),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '${index + 1}',
-                                style: TextStyle(
-                                  color: isDark
-                                      ? accentColor
-                                      : const Color(0xFF3B82F6),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                item.title,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: textColor,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? borderColor.withOpacity(0.3)
-                                    : const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                item.category,
-                                style: TextStyle(
-                                    fontSize: 10, color: secondaryTextColor),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.black.withOpacity(0.2)
-                                : const Color(0xFFFFF7ED),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: isDark
-                                    ? borderColor
-                                    : const Color(0xFFFFEDD5)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(children: [
-                                Icon(Icons.help_outline,
-                                    size: 14,
-                                    color: isDark
-                                        ? accentColor
-                                        : const Color(0xFFF97316)),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '提问: ${(item.pages.first as OfficialPage).flashcardQuestion ?? "自动生成中..."}',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: isDark
-                                          ? accentColor
-                                          : const Color(0xFF9A3412),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                )
-                              ])
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        _generatedItems = null;
-                      });
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      side: BorderSide(color: borderColor),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      foregroundColor: secondaryTextColor,
-                    ),
-                    child: const Text('返回修改'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _saveAll,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: accentColor,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                    ),
-                    child: const Text('确认并保存'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      );
+    final batchState = ref.watch(batchImportProvider);
+    final hasQueueItems = batchState.queue.isNotEmpty;
+
+    if (_generatedItems != null || _isGenerating) {
+      // 统一使用文本导入的 Review State UI
+      return _buildPlainTextTab(isDesktop: isDesktop);
     }
 
     // --- Main Layout: Inputs (Left) + Buttons (Right) ---
@@ -1993,9 +1835,11 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                           width: double.infinity,
                           height: 56,
                           child: ElevatedButton(
-                            onPressed: (_isParsing || _isGenerating)
-                                ? null
-                                : _performParse,
+                            onPressed: (hasQueueItems)
+                                ? () => _showQueueConflictMessage()
+                                : ((_isParsing || _isGenerating)
+                                    ? null
+                                    : _performParse),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: isDark
                                   ? const Color(0xFF2d3233)
@@ -2039,10 +1883,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                           child: SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed:
-                                  (_extractionResult != null && !_isGenerating)
+                              onPressed: hasQueueItems
+                                  ? () => _showQueueConflictMessage()
+                                  : ((_extractionResult != null &&
+                                          !_isGenerating)
                                       ? _startGeneration
-                                      : null,
+                                      : null),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: isDark
                                     ? accentColor
@@ -2119,6 +1965,24 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
   // Renaming getter to match new logic variable name if needed, but we used _isExtractingUrl in state
   bool get _isParsing => _isExtractingUrl; // Helper getter
 
+  void _showQueueConflictMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.layers_clear, color: Colors.white, size: 18),
+            SizedBox(width: 8),
+            Text('队列中已有待处理任务。请清空队列或使用批量模式。'),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.orange.withOpacity(0.9),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(24),
+      ),
+    );
+  }
+
   String _calculateEstimatedTime(int length) {
     // 粗略估算：假设每 1000 字处理需要 5-8 秒 + 网络延迟
     // 简单公式：基础 3秒 + 每1000字 3秒
@@ -2128,6 +1992,87 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     } else {
       return '${(seconds / 60).toStringAsFixed(1)} 分钟';
     }
+  }
+
+  Future<bool?> _showGenerationConfirmDialog(
+      int credits, String estTime, int charCount) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.auto_awesome, color: Color(0xFFee8f4b)),
+            SizedBox(width: 12),
+            Text('确认开始拆解？'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('系统已识别内容：约 $charCount 字'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.timer_outlined, size: 16, color: Colors.grey),
+                const SizedBox(width: 4),
+                Text('预计耗时：$estTime',
+                    style: const TextStyle(color: Colors.grey)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFee8f4b).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border:
+                    Border.all(color: const Color(0xFFee8f4b).withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.stars, color: Color(0xFFee8f4b), size: 20),
+                  const SizedBox(width: 12),
+                  const Text('本次将扣除：',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('$credits',
+                      style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFee8f4b))),
+                  const Text(' 积分'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('💡 提示：AI 解析内容是免费的，智能拆解将根据内容深度自动匹配最佳方案。',
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const Divider(height: 24),
+            Row(
+              children: [
+                Icon(Icons.volunteer_activism_outlined,
+                    size: 14, color: Colors.green[400]),
+                const SizedBox(width: 8),
+                Text('Reado 福利：AI 聊天、解析文件完全免费',
+                    style: TextStyle(fontSize: 11, color: Colors.green[700])),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFee8f4b)),
+            child: const Text('开始生成'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showInsufficientCreditsDialog() {

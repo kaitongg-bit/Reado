@@ -75,8 +75,10 @@ class FirestoreService implements DataService {
   }
 
   // Collection References
-  CollectionReference get _feedRef => _db.collection('feed_items');
-  CollectionReference get _usersRef => _db.collection('users');
+  CollectionReference<Map<String, dynamic>> get _feedRef =>
+      _db.collection('feed_items');
+  CollectionReference<Map<String, dynamic>> get _usersRef =>
+      _db.collection('users');
 
   // Fetch feed items for a specific module (with user notes merged)
   @override
@@ -93,7 +95,7 @@ class FirestoreService implements DataService {
       });
 
       final items = querySnapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         data['firestoreId'] = doc.id;
         return data;
       }).toList();
@@ -133,10 +135,11 @@ class FirestoreService implements DataService {
                 item['pages'] = pages;
               }
 
-              final masteryDoc = results[1] as DocumentSnapshot;
+              final masteryDoc =
+                  results[1] as DocumentSnapshot<Map<String, dynamic>>;
               if (masteryDoc.exists) {
-                final masteryData = masteryDoc.data() as Map<String, dynamic>?;
-                if (masteryData != null && masteryData['level'] != null) {
+                final masteryData = masteryDoc.data();
+                if (masteryData != null) {
                   item['masteryLevel'] = masteryData['level'];
                 }
               }
@@ -493,8 +496,7 @@ class FirestoreService implements DataService {
           .timeout(const Duration(seconds: 10));
 
       return snapshot.docs
-          .map((doc) => KnowledgeModule.fromJson(
-              doc.data() as Map<String, dynamic>, doc.id))
+          .map((doc) => KnowledgeModule.fromJson(doc.data(), doc.id))
           .toList();
     } catch (e) {
       print('Error fetching all user modules: $e');
@@ -727,7 +729,7 @@ class FirestoreService implements DataService {
           await _usersRef.doc(userId).collection('module_progress').get();
       final map = <String, int>{};
       for (var doc in snapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         map[doc.id] = data['lastIndex'] as int? ?? 0;
       }
       return map;

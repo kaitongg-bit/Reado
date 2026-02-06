@@ -1,11 +1,11 @@
 {
-    "name": "quick_pm",
-    "short_name": "quick_pm",
+    "name": "Reado",
+    "short_name": "Reado",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#212526",
+    "theme_color": "#ee8f4b",
+    "description": "让知识拆解变得像刷动态一样简单",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

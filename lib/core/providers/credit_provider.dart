@@ -44,14 +44,14 @@ class CreditNotifier extends StateNotifier<AsyncValue<UserStats>> {
   Future<void> _fetchStats() async => _listenToStats();
 
   // 消耗积分 (AI 功能)
-  Future<bool> useAI() async {
+  Future<bool> useAI({int amount = 10}) async {
     final current = state.asData?.value;
-    if (current == null || current.credits < 10) return false;
+    if (current == null || current.credits < amount) return false;
 
     try {
       state = AsyncValue.data(UserStats(
-          credits: current.credits - 10, shareClicks: current.shareClicks));
-      await _dataService.updateUserCredits(_userId!, -10);
+          credits: current.credits - amount, shareClicks: current.shareClicks));
+      await _dataService.updateUserCredits(_userId!, -amount);
       return true;
     } catch (e) {
       state = AsyncValue.data(current);

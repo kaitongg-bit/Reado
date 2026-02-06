@@ -721,281 +721,299 @@ class _FeedPageState extends ConsumerState<FeedPage> {
             },
           ),
         ),
-        // Grid View
+        // Grid View with Footer
         Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.65, // Smaller cards
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              final previewText = _getPreviewText(item);
-              final isFocused = index == _focusedItemIndex;
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.65,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final item = items[index];
+                      final previewText = _getPreviewText(item);
+                      final isFocused = index == _focusedItemIndex;
 
-              // Glassmorphism Card Style
-              final backgroundColor = isDark
-                  ? Colors.white.withOpacity(0.08)
-                  : Colors.white.withOpacity(0.65);
+                      final backgroundColor = isDark
+                          ? Colors.white.withOpacity(0.08)
+                          : Colors.white.withOpacity(0.65);
 
-              final borderColor = isFocused
-                  ? Colors.blueAccent
-                  : (isDark
-                      ? Colors.white.withOpacity(0.1)
-                      : Colors.white.withOpacity(0.5));
+                      final borderColor = isFocused
+                          ? Colors.blueAccent
+                          : (isDark
+                              ? Colors.white.withOpacity(0.1)
+                              : Colors.white.withOpacity(0.5));
 
-              return GestureDetector(
-                onTap: () {
-                  // 💾 Explicitly save index on tap from Grid
-                  ref
-                      .read(feedProgressProvider.notifier)
-                      .setProgress(widget.moduleId, index);
+                      return GestureDetector(
+                        onTap: () {
+                          ref
+                              .read(feedProgressProvider.notifier)
+                              .setProgress(widget.moduleId, index);
 
-                  setState(() {
-                    _focusedItemIndex =
-                        index; // Ensure we sync before switching
-                    _isSingleView = true;
-                  });
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (_verticalController.hasClients) {
-                      _verticalController.jumpToPage(index);
-                    }
-                  });
-                },
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: Builder(builder: (context) {
-                          final content = Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              // Web optimization: Higher opacity background if no blur
-                              color: kIsWeb
-                                  ? (isDark
-                                      ? Colors.black.withOpacity(0.8)
-                                      : Colors.white.withOpacity(0.95))
-                                  : backgroundColor,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                  color: borderColor, width: isFocused ? 2 : 1),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: isDark
-                                      ? Colors.black.withOpacity(0.2)
-                                      : Colors.grey.withOpacity(0.1),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Header: Module Tag
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    if (item.moduleId == 'SEARCH')
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: _getModuleColor(item.moduleId)
-                                              .withOpacity(0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(4),
+                          setState(() {
+                            _focusedItemIndex = index;
+                            _isSingleView = true;
+                          });
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (_verticalController.hasClients) {
+                              _verticalController.jumpToPage(index);
+                            }
+                          });
+                        },
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Builder(builder: (context) {
+                                  final content = Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: kIsWeb
+                                          ? (isDark
+                                              ? Colors.black.withOpacity(0.8)
+                                              : Colors.white.withOpacity(0.95))
+                                          : backgroundColor,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                          color: borderColor,
+                                          width: isFocused ? 2 : 1),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: isDark
+                                              ? Colors.black.withOpacity(0.2)
+                                              : Colors.grey.withOpacity(0.1),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
                                         ),
-                                        child: Text(
-                                          _getModuleName(item.moduleId),
-                                          style: TextStyle(
-                                              fontSize: 10,
-                                              color: _getModuleColor(
-                                                  item.moduleId),
-                                              fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                    const Spacer(),
-                                    if (item.isFavorited)
-                                      Padding(
-                                        padding:
-                                            const EdgeInsets.only(right: 4),
-                                        child: const Icon(Icons.favorite,
-                                            size: 16, color: Colors.redAccent),
-                                      ),
-                                    if (item.isCustom)
-                                      SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: PopupMenuButton<String>(
-                                          padding: EdgeInsets.zero,
-                                          icon: Icon(Icons.more_horiz,
-                                              size: 16,
-                                              color: isDark
-                                                  ? Colors.white70
-                                                  : Colors.black54),
-                                          onSelected: (value) {
-                                            if (value == 'delete') {
-                                              showDialog(
-                                                context: context,
-                                                builder: (context) =>
-                                                    AlertDialog(
-                                                  title: const Text('删除知识卡片？'),
-                                                  content: const Text(
-                                                      '删除后无法恢复，确定要删除吗？'),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                              context),
-                                                      child: const Text('取消'),
-                                                    ),
-                                                    TextButton(
-                                                      onPressed: () {
-                                                        ref
-                                                            .read(feedProvider
-                                                                .notifier)
-                                                            .deleteFeedItem(
-                                                                item.id);
-                                                        Navigator.pop(context);
-                                                      },
-                                                      child: const Text('删除',
+                                      ],
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            if (item.moduleId == 'SEARCH')
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: _getModuleColor(
+                                                          item.moduleId)
+                                                      .withOpacity(0.1),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  _getModuleName(item.moduleId),
+                                                  style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: _getModuleColor(
+                                                          item.moduleId),
+                                                      fontWeight:
+                                                          FontWeight.bold),
+                                                ),
+                                              ),
+                                            const Spacer(),
+                                            if (item.isFavorited)
+                                              const Padding(
+                                                padding:
+                                                    EdgeInsets.only(right: 4),
+                                                child: Icon(Icons.favorite,
+                                                    size: 16,
+                                                    color: Colors.redAccent),
+                                              ),
+                                            if (item.isCustom)
+                                              SizedBox(
+                                                width: 24,
+                                                height: 24,
+                                                child: PopupMenuButton<String>(
+                                                  padding: EdgeInsets.zero,
+                                                  icon: Icon(Icons.more_horiz,
+                                                      size: 16,
+                                                      color: isDark
+                                                          ? Colors.white70
+                                                          : Colors.black54),
+                                                  onSelected: (value) {
+                                                    if (value == 'delete') {
+                                                      _showDeleteDialog(item);
+                                                    }
+                                                  },
+                                                  itemBuilder: (context) => [
+                                                    const PopupMenuItem(
+                                                      value: 'delete',
+                                                      height: 32,
+                                                      child: Text('删除',
                                                           style: TextStyle(
+                                                              fontSize: 13,
                                                               color:
                                                                   Colors.red)),
                                                     ),
                                                   ],
                                                 ),
-                                              );
-                                            }
-                                          },
-                                          itemBuilder: (context) => [
-                                            const PopupMenuItem(
-                                              value: 'delete',
-                                              height: 32,
-                                              child: Text('删除',
-                                                  style: TextStyle(
-                                                      fontSize: 13,
-                                                      color: Colors.red)),
-                                            ),
+                                              )
                                           ],
                                         ),
-                                      )
-                                  ],
-                                ),
-
-                                if (item.moduleId == 'SEARCH')
-                                  const SizedBox(height: 8),
-
-                                // Title
-                                Text(
-                                  item.title,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                    height: 1.2,
-                                    color:
-                                        isDark ? Colors.white : Colors.black87,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-
-                                // Preview Content
-                                Expanded(
-                                  child: Text(
-                                    previewText,
-                                    maxLines: 5,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? Colors.grey[400]
-                                            : Colors.grey[600],
-                                        height: 1.4),
-                                  ),
-                                ),
-
-                                const SizedBox(height: 12),
-
-                                // Footer
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: _getModuleColor(item.moduleId)
-                                            .withOpacity(0.2),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(_getModuleIcon(item.moduleId),
-                                          size: 10,
-                                          color:
-                                              _getModuleColor(item.moduleId)),
+                                        if (item.moduleId == 'SEARCH')
+                                          const SizedBox(height: 8),
+                                        Text(
+                                          item.title,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            height: 1.2,
+                                            color: isDark
+                                                ? Colors.white
+                                                : Colors.black87,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Expanded(
+                                          child: Text(
+                                            previewText,
+                                            maxLines: 5,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: isDark
+                                                    ? Colors.grey[400]
+                                                    : Colors.grey[600],
+                                                height: 1.4),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: BoxDecoration(
+                                                color: _getModuleColor(
+                                                        item.moduleId)
+                                                    .withOpacity(0.2),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Icon(
+                                                  _getModuleIcon(item.moduleId),
+                                                  size: 10,
+                                                  color: _getModuleColor(
+                                                      item.moduleId)),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              '抖书',
+                                              style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: isDark
+                                                      ? Colors.grey[500]
+                                                      : Colors.grey[500]),
+                                            ),
+                                          ],
+                                        )
+                                      ],
                                     ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '抖书',
-                                      style: TextStyle(
-                                          fontSize: 10,
-                                          color: isDark
-                                              ? Colors.grey[500]
-                                              : Colors.grey[500]),
-                                    ),
-                                  ],
-                                )
-                              ],
+                                  );
+
+                                  return kIsWeb
+                                      ? content
+                                      : BackdropFilter(
+                                          filter: ImageFilter.blur(
+                                              sigmaX: 15, sigmaY: 15),
+                                          child: content,
+                                        );
+                                }),
+                              ),
                             ),
-                          );
-
-                          return kIsWeb
-                              ? content
-                              : BackdropFilter(
-                                  filter:
-                                      ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                                  child: content,
-                                );
-                        }),
+                            if (isFocused)
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blueAccent,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                          color: Colors.black26,
+                                          blurRadius: 4,
+                                          offset: Offset(0, 2))
+                                    ],
+                                  ),
+                                  child: const Text("在看",
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                    childCount: items.length,
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 80),
+                  child: Center(
+                    child: Text(
+                      'Reado 2026 Inc',
+                      style: TextStyle(
+                        color: isDark
+                            ? Colors.white.withOpacity(0.15)
+                            : Colors.black.withOpacity(0.1),
+                        fontSize: 12,
+                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    if (isFocused)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.blueAccent,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                  color: Colors.black26,
-                                  blurRadius: 4,
-                                  offset: Offset(0, 2))
-                            ],
-                          ),
-                          child: const Text("在看",
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
-              );
-            },
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 80)),
+            ],
           ),
         ),
       ],
+    );
+  }
+
+  void _showDeleteDialog(FeedItem item) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除知识卡片？'),
+        content: const Text('删除后无法恢复，确定要删除吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              ref.read(feedProvider.notifier).deleteFeedItem(item.id);
+              Navigator.pop(context);
+            },
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 

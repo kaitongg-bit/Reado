@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/feed/presentation/feed_page.dart';
@@ -13,6 +12,7 @@ import '../../features/onboarding/presentation/onboarding_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/credit_provider.dart';
 import '../../features/profile/presentation/hidden_content_page.dart';
+import '../../features/profile/presentation/about_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -80,6 +80,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'hidden',
             builder: (context, state) => const HiddenContentPage(),
+          ),
+          GoRoute(
+            path: 'about',
+            builder: (context, state) => const AboutPage(),
           ),
         ],
       ),

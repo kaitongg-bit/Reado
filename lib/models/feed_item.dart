@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 /// 页面基类
 abstract class CardPageContent {
   final String type; // 'text', 'image', 'user_note'

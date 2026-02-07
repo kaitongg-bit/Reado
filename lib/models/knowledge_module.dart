@@ -43,17 +43,19 @@ class KnowledgeModule {
   static List<KnowledgeModule> get officials => [
         const KnowledgeModule(
           id: 'A',
-          title: 'Product Management',
-          description: 'Zero to Hero: Essential PM skills & frameworks',
+          title: 'STAR 面试法',
+          description: '行为面试金标准：情境、任务、行动、结果',
           ownerId: 'official',
           isOfficial: true,
+          cardCount: 6,
         ),
         const KnowledgeModule(
           id: 'B',
-          title: 'CS Fundamentals',
-          description: 'Data structures, algorithms & system design',
+          title: 'Reado 官方指南',
+          description: '新手必读：如何像黑客一样拆解知识',
           ownerId: 'official',
           isOfficial: true,
+          cardCount: 8,
         ),
       ];
 }

@@ -2,361 +2,261 @@ import '../models/feed_item.dart';
 
 class MockData {
   static List<FeedItem> get initialFeedItems {
-    // 产品经理基础 (Module B) - 10个基础知识点
-    final pmBasics = [
+    // -------------------------------------------------------------------------
+    // Module A: STAR 面试法 (The Gold Standard)
+    // -------------------------------------------------------------------------
+    final starMethod = [
       FeedItem(
-        id: 'b001',
-        moduleId: 'B',
-        title: '什么是产品经理？(What is a PM)',
-        category: '职位理解',
+        id: 'a001',
+        moduleId: 'A',
+        title: '什么是 STAR 法则？',
+        category: '核心概念',
         difficulty: 'Easy',
         pages: [
           OfficialPage(
             '''
-# 产品经理的角色定义
+# 行为面试的金标准：STAR
 
-产品经理 (Product Manager) 是负责产品全生命周期管理的专业人员。硅谷著名投资人 Ben Horowitz 曾说："产品经理是产品的 CEO。"
+**STAR 法则**是全球顶尖科技公司（Amazon, Google, Meta）在行为面试（Behavioral Interview）中通用的评估标准。
 
-### 核心职责 (The Big 3)
-1.  **产品策略 (Strategy)**：决定做什么（Vision）、为谁做（Target User）、为什么做（Why）。
-2.  **执行落地 (Execution)**：撰写文档（PRD）、协调研发设计（Cross-functional）、把控进度（Roadmap）。
-3.  **用户洞察 (Research)**：数据分析、用户访谈、市场调研。
+它的核心逻辑是：**过去的行为是预测未来表现的最好指标。**
 
-### 常见误区
-*   **PM 不是经理**：你通常没有行政权力 (No Authority)，必须通过**影响力** (Influence) 来领导团队。
-*   **PM 不是"接需求的人"**：不要只做传声筒，要思考需求背后的价值。
+### 四大支柱
+1.  **S - Situation (情境)**: 故事发生的背景。
+2.  **T - Task (任务)**: 你面临的挑战或目标。
+3.  **A - Action (行动)**: **你**具体做了什么？（这是最重要的部分）
+4.  **R - Result (结果)**: 最终的成就在哪里？
 
-### 核心能力模型
-*   **同理心**：站在用户角度思考。
-*   **逻辑思维**：拆解复杂问题。
-*   **沟通能力**：在不同职能间翻译语言。
+面试官不关心这种“空话”：“我是一个很好的团队合作者。”
+面试官关心的是：“请给我讲一次你不得不与一个难搞的同事合作的经历。”
             ''',
-            flashcardQuestion: 'PM 最核心的领导力来源是什么？',
+            flashcardQuestion: 'STAR 法则中，面试官最看重哪一个部分？',
             flashcardAnswer:
-                '非职权影响力 (Influence without Authority)。因为 PM 通常不是研发或设计的行政主管，必须依靠愿景、逻辑和数据来说服团队。',
+                'Action (行动)。因为只有“行动”才能展示你的个人能力、决策逻辑和软技能。背景和结果只是为了验证行动的有效性和真实性。',
+          ),
+        ],
+      ),
+      FeedItem(
+        id: 'a002',
+        moduleId: 'A',
+        title: 'S - Situation：搭建舞台',
+        category: '实战技巧',
+        difficulty: 'Easy',
+        pages: [
+          OfficialPage(
+            '''
+# Situation：给故事一个张力
+
+很多候选人在 S 阶段花费太多时间，讲了一堆无关紧要的公司背景。
+**S 的目的是为了衬托 T 的难。**
+
+### 好的 S 应该包含：
+*   **紧迫性**：Timeline 非常紧。
+*   **资源匮乏**：没有预算，没有人手。
+*   **复杂度**：没人做过，且涉及多个部门。
+
+### 例子
+*   ❌ "我在腾讯做产品经理的时候，有一个项目..." (太干了)
+*   ✅ "当时距离双11大促只有2周，我们的核心支付接口却突然出现了 1% 的丢单率，如果不解决，预计损失超过千万。" (张力拉满)
+            ''',
+            flashcardQuestion: 'Situation (情境) 部分的主要目的是什么？',
+            flashcardAnswer:
+                '为 Task (任务) 的艰巨性做铺垫。通过描述资源的匮乏、时间的紧迫或环境的复杂，来凸显后续 Action (行动) 的含金量。',
+          ),
+        ],
+      ),
+      FeedItem(
+        id: 'a003',
+        moduleId: 'A',
+        title: 'T - Task：定义不可能',
+        category: '实战技巧',
+        difficulty: 'Medium',
+        pages: [
+          OfficialPage(
+            '''
+# Task：定义你的北极星
+
+Task 必须简洁有力。它是你给自己定下的**具体的**、**可衡量的**目标。
+
+### 常见的错误
+把 Task 描述成老板给的任务。
+*   ❌ "老板让我去修复这个 bug。"
+*   ✅ "我决定不仅要修复这个 bug，还要建立一套自动化监控机制，彻底杜绝此类问题再次发生。"
+
+**Ownership (主人翁感)** 通常就在 T 这一环节体现。是你主动选择了挑战，而不是被动接受了命令。
+            ''',
+            flashcardQuestion: '如何通过 Task 展现 Leadership (领导力)？',
+            flashcardAnswer:
+                '不要只描述被分配的任务，要描述你**主动设定**的更高标准的目标。展现出你面对困难时，敢于承担责任并重新定义问题的能力。',
+          ),
+        ],
+      ),
+      FeedItem(
+        id: 'a004',
+        moduleId: 'A',
+        title: 'A - Action：你才是主角',
+        category: '核心技巧',
+        difficulty: 'Hard',
+        pages: [
+          OfficialPage(
+            '''
+# Action：把光打在自己身上
+
+这是整个回答的核心，应该占据 60% 以上的篇幅。
+
+### 致命错误：只说"我们"
+很多候选人习惯说："然后**我们**开了个会，**我们**决定..."
+面试官的潜台词是："那你在里面干嘛了？你是那个倒水的吗？"
+
+### 黄金法则
+*   多用 **"I" (我)**。
+*   多用**动词**：I analyzed (分析), I proposed (提议), I negotiated (谈判), I built (构建)。
+*   展示**决策过程**：不仅说你做了什么，还要说你**为什么**这么做（而不是那样做）。
+            ''',
+            flashcardQuestion: '在 Action 环节，为什么要避免过度使用 "We" (我们)？',
+            flashcardAnswer:
+                '因为面试官招聘的是**你**，而不是你的团队。过度使用 "We" 会掩盖你的个人贡献，让面试官无法评估你的独立能力和具体作用。',
+          ),
+        ],
+      ),
+      FeedItem(
+        id: 'a005',
+        moduleId: 'A',
+        title: 'R - Result：数据说话',
+        category: '实战技巧',
+        difficulty: 'Medium',
+        pages: [
+          OfficialPage(
+            '''
+# Result：没有结果就是没做
+
+一个没有 Result 的故事是烂尾的。
+
+### 好的 Result 有三个特征：
+1.  **量化 (Quantified)**：不要说 "提升了很多"，要说 "提升了 25%"。
+2.  **对比 (Compared)**：不要说 "赚了100万"，要说 "比去年同期增长了 200%"。
+3.  **影响力 (Impact)**：除了数据，还有什么深远影响？（比如：这套方案后来成为了全公司的标准模板）。
+
+### 如果结果是失败的？
+也可以讲！重点在于 **Learning (复盘)**。
+"虽然项目失败了，但我总结了3个教训，并在下一个项目中应用，成功避免了..."
+            ''',
+            flashcardQuestion: '如果项目最终没有达到预期的数据指标，R 部分该要在怎么讲？',
+            flashcardAnswer:
+                '重点转向 **Learning (复盘与成长)**。诚实地量化差距，分析根本原因，并展示你如何将这次失败的经验转化为后续成功的基石。',
+          ),
+        ],
+      ),
+      FeedItem(
+        id: 'a006',
+        moduleId: 'A',
+        title: '[实战] 亚马逊行为面试真题',
+        category: '案例分析',
+        difficulty: 'Hard',
+        pages: [
+          OfficialPage(
+            '''
+# 题目：Tell me about a time you disagreed with your manager.
+
+### 错误示范
+"老板非要改需求，我觉得不对，就跟他吵了一架。最后证明我是对的，老板没说话。"
+(评价：固执、难以合作、缺乏情商)
+
+### STAR 示范
+*   **S**: 产品上线前夕，经理因为担心风险，突然要求砍掉这期核心功能。
+*   **T**: 我需要在**不激怒经理**的前提下，用数据证明该功能的稳定性，确保如期上线。
+*   **A**: 我没有当面反驳。私下里，我拉取了灰度测试的 5000 条用户数据，制作了一份对比报告。然后我约了经理喝咖啡，展示如果砍掉功能将导致的用户流失预期。
+*   **R**: 经理被数据说服，同意保留功能。最终上线后，该功能贡献了 15% 的日活增长。经理还在周会上公开表扬了我的严谨。
+            ''',
+            flashcardQuestion: '在回答"与上级冲突"类问题时，Action 的核心不仅仅是证明"你是对的"，更重要的是什么？',
+            flashcardAnswer:
+                '**建设性的冲突处理方式 (Constructive Conflict Resolution)**。展示你如何通过数据、沟通和同理心来解决分歧，而不是单纯的情绪对抗或证明对方愚蠢。',
+          ),
+        ],
+      ),
+    ];
+
+    // -------------------------------------------------------------------------
+    // Module B: Reado 官方指南 (User Manual)
+    // -------------------------------------------------------------------------
+    final readoGuide = [
+      FeedItem(
+        id: 'b001',
+        moduleId: 'B',
+        title: '欢迎：不止是收藏，更是内化',
+        category: '理念',
+        difficulty: 'Easy',
+        pages: [
+          OfficialPage(
+            '''
+# 为什么你的收藏夹在吃灰？
+
+在这个信息爆炸的时代，我们**囤积**了太多文章，却**内化**了太少知识。
+
+Reado 的诞生就是为了解决这个问题。我们相信：**知识不应该是线性的长文，而应该是可交互的、原子化的小卡片。**
+
+在这里，你不再是“读完”一篇文章，而是把文章“拆解”成一个个知识点，然后通过闪卡（Flashcards）真正把它装进脑子里。
+            ''',
+            flashcardQuestion: 'Reado 提倡的所谓“原子化知识”是什么意思？',
+            flashcardAnswer:
+                '将冗长的文章拆解为独立的、在这个概念下最小单位的知识点（卡片）。这样可以降低认知负担，便于单独复习、重组和建立连接。',
           ),
         ],
       ),
       FeedItem(
         id: 'b002',
         moduleId: 'B',
-        title: '真伪需求：福特的快马',
-        category: '需求分析',
+        title: '操作：像刷短视频一样刷知识',
+        category: '基础',
         difficulty: 'Easy',
         pages: [
           OfficialPage(
             '''
-# 用户需求 vs 产品需求
+# 极简手势指南
 
-在产品经理的日常工作中，最容易犯的错误就是把"用户想要什么"直接等同于"产品要做什么"。
+为了让你进入“心流”状态，我们设计了极简的手势系统：
 
-### 经典案例：福特的快马
-亨利·福特曾说过一句名言："如果我问人们想要什么，他们会说想要一匹更快的马。"
+### 1. 上下划动
+在不同的知识点卡片之间切换。不喜欢？划走。感兴趣？停下来。
 
-*   **User Want (表面)**: 更快的马。
-*   **User Need (本质)**: 更快地从 A 到达 B。
-*   **Product (方案)**: 汽车。
+### 2. 左划 (Left Swipe) -> 详情
+**这是最重要的手势。** 当你对卡片感兴趣时，**左划**进入深度阅读模式。
 
-### 深层洞察
-用户往往受限于当前的认知（他们只知道马），无法构想未知的解决方案（汽车）。
-
-### 5 Whys 分析法
-通过连续追问"为什么"，我们可以找到问题的根本原因。
-*   Q: 为什么要更快的马？ -> A: 怕迟到。
-*   Q: 为什么怕迟到？ -> A: 路太远。
-*   Q: 核心痛点是**通勤效率**。
+### 3. 右划 (Right Swipe) -> 收藏
+标记为 **Like**。这些卡片会自动进入你的 Vault，并安排复习。
             ''',
-            flashcardQuestion: '"用户想要更快的马"中，用户的真实痛点是什么？',
-            flashcardAnswer: '更高的通勤效率（更短的时间到达目的地），而不是对"马"这种生物的执着。',
+            flashcardQuestion: '在 Reado 中，如果想查看某个知识点的详细解释，应该怎么操作？',
+            flashcardAnswer: '左划 (Swipe Left)。这个动作模拟了“翻开书页”的感觉，带你从概览进入深度阅读。',
           ),
         ],
       ),
       FeedItem(
         id: 'b003',
         moduleId: 'B',
-        title: 'MVP：最小可行性产品',
-        category: '产品策略',
+        title: '核心：Lab 拆解 + Vault 复习',
+        category: '进阶',
         difficulty: 'Medium',
         pages: [
           OfficialPage(
             '''
-# Minimum Viable Product (MVP)
+# Reado 的双引擎
 
-MVP 是精益创业（Lean Startup）的核心概念。它的定义是：用最小的成本，验证最大的假设。
+### 1. Lab (实验室) - 你的加工厂
+觉得首页内容不够？把任何文章链接、PDF 扔进 Lab。
+AI 引擎会自动提取核心观点，把它变成精美的知识卡片。**万物皆可拆解。**
 
-### 为什么要做 MVP？
-1.  **降低试错成本**：避免开发了半年，上线发现没人用。
-2.  **快速获取反馈**：尽早把产品推向市场，根据用户真实反馈迭代。
-
-### 经典案例：Dropbox
-Dropbox 的创始人并没有先开发复杂的文件同步代码，而是先做了一个 **3分钟的演示视频** (Demo Video)。
-*   **假设**：用户需要一个多端同步的文件系统。
-*   **MVP**：一个视频，演示"如果是这样会有多爽"。
-*   **结果**：等待列表一夜暴增 75,000 人。
-
-### 误区
-MVP 不是"半成品"或"烂产品"。它必须是 **Viable**（可用的），必须能解决核心问题，哪怕功能很简陋。
+### 2. Vault (金库) - 你的第二大脑
+所有收藏的内容都会进入 Vault。
+内置的 **SRS (间隔重复算法)** 会在你快忘记时，自动提醒你复习。告别“收藏即遗忘”。
             ''',
-            flashcardQuestion: 'MVP 的核心目的是什么？',
+            flashcardQuestion: '为什么说 Vault 不仅仅是一个收藏夹？',
             flashcardAnswer:
-                '验证假设 (Validating Assumptions)。MVP 不是为了做产品而做，而是为了学习（Learning）用户是否真的需要这个东西。',
-          ),
-        ],
-      ),
-      FeedItem(
-        id: 'b004',
-        moduleId: 'B',
-        title: '案例拆解：抖音的成瘾性机制',
-        category: '产品设计',
-        difficulty: 'Medium',
-        pages: [
-          OfficialPage(
-            '''
-# 抖音的成瘾性机制
-
-刷抖音为什么停不下来？从心理学和产品设计的角度来看，抖音完美运用了"斯金纳箱" (Skinner Box) 理论。
-
-### 1. 变量奖励 (Variable Reward)
-你永远不知道下一个视频是什么，这种不确定性带来了多巴胺的爆发。
-
-### 2. 极低的操作成本
-单手竖划。没有"选择"的负担。在其他平台你还要想看哪个，在抖音你只需要"跳过"不喜欢的。
-
-### 3. 被动式沉浸
-全屏显示，隐藏状态栏。让用户失去时间感。
-
-### 4. 算法的冷启动
-抖音通过前 10 个视频快速建立你的兴趣画像，不仅看你点什么，还看你的**完播率**。
-            ''',
-            flashcardQuestion: '为什么"竖划切换"比"瀑布流选择"更有助于沉浸？',
-            flashcardAnswer:
-                '因为它将用户的认知成本降到了最低。瀑布流需要用户进行"选择决策"，而竖划让用户进入"被动接受"状态，减少了思考中断。',
-          ),
-        ],
-      ),
-      FeedItem(
-        id: 'b005',
-        moduleId: 'B',
-        title: 'PRD 文档撰写要点',
-        category: '文档能力',
-        difficulty: 'Medium',
-        pages: [
-          OfficialPage(
-            '''
-# PRD 文档撰写要点
-
-PRD (Product Requirements Document) 是产品经理最重要的交付物之一。
-
-### 核心内容
-1. **需求背景**：为什么要做这个功能？
-2. **目标用户**：这个功能为谁服务？
-3. **功能描述**：详细的功能说明
-4. **交互流程**：用户如何使用
-5. **优先级**：P0/P1/P2 划分
-6. **成功指标**：如何衡量成功？
-
-### 5W1H 法则
-- Who：目标用户是谁？
-- What：产品要做什么？
-- When：什么时候发布？
-- Where：在哪里使用？
-- Why：为什么要这样做？
-- How：如何实现？
-            ''',
-            flashcardQuestion: 'PRD 文档的核心作用是什么？',
-            flashcardAnswer:
-                '统一团队认知，减少返工，提高开发效率。它通过清晰描述产品需求，确保团队成员对产品目标、功能和实现方式达成一致。',
-          ),
-        ],
-      ),
-      FeedItem(
-        id: 'b006',
-        moduleId: 'B',
-        title: '数据驱动决策',
-        category: '数据分析',
-        difficulty: 'Medium',
-        pages: [
-          OfficialPage(
-            '''
-# 数据驱动决策
-
-优秀的产品经理不凭感觉做决策，而是用数据说话。
-
-###关键指标
-1. **DAU/MAU**：日活/月活用户数
-2. **留存率**：次日/7日/30日留存
-3. **转化率**：漏斗各环节转化情况
-4. **ARPU**：平均每用户收入
-
-### A/B 测试
-通过对比测试验证假设：
-- 设置对照组和实验组
-- 只改变一个变量
-- 收集足够样本后分析
-- 基于数据做决策
-            ''',
-            flashcardQuestion: '为什么要进行 A/B 测试？',
-            flashcardAnswer:
-                '为了用科学方法验证假设，通过对比实验组和对照组的数据差异，客观评估新功能或改动的实际效果，避免主观判断导致的决策失误。',
-          ),
-        ],
-      ),
-      FeedItem(
-        id: 'b007',
-        moduleId: 'B',
-        title: '用户画像与用户旅程',
-        category: '用户研究',
-        difficulty: 'Easy',
-        pages: [
-          OfficialPage(
-            '''
-# 用户画像与用户旅程
-
-理解用户是产品成功的第一步。
-
-### 用户画像 (Persona)
-虚拟的典型用户，包含：
-- **基本信息**：年龄、职业、收入
-- **行为特征**：使用习惯、偏好
-- **痛点需求**：遇到的问题
-
-### 用户旅程地图
-描述用户与产品互动的完整过程：
-1. 发现阶段
-2. 考虑阶段
-3. 购买/使用阶段
-4. 留存阶段
-5. 推荐阶段
-
-每个阶段关注不同的指标和优化点。
-            ''',
-            flashcardQuestion: '用户画像的核心价值是什么？',
-            flashcardAnswer: '帮助团队形成对目标用户的统一认知，在做产品决策时能够站在真实用户的角度思考，避免自嗨式设计。',
-          ),
-        ],
-      ),
-      FeedItem(
-        id: 'b008',
-        moduleId: 'B',
-        title: '竞品分析方法论',
-        category: '市场研究',
-        difficulty: 'Medium',
-        pages: [
-          OfficialPage(
-            '''
-# 竞品分析方法论
-
-知己知彼，百战不殆。
-
-### 分析维度
-1. **产品定位**：目标用户、核心价值
-2. **功能对比**：核心功能有哪些
-3. **交互体验**：操作流程、视觉设计
-4. **商业模式**：如何盈利
-5. **数据表现**：用户规模、增长趋势
-
-### SWOT 分析
-- Strengths：竞品优势
-- Weaknesses：竞品劣势
-- Opportunities：市场机会
-- Threats：潜在威胁
-
-基于分析结果制定差异化策略。
-            ''',
-            flashcardQuestion: '竞品分析的最终目的是什么？',
-            flashcardAnswer: '不是抄袭竞品，而是通过了解市场和对手，找到自己的差异化定位和突破点，制定更有效的产品策略。',
-          ),
-        ],
-      ),
-      FeedItem(
-        id: 'b009',
-        moduleId: 'B',
-        title: '优先级排序：RICE 模型',
-        category: '项目管理',
-        difficulty: 'Hard',
-        pages: [
-          OfficialPage(
-            '''
-# RICE 优先级模型
-
-面对一堆需求，如何决定先做哪个？
-
-### RICE 公式
-**Priority = (Reach × Impact × Confidence) / Effort**
-
-- **Reach**：影响多少用户？
-- **Impact**：影响程度如何？(3=巨大,2=高,1=中,0.5=低,0.25=最小)
-- **Confidence**：有多确定？(百分比)
-- **Effort**：需要多少人月？
-
-### 示例
-功能A: (1000 × 3 × 80%) / 2 = 1200
-功能B: (500 × 2 × 100%) / 0.5 = 2000
-→ 应该先做功能B
-
-优先做高分数的需求。
-            ''',
-            flashcardQuestion: 'RICE 模型中的 Confidence 代表什么？',
-            flashcardAnswer:
-                '对估算的信心程度。如果你对Reach和Impact的判断很确定，Confidence就高；如果只是猜测，Confidence就低。这避免了过度自信导致的错误决策。',
-          ),
-        ],
-      ),
-      FeedItem(
-        id: 'b010',
-        moduleId: 'B',
-        title: 'B端与C端产品的区别',
-        category: '产品类型',
-        difficulty: 'Medium',
-        pages: [
-          OfficialPage(
-            '''
-# B端与C端产品的区别
-
-不同类型的产品，方法论完全不同。
-
-### C端产品 (ToC)
-- **用户**：个人消费者
-- **决策链**：短，用户即决策者
-- **关注点**：体验、情感、病毒传播
-- **盈利**：广告、增值服务
-- **例子**：抖音、微信
-
-### B端产品 (ToB)
-- **用户**：企业/组织
-- **决策链**：长，涉及多方审批
-- **关注点**：效率、ROI、可定制性
-- **盈利**：订阅、License
-- **例子**：钉钉、Salesforce
-
-不同类型需要不同的PM技能组合。
-            ''',
-            flashcardQuestion: 'B端产品和C端产品最大的区别是什么？',
-            flashcardAnswer:
-                '决策路径和关注重点不同。B端产品的购买决策涉及多方（老板、财务、IT、用户），关注ROI和效率；C端产品用户即决策者，关注体验和情感满足。',
+                '因为它集成了 SRS (间隔重复系统)。普通的收藏夹是被动的仓库，而 Vault 会主动管理你的记忆周期，确保知识真正内化。',
           ),
         ],
       ),
     ];
 
-    // 硬核基础 (Module A) - 所有进阶内容
-    final hardcore = List.generate(20, (index) {
-      return FeedItem(
-        id: 'a${100 + index}',
-        moduleId: 'A',
-        title: '[硬核] AI产品经理进阶 #${index + 1}',
-        category: 'AI产品',
-        difficulty: index < 5 ? 'Easy' : (index < 15 ? 'Medium' : 'Hard'),
-        pages: [
-          OfficialPage(
-            '# AI产品经理进阶内容 #${index + 1}\n\n此处为硬核进阶内容占位。\n\n### 关键点\n1. AI技术理解\n2. 模型评估\n3. 数据标注\n4. 算法优化',
-            flashcardQuestion: 'AI产品经理需要关注哪些核心指标？',
-            flashcardAnswer: '模型准确率、响应时间、成本控制、用户满意度等。需要在技术性能和用户体验之间找到平衡。',
-          )
-        ],
-      );
-    });
-
-    return [...pmBasics, ...hardcore];
+    return [...starMethod, ...readoGuide];
   }
 }

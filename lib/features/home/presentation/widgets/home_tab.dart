@@ -17,6 +17,7 @@ class HomeTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isFeedLoading = ref.watch(feedLoadingProvider);
     final moduleState = ref.watch(moduleProvider);
+    ref.watch(authStateProvider); // Rebuild when auth state changes
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // 1. Loading State
@@ -226,28 +227,31 @@ class HomeTab extends ConsumerWidget {
                                       // Avatar
                                       GestureDetector(
                                         onTap: () => context.push('/profile'),
-                                        child: CircleAvatar(
-                                          radius: 18,
-                                          backgroundColor: isDark
-                                              ? Colors.grey[800]
-                                              : Colors.grey[200],
-                                          backgroundImage: FirebaseAuth.instance
-                                                      .currentUser?.photoURL !=
-                                                  null
-                                              ? NetworkImage(FirebaseAuth
-                                                  .instance
-                                                  .currentUser!
-                                                  .photoURL!)
-                                              : null,
-                                          child: FirebaseAuth.instance
-                                                      .currentUser?.photoURL ==
-                                                  null
-                                              ? Icon(Icons.person,
-                                                  size: 20,
-                                                  color: isDark
-                                                      ? Colors.white70
-                                                      : Colors.grey[600])
-                                              : null,
+                                        child: Builder(
+                                          builder: (context) {
+                                            final user = FirebaseAuth
+                                                .instance.currentUser;
+
+                                            ImageProvider? imageProvider;
+                                            // Strict Local Avatar Logic
+                                            if (user?.photoURL != null &&
+                                                user!.photoURL!
+                                                    .startsWith('assets/')) {
+                                              imageProvider =
+                                                  AssetImage(user.photoURL!);
+                                            } else {
+                                              // Default EVERYONE to avatar_1.png
+                                              imageProvider = const AssetImage(
+                                                  'assets/images/avatars/avatar_1.png');
+                                            }
+
+                                            return CircleAvatar(
+                                              radius: 18,
+                                              backgroundColor:
+                                                  Colors.transparent,
+                                              backgroundImage: imageProvider,
+                                            );
+                                          },
                                         ),
                                       ),
                                     ],

@@ -14,6 +14,7 @@ import '../providers/credit_provider.dart';
 import '../../features/profile/presentation/hidden_content_page.dart';
 import '../../features/profile/presentation/about_page.dart';
 import '../../features/search/presentation/search_results_page.dart';
+import '../../features/admin/presentation/admin_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -34,6 +35,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/admin',
+        builder: (context, state) => const AdminPage(),
+      ),
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingPage(),

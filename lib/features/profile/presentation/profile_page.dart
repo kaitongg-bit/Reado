@@ -343,6 +343,22 @@ class ProfilePage extends ConsumerWidget {
                   _SectionHeader(title: '设置', isDark: isDark),
                   const SizedBox(height: 16),
 
+                  if (FirebaseAuth.instance.currentUser?.email ==
+                      'kitatest@qq.com') ...[
+                    _GlassTile(
+                      icon: Icons.admin_panel_settings_outlined,
+                      title: 'Admin Console',
+                      subtitle: 'Content Management System',
+                      isDark: isDark,
+                      iconColor: Colors.deepOrange,
+                      textColor: Colors.deepOrange,
+                      onTap: () => context.push('/admin'),
+                      trailing: const Icon(Icons.chevron_right,
+                          size: 20, color: Colors.deepOrange),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
                   _GlassTile(
                     icon: isDark ? Icons.light_mode : Icons.dark_mode,
                     title: '外观',
@@ -433,15 +449,8 @@ class ProfilePage extends ConsumerWidget {
   }
 
   Widget _buildAvatarImage(String? url, String uid) {
-    if (url == null || url.isEmpty) {
-      return Image.asset(
-        'assets/images/avatars/avatar_1.png',
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => const Icon(Icons.person),
-      );
-    }
-
-    if (url.startsWith('assets/')) {
+    // Only accept local asset paths
+    if (url != null && url.startsWith('assets/')) {
       return Image.asset(
         url,
         fit: BoxFit.cover,
@@ -449,13 +458,11 @@ class ProfilePage extends ConsumerWidget {
       );
     }
 
-    return Image.network(
-      url,
+    // Default for everyone (including Google users)
+    return Image.asset(
+      'assets/images/avatars/avatar_1.png',
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => Container(
-        color: Colors.orangeAccent.withOpacity(0.1),
-        child: const Icon(Icons.person, size: 40, color: Colors.orangeAccent),
-      ),
+      errorBuilder: (context, error, stackTrace) => const Icon(Icons.person),
     );
   }
 }

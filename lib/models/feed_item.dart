@@ -23,11 +23,13 @@ class UserNotePage extends CardPageContent {
   final String question;
   final String answer;
   final DateTime createdAt;
+  final bool isReadOnly;
 
   UserNotePage({
     required this.question,
     required this.answer,
     required this.createdAt,
+    this.isReadOnly = false,
   }) : super(type: 'user_note');
 }
 
@@ -169,9 +171,24 @@ class FeedItem {
           pageList.add(UserNotePage(
             question: p['question'] ?? 'Q',
             answer: p['answer'] ?? 'A',
-            createdAt: p['createdAt'] != null
-                ? DateTime.parse(p['createdAt'])
-                : DateTime.now(),
+            createdAt: () {
+              final val = p['createdAt'];
+              if (val is String) {
+                try {
+                  return DateTime.parse(val);
+                } catch (_) {}
+              }
+              try {
+                return (val as dynamic).toDate();
+              } catch (_) {}
+              return DateTime.now();
+            }(),
+            isReadOnly: () {
+              final val = p['isReadOnly'];
+              if (val == true) return true;
+              if (val is String && val.toLowerCase() == 'true') return true;
+              return false;
+            }(),
           ));
         }
       }

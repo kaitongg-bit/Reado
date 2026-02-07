@@ -497,9 +497,9 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
   }
 
   // Seeding
-  Future<void> seedDatabase() async {
+  Future<void> seedDatabase({bool force = false}) async {
     print("Seeding DB...");
-    await _dataService.seedInitialData(MockData.initialFeedItems);
+    await _dataService.seedInitialData(MockData.initialFeedItems, force: force);
     await loadAllData();
     print("Done.");
   }
@@ -510,7 +510,12 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
   }
 }
 
+final authStateProvider = StreamProvider<User?>((ref) {
+  return FirebaseAuth.instance.authStateChanges();
+});
+
 final feedProvider = StateNotifierProvider<FeedNotifier, List<FeedItem>>((ref) {
+  ref.watch(authStateProvider); // Rebuild on login/logout
   final dataService = ref.watch(dataServiceProvider);
   return FeedNotifier(dataService, ref);
 });

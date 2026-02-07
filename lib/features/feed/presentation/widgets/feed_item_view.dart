@@ -592,23 +592,39 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
 
                   const Spacer(),
                   // Direct Action Buttons instead of Menu
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit,
-                            size: 20, color: Colors.grey),
-                        tooltip: '编辑笔记',
-                        onPressed: () => _handleEditNote(content),
+                  if (!content.isReadOnly)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit,
+                              size: 20, color: Colors.grey),
+                          tooltip: '编辑笔记',
+                          onPressed: () => _handleEditNote(content),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete,
+                              size: 20, color: Colors.redAccent),
+                          tooltip: '删除笔记',
+                          onPressed: () => _handleDeleteNote(content),
+                        ),
+                      ],
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete,
-                            size: 20, color: Colors.redAccent),
-                        tooltip: '删除笔记',
-                        onPressed: () => _handleDeleteNote(content),
-                      ),
-                    ],
-                  ),
+                      child: const Text('官方精选',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold)),
+                    ),
                 ],
               ),
               const SizedBox(height: 24),

@@ -18,9 +18,11 @@ abstract class DataService {
       String itemId, DateTime nextReview, int interval, double ease);
   Future<void> updateMasteryLevel(String itemId, String masteryLevel);
   Future<void> toggleFavorite(String itemId, bool isFavorited);
-  Future<void> seedInitialData(List<FeedItem> items); // For migration
+  Future<void> seedInitialData(List<FeedItem> items,
+      {bool force = false}); // For migration
   Future<void> saveCustomFeedItem(
       FeedItem item, String userId); // 保存AI生成的自定义知识点
+  Future<void> saveOfficialFeedItem(FeedItem item); // 管理员发布官方内容
   Future<List<KnowledgeModule>> fetchUserModules(String userId);
   Future<List<KnowledgeModule>> fetchAllUserModules(
       String userId); // Includes hidden ones
@@ -308,6 +310,18 @@ class FirestoreService implements DataService {
       print('✅ Saved AI Custom Item: ${item.id}');
     } catch (e) {
       print('❌ Error saving custom item: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> saveOfficialFeedItem(FeedItem item) async {
+    try {
+      print('👑 Admin: Publishing official item ${item.id}...');
+      await _feedRef.doc(item.id).set(item.toJson());
+      print('✅ Published successfully!');
+    } catch (e) {
+      print('❌ Error publishing item: $e');
       rethrow;
     }
   }
@@ -677,7 +691,9 @@ class FirestoreService implements DataService {
 
   // SEEDING (Crucial for Step 4)
   @override
-  Future<void> seedInitialData(List<FeedItem> items) async {
+  @override
+  Future<void> seedInitialData(List<FeedItem> items,
+      {bool force = false}) async {
     print('🌱 Start seeding check (timeout 10s)...');
     try {
       // Safety Check: Don't overwrite if data exists!
@@ -685,10 +701,14 @@ class FirestoreService implements DataService {
             const Duration(seconds: 10),
             onTimeout: () => throw Exception('检查数据库状态超时，请确认网络连接'),
           );
-      if (snapshot.docs.isNotEmpty) {
+      if (!force && snapshot.docs.isNotEmpty) {
         print(
             '⚠️ Database already has data. Skipping Seed to prevent overwrite.');
         return;
+      }
+
+      if (force) {
+        print('⚡️ Force seed enabled. Overwriting existing data...');
       }
 
       print('🚀 Database is empty. Seeding ${items.length} items...');

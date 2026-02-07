@@ -47,6 +47,7 @@ abstract class DataService {
   Future<void> unhideOfficialFeedItem(String userId, String itemId);
   Future<Set<String>> fetchHiddenModuleIds(String userId);
   Future<List<FeedItem>> fetchHiddenFeedItems(String userId);
+  Future<void> submitFeedback(String type, String content, String? contact);
 }
 
 class FirestoreService implements DataService {
@@ -939,6 +940,28 @@ class FirestoreService implements DataService {
     } catch (e) {
       print('Error fetching hidden feed items: $e');
       return [];
+    }
+  }
+
+  @override
+  Future<void> submitFeedback(
+      String type, String content, String? contact) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      await _db.collection('feedback').add({
+        'type': type,
+        'content': content,
+        'contact': contact,
+        'userId': user?.uid,
+        'userEmail': user?.email,
+        'createdAt': FieldValue.serverTimestamp(),
+        'platform': 'web',
+        'status': 'pending',
+      });
+      print('✅ Feedback submitted successfully');
+    } catch (e) {
+      print('❌ Error submitting feedback: $e');
+      rethrow;
     }
   }
 }

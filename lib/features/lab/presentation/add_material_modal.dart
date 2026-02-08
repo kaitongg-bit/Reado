@@ -7,6 +7,7 @@ import '../../../../data/services/content_extraction_service.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../providers/batch_import_provider.dart';
 import '../../../../core/providers/credit_provider.dart';
+import 'task_center_page.dart';
 
 class AddMaterialModal extends ConsumerStatefulWidget {
   final String? targetModuleId;
@@ -59,69 +60,29 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     try {
       setState(() {
         _isGenerating = true;
-        _generatedItems = [];
-        _error = null;
-        _streamingStatus = '开始分析内容...';
-        _totalCards = null;
-        _currentCardIndex = null;
+        _streamingStatus = '正在提交任务...';
       });
 
       final moduleId = widget.targetModuleId ?? 'custom';
-      final extraction =
-          ContentExtractionService.extractFromText(_textController.text);
 
-      await for (final event
-          in ContentExtractionService.generateKnowledgeCardsStream(
-        extraction,
+      // 扣除积分 (一次性扣除)
+      final canUse =
+          await ref.read(creditProvider.notifier).useAI(amount: credits);
+      if (!canUse) {
+        if (mounted) _showInsufficientCreditsDialog();
+        return;
+      }
+
+      // 🔥 Fire-and-Forget: 提交任务后立刻返回
+      await ContentExtractionService.submitJobAndForget(
+        text,
         moduleId: moduleId,
-        onChunkProcess: (credits) async {
-          // 每开始一个 chunk，扣除对应等级的积分
-          final canUse =
-              await ref.read(creditProvider.notifier).useAI(amount: credits);
-          if (!canUse) {
-            if (mounted) _showInsufficientCreditsDialog();
-            return false;
-          }
-          return true;
-        },
-      )) {
-        if (!mounted) return;
+      );
 
-        switch (event.type) {
-          case StreamingEventType.status:
-            setState(() {
-              _streamingStatus = event.statusMessage;
-            });
-            break;
-          case StreamingEventType.outline:
-            setState(() {
-              _totalCards = event.totalCards;
-              _streamingStatus = '发现 ${event.totalCards} 个知识点，开始生成...';
-            });
-            break;
-          case StreamingEventType.card:
-            setState(() {
-              _generatedItems = [..._generatedItems!, event.card!];
-              _currentCardIndex = event.currentIndex;
-              _streamingStatus =
-                  '已生成 ${event.currentIndex}/${event.totalCards}';
-            });
-            break;
-          case StreamingEventType.complete:
-            setState(() {
-              _isGenerating = false;
-              _totalCards = null; // 重置进度条
-              _streamingStatus = null;
-            });
-            break;
-          case StreamingEventType.error:
-            setState(() {
-              _error = event.error;
-              _isGenerating = false;
-              _streamingStatus = null;
-            });
-            break;
-        }
+      // 关闭弹窗并提示用户
+      if (mounted) {
+        Navigator.of(context).pop();
+        _showTaskSubmittedSnackbar(context);
       }
     } catch (e) {
       if (!mounted) return;
@@ -132,6 +93,37 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
         _streamingStatus = null;
       });
     }
+  }
+
+  /// 显示任务已提交的提示
+  void _showTaskSubmittedSnackbar(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text('任务已提交！AI 正在后台生成，完成后自动保存'),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green[700],
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: '查看进度',
+          textColor: Colors.white,
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const TaskCenterPage(),
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   /// 1. 仅选择文件，不解析
@@ -217,67 +209,29 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     try {
       setState(() {
         _isGenerating = true;
-        _generatedItems = [];
-        _error = null;
-        _streamingStatus = '开始联系 AI...';
-        _totalCards = null;
-        _currentCardIndex = null;
+        _streamingStatus = '正在提交任务...';
       });
 
       final moduleId = widget.targetModuleId ?? 'custom';
 
-      await for (final event
-          in ContentExtractionService.generateKnowledgeCardsStream(
-        _extractionResult!,
-        moduleId: moduleId,
-        onChunkProcess: (credits) async {
-          // 每开始一个 chunk，扣除对应等级的积分
-          final canUse =
-              await ref.read(creditProvider.notifier).useAI(amount: credits);
-          if (!canUse) {
-            if (mounted) _showInsufficientCreditsDialog();
-            return false;
-          }
-          return true;
-        },
-      )) {
-        if (!mounted) return;
+      // 扣除积分
+      final canUse =
+          await ref.read(creditProvider.notifier).useAI(amount: credits);
+      if (!canUse) {
+        if (mounted) _showInsufficientCreditsDialog();
+        return;
+      }
 
-        switch (event.type) {
-          case StreamingEventType.status:
-            setState(() {
-              _streamingStatus = event.statusMessage;
-            });
-            break;
-          case StreamingEventType.outline:
-            setState(() {
-              _totalCards = event.totalCards;
-              _streamingStatus = '发现 ${event.totalCards} 个知识点，开始生成...';
-            });
-            break;
-          case StreamingEventType.card:
-            setState(() {
-              _generatedItems = [..._generatedItems!, event.card!];
-              _currentCardIndex = event.currentIndex;
-              _streamingStatus =
-                  '已生成 ${event.currentIndex}/${event.totalCards}';
-            });
-            break;
-          case StreamingEventType.complete:
-            setState(() {
-              _isGenerating = false;
-              _totalCards = null; // 重置进度条
-              _streamingStatus = null;
-            });
-            break;
-          case StreamingEventType.error:
-            setState(() {
-              _error = event.error;
-              _isGenerating = false;
-              _streamingStatus = null;
-            });
-            break;
-        }
+      // 🔥 Fire-and-Forget: 提交任务后立刻返回
+      await ContentExtractionService.submitJobAndForget(
+        _extractionResult!.content,
+        moduleId: moduleId,
+      );
+
+      // 关闭弹窗并提示用户
+      if (mounted) {
+        Navigator.of(context).pop();
+        _showTaskSubmittedSnackbar(context);
       }
     } catch (e) {
       if (!mounted) return;

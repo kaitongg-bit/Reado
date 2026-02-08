@@ -8,6 +8,10 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:docx_to_text/docx_to_text.dart';
 import '../../models/feed_item.dart';
 import '../../config/api_config.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_core/firebase_core.dart';
 import '../../../core/services/proxy_http_client.dart';
 
 /// 内容来源类型
@@ -648,6 +652,263 @@ $chunkContent
   /// 检测是否为 YouTube 链接
   static bool _isYoutubeUrl(String url) {
     return url.contains('youtube.com') || url.contains('youtu.be');
+  }
+
+  /// 完全后台 AI 处理
+  ///
+  /// 工作流程：
+  /// 1. 创建任务文档到 Firestore
+  /// 2. 调用云函数启动处理（Fire-and-forget，不等待结果）
+  /// 3. 监听 Firestore 文档获取实时进度更新
+  /// 4. 即使关闭浏览器，任务也会在服务器端继续执行
+  /// 5. 重新打开时可以恢复查看进度
+  static Stream<StreamingGenerationEvent> startBackgroundJob(
+    String content, {
+    required String moduleId,
+  }) async* {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('未登录');
+
+    yield StreamingGenerationEvent.status('正在提交任务...');
+
+    // 使用 'reado' 数据库
+    final db = FirebaseFirestore.instanceFor(
+      app: Firebase.app(),
+      databaseId: 'reado',
+    );
+
+    try {
+      // 1. 创建任务文档
+      final docRef = db.collection('extraction_jobs').doc();
+      await docRef.set({
+        'userId': user.uid,
+        'content': content,
+        'moduleId': moduleId,
+        'status': 'pending',
+        'progress': 0.0,
+        'message': '等待服务器...',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      final jobId = docRef.id;
+      if (kDebugMode) print('📝 Created job: $jobId');
+
+      yield StreamingGenerationEvent.status('任务已提交，正在启动处理...');
+
+      // 2. 调用云函数启动处理 (Fire-and-forget，不等待返回)
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'processExtractionJob',
+        options: HttpsCallableOptions(
+          timeout: const Duration(minutes: 10),
+        ),
+      );
+
+      // 不 await 这个调用，让它在后台运行
+      callable.call({'jobId': jobId}).then((_) {
+        if (kDebugMode) print('✅ Cloud function completed for $jobId');
+      }).catchError((e) {
+        if (kDebugMode) print('⚠️ Cloud function error (may be handled): $e');
+      });
+
+      // 3. 监听 Firestore 获取实时更新
+      yield* _listenToJob(db, jobId);
+    } catch (e) {
+      yield StreamingGenerationEvent.error('启动任务失败: $e');
+    }
+  }
+
+  /// 🔥 提交任务后立即返回 (Fire-and-Forget)
+  ///
+  /// 用于用户点击生成后立刻关闭弹窗的场景
+  /// 返回 jobId，用户可以之后在任务中心查看进度
+  static Future<String> submitJobAndForget(
+    String content, {
+    required String moduleId,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('未登录');
+
+    // 使用 'reado' 数据库
+    final db = FirebaseFirestore.instanceFor(
+      app: Firebase.app(),
+      databaseId: 'reado',
+    );
+
+    // 1. 创建任务文档
+    final docRef = db.collection('extraction_jobs').doc();
+    await docRef.set({
+      'userId': user.uid,
+      'content': content,
+      'moduleId': moduleId,
+      'status': 'pending',
+      'progress': 0.0,
+      'message': '等待服务器...',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    final jobId = docRef.id;
+    if (kDebugMode) print('📝 Created job (fire-and-forget): $jobId');
+
+    // 2. 调用云函数启动处理 (Fire-and-forget)
+    final callable = FirebaseFunctions.instance.httpsCallable(
+      'processExtractionJob',
+      options: HttpsCallableOptions(
+        timeout: const Duration(minutes: 10),
+      ),
+    );
+
+    // 不 await，让它在后台运行
+    callable.call({'jobId': jobId}).then((_) {
+      if (kDebugMode) print('✅ Cloud function completed for $jobId');
+    }).catchError((e) {
+      if (kDebugMode) print('⚠️ Cloud function error (may be handled): $e');
+    });
+
+    return jobId;
+  }
+
+  /// 监听单个任务的进度
+  static Stream<StreamingGenerationEvent> _listenToJob(
+    FirebaseFirestore db,
+    String jobId,
+  ) async* {
+    final controller = StreamController<StreamingGenerationEvent>();
+    int yieldedCardsCount = 0;
+
+    final docRef = db.collection('extraction_jobs').doc(jobId);
+
+    final subscription = docRef.snapshots().listen((snapshot) {
+      if (!snapshot.exists) return;
+
+      final data = snapshot.data();
+      if (data == null) return;
+
+      final status = data['status'] as String?;
+      final message = data['message'] as String?;
+      final cardsData = data['cards'] as List<dynamic>? ?? [];
+      final totalCards = data['totalCards'] as int? ?? cardsData.length;
+
+      // 1. 发送状态消息
+      if (message != null) {
+        controller.add(StreamingGenerationEvent.status(message));
+      }
+
+      // 2. 发送大纲信息
+      if (data.containsKey('totalCards') &&
+          yieldedCardsCount == 0 &&
+          totalCards > 0) {
+        controller.add(StreamingGenerationEvent.outline(totalCards));
+      }
+
+      // 3. 发送新生成的卡片
+      if (cardsData.length > yieldedCardsCount) {
+        for (int i = yieldedCardsCount; i < cardsData.length; i++) {
+          try {
+            final cardMap = cardsData[i] as Map<String, dynamic>;
+            final item = _parseCardFromMap(cardMap);
+            controller
+                .add(StreamingGenerationEvent.card(item, i + 1, totalCards));
+          } catch (e) {
+            if (kDebugMode) print('Error parsing card: $e');
+          }
+        }
+        yieldedCardsCount = cardsData.length;
+      }
+
+      // 4. 检查是否完成或失败
+      if (status == 'completed') {
+        controller.add(StreamingGenerationEvent.complete());
+        controller.close();
+      } else if (status == 'failed') {
+        final error = data['error'] as String? ?? '未知错误';
+        controller.add(StreamingGenerationEvent.error(error));
+        controller.close();
+      }
+    }, onError: (e) {
+      controller.add(StreamingGenerationEvent.error('连接错误: $e'));
+      controller.close();
+    });
+
+    controller.onCancel = () {
+      subscription.cancel();
+    };
+
+    yield* controller.stream;
+  }
+
+  /// 从 Map 解析 FeedItem
+  static FeedItem _parseCardFromMap(Map<String, dynamic> cardMap) {
+    final pages = cardMap['pages'] as List<dynamic>?;
+    String pageContent = '';
+    String? flashQ, flashA;
+
+    if (pages != null && pages.isNotEmpty) {
+      final firstPage = pages[0] as Map<String, dynamic>;
+      pageContent = firstPage['content'] as String? ?? '';
+      flashQ = firstPage['flashcardQuestion'] as String?;
+      flashA = firstPage['flashcardAnswer'] as String?;
+    } else {
+      pageContent = cardMap['content'] as String? ?? '';
+      flashQ = (cardMap['flashcard'] as Map<String, dynamic>?)?['question']
+          as String?;
+      flashA =
+          (cardMap['flashcard'] as Map<String, dynamic>?)?['answer'] as String?;
+    }
+
+    return FeedItem(
+      id: cardMap['id'] as String,
+      moduleId: cardMap['moduleId'] as String,
+      title: cardMap['title'] as String,
+      category: cardMap['category'] as String? ?? 'AI Generated',
+      difficulty: cardMap['difficulty'] as String? ?? 'Medium',
+      readingTimeMinutes: 5,
+      isCustom: true,
+      pages: [
+        OfficialPage(
+          pageContent,
+          flashcardQuestion: flashQ,
+          flashcardAnswer: flashA,
+        )
+      ],
+    );
+  }
+
+  /// 检查是否有未完成的任务（用户重新打开应用时调用）
+  static Future<String?> checkPendingJob() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+
+    final db = FirebaseFirestore.instanceFor(
+      app: Firebase.app(),
+      databaseId: 'reado',
+    );
+
+    try {
+      final snapshot = await db
+          .collection('extraction_jobs')
+          .where('userId', isEqualTo: user.uid)
+          .where('status', whereIn: ['pending', 'processing'])
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        return snapshot.docs.first.id;
+      }
+    } catch (e) {
+      if (kDebugMode) print('Error checking pending jobs: $e');
+    }
+    return null;
+  }
+
+  /// 恢复监听已有的任务
+  static Stream<StreamingGenerationEvent> resumeJob(String jobId) async* {
+    final db = FirebaseFirestore.instanceFor(
+      app: Firebase.app(),
+      databaseId: 'reado',
+    );
+
+    yield* _listenToJob(db, jobId);
   }
 
   /// 从 YouTube 提取内容 (视频信息 + 字幕)

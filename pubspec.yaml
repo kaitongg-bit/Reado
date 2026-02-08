@@ -27,6 +27,7 @@ dependencies:
   flutter_dotenv: ^6.0.0
   docx_to_text: ^1.0.1
   flutter_svg: ^2.2.3
+  cloud_functions: ^6.0.6
 
 
 

@@ -4,6 +4,7 @@ import '../../features/feed/presentation/feed_page.dart';
 import '../../features/explore/presentation/explore_page.dart';
 import '../../features/home/presentation/home_page.dart';
 import '../../features/lab/presentation/lab_page.dart';
+import '../../features/lab/presentation/task_center_page.dart';
 import '../../features/war_room/presentation/war_room_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 import '../../features/home/presentation/module_detail_page.dart';
@@ -65,6 +66,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/lab',
         builder: (context, state) => const LabPage(),
+      ),
+      GoRoute(
+        path: '/task-center',
+        builder: (context, state) => const TaskCenterPage(),
       ),
       GoRoute(
         path: '/war-room',

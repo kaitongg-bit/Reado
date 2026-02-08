@@ -7,6 +7,7 @@ import '../../../../models/feed_item.dart';
 import '../module_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/providers/credit_provider.dart';
+import '../../../lab/presentation/task_center_page.dart';
 
 class HomeTab extends ConsumerWidget {
   final Function(String moduleId)? onLoadModule; // 加载模块的回调
@@ -178,7 +179,7 @@ class HomeTab extends ConsumerWidget {
                                     ),
                                   ),
                                   const SizedBox(width: 16),
-                                  // Right Area: Credits & Avatar
+                                  // Right Area: Credits, Tasks & Avatar
                                   Row(
                                     children: [
                                       // Credits
@@ -223,7 +224,80 @@ class HomeTab extends ConsumerWidget {
                                           );
                                         },
                                       ),
-                                      const SizedBox(width: 12),
+                                      const SizedBox(width: 8),
+                                      // Task Center Button with Badge
+                                      Consumer(
+                                        builder: (context, ref, child) {
+                                          final activeCount = ref
+                                              .watch(activeTaskCountProvider);
+                                          return GestureDetector(
+                                            onTap: () =>
+                                                context.push('/task-center'),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(6),
+                                              decoration: BoxDecoration(
+                                                color: activeCount > 0
+                                                    ? const Color(0xFF2196F3)
+                                                        .withOpacity(0.1)
+                                                    : (isDark
+                                                        ? Colors.white
+                                                            .withOpacity(0.05)
+                                                        : Colors.black
+                                                            .withOpacity(0.05)),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child: Stack(
+                                                clipBehavior: Clip.none,
+                                                children: [
+                                                  Icon(
+                                                    activeCount > 0
+                                                        ? Icons.sync
+                                                        : Icons.task_alt,
+                                                    size: 20,
+                                                    color: activeCount > 0
+                                                        ? const Color(
+                                                            0xFF2196F3)
+                                                        : (isDark
+                                                            ? Colors.white54
+                                                            : Colors.black54),
+                                                  ),
+                                                  if (activeCount > 0)
+                                                    Positioned(
+                                                      right: -6,
+                                                      top: -6,
+                                                      child: Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .all(4),
+                                                        decoration:
+                                                            const BoxDecoration(
+                                                          color:
+                                                              Color(0xFF2196F3),
+                                                          shape:
+                                                              BoxShape.circle,
+                                                        ),
+                                                        child: Text(
+                                                          activeCount > 9
+                                                              ? '9+'
+                                                              : '$activeCount',
+                                                          style:
+                                                              const TextStyle(
+                                                            color: Colors.white,
+                                                            fontSize: 9,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(width: 8),
                                       // Avatar
                                       GestureDetector(
                                         onTap: () => context.push('/profile'),

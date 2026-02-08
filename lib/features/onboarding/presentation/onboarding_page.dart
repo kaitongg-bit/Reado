@@ -41,6 +41,11 @@ class _OnboardingPageState extends State<OnboardingPage>
 
     _controller.forward();
 
+    // 检查是否有重定向回调（Web 端）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _authService.checkRedirectResult();
+    });
+
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (user != null && mounted) {
         context.go('/');

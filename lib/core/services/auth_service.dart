@@ -102,10 +102,19 @@ class AuthService {
         GoogleAuthProvider googleProvider = GoogleAuthProvider();
         googleProvider.addScope('email');
         googleProvider.addScope('profile');
+        googleProvider.setCustomParameters({
+          'prompt': 'select_account',
+        });
 
-        final credential = await _auth.signInWithPopup(googleProvider);
-        debugPrint('✅ Google 登录成功: ${credential.user?.email}');
-        return credential;
+        try {
+          final credential = await _auth.signInWithPopup(googleProvider);
+          debugPrint('✅ Google 登录成功: ${credential.user?.email}');
+          return credential;
+        } catch (e) {
+          debugPrint('⚠️ Popup 登录被拦截或失败 ($e)，尝试 Redirect 模式...');
+          await _auth.signInWithRedirect(googleProvider);
+          return null;
+        }
       }
       // 移动平台
       else {
@@ -139,6 +148,19 @@ class AuthService {
     }
   }
 
+  /// 检查重定向登录结果 (仅 Web)
+  Future<void> checkRedirectResult() async {
+    if (!kIsWeb) return;
+    try {
+      final credential = await _auth.getRedirectResult();
+      if (credential.user != null) {
+        debugPrint('✅ 通过 Redirect 恢复登录成功: ${credential.user?.email}');
+      }
+    } catch (e) {
+      debugPrint('ℹ️ Redirect 检查结束 (无重定向或失败): $e');
+    }
+  }
+
   /// 升级匿名账号为 Google 账号
   Future<UserCredential?> linkAnonymousWithGoogle() async {
     try {
@@ -151,9 +173,15 @@ class AuthService {
       // Web 平台
       if (kIsWeb) {
         GoogleAuthProvider googleProvider = GoogleAuthProvider();
-        final credential = await currentUser!.linkWithPopup(googleProvider);
-        debugPrint('✅ 升级成功: ${credential.user?.email}');
-        return credential;
+        try {
+          final credential = await currentUser!.linkWithPopup(googleProvider);
+          debugPrint('✅ 升级成功: ${credential.user?.email}');
+          return credential;
+        } catch (e) {
+          debugPrint('⚠️ Popup 升级失败 ($e)，尝试 Redirect...');
+          await currentUser!.linkWithRedirect(googleProvider);
+          return null;
+        }
       }
       // 移动平台
       else {

@@ -711,7 +711,7 @@ $chunkContent
       });
 
       // 3. 监听 Firestore 获取实时更新
-      yield* _listenToJob(db, jobId);
+      yield* listenToJob(db, jobId);
     } catch (e) {
       yield StreamingGenerationEvent.error('启动任务失败: $e');
     }
@@ -768,7 +768,7 @@ $chunkContent
   }
 
   /// 监听单个任务的进度
-  static Stream<StreamingGenerationEvent> _listenToJob(
+  static Stream<StreamingGenerationEvent> listenToJob(
     FirebaseFirestore db,
     String jobId,
   ) async* {
@@ -908,7 +908,7 @@ $chunkContent
       databaseId: 'reado',
     );
 
-    yield* _listenToJob(db, jobId);
+    yield* listenToJob(db, jobId);
   }
 
   /// 从 YouTube 提取内容 (视频信息 + 字幕)

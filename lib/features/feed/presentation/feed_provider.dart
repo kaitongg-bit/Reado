@@ -214,7 +214,15 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
 
       // 3. 合并所有内容
       _allItems = [...officialItems, ...customItems];
-      print('📊 总计: ${_allItems.length} 个知识点');
+
+      // 4. 排序：按时间倒序 (新生成的在前)
+      _allItems.sort((a, b) {
+        final dateA = a.createdAt ?? DateTime(1970);
+        final dateB = b.createdAt ?? DateTime(1970);
+        return dateB.compareTo(dateA); // 降序
+      });
+
+      print('📊 总计: ${_allItems.length} 个知识点 (已按时间排序)');
 
       // 🔔 关键修复：强制更新 state 以通知 allItemsProvider
       // 即使 state 内容不变，重新赋值也会触发 notifyListeners

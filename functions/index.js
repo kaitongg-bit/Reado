@@ -121,6 +121,7 @@ exports.processExtractionJob = functions
 
             const content = jobData.content;
             const moduleId = jobData.moduleId || 'custom';
+            console.log(`📦 Job moduleId: ${moduleId}`);
 
             if (!content || content.length === 0) {
                 await jobRef.update({ status: 'failed', error: '内容为空' });
@@ -143,7 +144,7 @@ exports.processExtractionJob = functions
 
             const genAI = new GoogleGenerativeAI(apiKey);
             const model = genAI.getGenerativeModel({
-                model: "gemini-2.0-flash",
+                model: "gemini-2.5-flash",
                 generationConfig: { responseMimeType: "application/json" }
             });
 
@@ -230,38 +231,56 @@ ${content.substring(0, 30000)}
 }
 `;
 
-                try {
-                    const cardResult = await model.generateContent(cardPrompt);
-                    const cardText = cardResult.response.text();
-                    let cleanCard = cardText.replace(/```json|```/g, '').trim();
-                    const cardJson = JSON.parse(cleanCard);
+                let cardJson = null;
+                let retries = 2; // 最多重试2次
 
-                    // Add metadata
-                    cardJson.id = `custom_${Date.now()}_${i}`;
-                    cardJson.moduleId = moduleId;
-                    cardJson.isCustom = true;
-                    cardJson.readingTimeMinutes = 5;
+                while (retries >= 0 && !cardJson) {
+                    try {
+                        const cardResult = await model.generateContent(cardPrompt);
+                        const cardText = cardResult.response.text();
 
-                    // 格式化 pages 结构
-                    cardJson.pages = [{
-                        type: 'official',
-                        content: cardJson.content,
-                        flashcardQuestion: cardJson.flashcard?.question,
-                        flashcardAnswer: cardJson.flashcard?.answer
-                    }];
+                        // 更鲁棒的 JSON 提取：尝试匹配第一个 { 和最后一个 }
+                        const jsonMatch = cardText.match(/\{[\s\S]*\}/);
+                        if (!jsonMatch) {
+                            throw new Error('No JSON object found in response');
+                        }
 
-                    cards.push(cardJson);
+                        const cleanCard = jsonMatch[0].trim();
+                        cardJson = JSON.parse(cleanCard);
 
-                    // 实时保存已生成的卡片到 Firestore
-                    await jobRef.update({
-                        cards: cards,
-                        progress: 0.2 + (0.7 * ((i + 1) / topics.length)),
-                        message: `已生成 ${i + 1}/${topics.length} 个知识点`
-                    });
+                        // Add metadata
+                        cardJson.id = `custom_${Date.now()}_${i}`;
+                        cardJson.module = moduleId;
+                        cardJson.isCustom = true;
+                        cardJson.readingTimeMinutes = 5;
 
-                } catch (err) {
-                    console.error(`❌ Error generating card ${i}:`, err);
-                    // Continue to next card
+                        // 格式化 pages 结构
+                        cardJson.pages = [{
+                            type: 'text',
+                            markdownContent: cardJson.content || cardJson.markdownContent || 'No content generated',
+                            flashcardQuestion: cardJson.flashcard?.question,
+                            flashcardAnswer: cardJson.flashcard?.answer
+                        }];
+
+                        cards.push(cardJson);
+
+                        // 实时保存已生成的卡片到 Firestore
+                        await jobRef.update({
+                            cards: cards,
+                            progress: 0.2 + (0.7 * ((i + 1) / topics.length)),
+                            message: `已生成 ${i + 1}/${topics.length} 个知识点`
+                        });
+
+                    } catch (err) {
+                        console.error(`⚠️ Attempt failing to generate card ${i} (Retries left: ${retries}):`, err);
+                        retries--;
+                        if (retries < 0) {
+                            console.error(`❌ Permanently failed to generate card ${i}:`, topics[i]);
+                        } else {
+                            // 稍微等待一下再重试
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+                    }
                 }
             }
 
@@ -274,36 +293,43 @@ ${content.substring(0, 30000)}
                 completedAt: admin.firestore.FieldValue.serverTimestamp()
             });
 
-            // 6. 🔥 自动保存到用户的 custom_items (不需要用户点确认)
-            // 这样用户回来就能直接在 Feed 里看到生成的内容
-            console.log(`💾 Auto-saving ${cards.length} cards to user's custom_items...`);
+            // 6. 🔥 自动保存到用户的 custom_items
+            console.log(`💾 Auto-saving ${cards.length} cards to user ${userId}, moduleId: ${moduleId}`);
 
-            const userItemsRef = db.collection('users').doc(userId).collection('custom_items');
+            // 确保用户文档存在（有些新账号可能没有用户文档）
+            const userRef = db.collection('users').doc(userId);
+            await userRef.set({ lastActive: new Date() }, { merge: true });
+
+            const userItemsRef = userRef.collection('custom_items');
             const batch = db.batch();
 
             for (const card of cards) {
                 const cardDoc = userItemsRef.doc(card.id);
-                batch.set(cardDoc, {
+                const cardToSave = {
                     ...card,
-                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                    autoSaved: true,  // 标记为自动保存
-                    sourceJobId: jobId  // 记录来源任务
-                });
+                    module: moduleId, // 对应前端 FeedItem.fromJson 中的 'module'
+                    createdAt: new Date(), // 使用 JS Date 避免引用问题
+                    autoSaved: true,
+                    sourceJobId: jobId
+                };
+                console.log(`📝 Preparing card ${card.id} for module ${moduleId}`);
+                batch.set(cardDoc, cardToSave);
             }
 
             await batch.commit();
-            console.log(`✅ Auto-saved ${cards.length} cards to user's account`);
+            console.log(`✅ Successfully auto-saved ${cards.length} cards to users/${userId}/custom_items`);
 
-            // 更新任务状态，标记已自动保存
+            // 更新任务状态
             await jobRef.update({
                 autoSaved: true,
-                savedCount: cards.length
+                savedCount: cards.length,
+                status: 'completed',
+                progress: 1.0,
+                message: cards.length === topics.length ? '全部完成！' : `完成（解析出 ${cards.length}/${topics.length} 个知识点）`,
+                completedAt: new Date()
             });
 
-            console.log(`✅ Job ${jobId} completed with ${cards.length} cards (auto-saved)`);
-
-            // 返回成功
-            return { success: true, jobId: jobId, autoSaved: true };
+            return { success: true, jobId: jobId, autoSaved: true, cardCount: cards.length };
 
         } catch (error) {
             console.error(`❌ Job ${jobId} failed:`, error);

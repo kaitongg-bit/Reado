@@ -5,6 +5,8 @@ import '../../../data/services/content_extraction_service.dart';
 import '../../../models/feed_item.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../../core/providers/credit_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 enum BatchType { url, file, text }
 
@@ -25,6 +27,7 @@ class BatchItem {
   final List<FeedItem>? resultItems;
 
   final BatchProcessingMode processingMode;
+  final ExtractionResult? extractionResult;
 
   BatchItem({
     required this.id,
@@ -38,6 +41,7 @@ class BatchItem {
     this.errorMessage,
     this.resultItems,
     this.processingMode = BatchProcessingMode.ai,
+    this.extractionResult,
   });
 
   BatchItem copyWith({
@@ -47,6 +51,7 @@ class BatchItem {
     String? errorMessage,
     List<FeedItem>? resultItems,
     BatchProcessingMode? processingMode,
+    ExtractionResult? extractionResult,
   }) {
     return BatchItem(
       id: id,
@@ -60,6 +65,7 @@ class BatchItem {
       errorMessage: errorMessage ?? this.errorMessage,
       resultItems: resultItems ?? this.resultItems,
       processingMode: processingMode ?? this.processingMode,
+      extractionResult: extractionResult ?? this.extractionResult,
     );
   }
 }
@@ -114,17 +120,63 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
     _updateGlobalProgress();
   }
 
-  void addItem(BatchType type, dynamic content, String title,
-      {BatchProcessingMode mode = BatchProcessingMode.ai}) {
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
-    addToQueue(BatchItem(
+  Future<void> addItem(BatchType type, dynamic content, String title,
+      {BatchProcessingMode mode = BatchProcessingMode.ai}) async {
+    final id =
+        '${DateTime.now().millisecondsSinceEpoch}_${(title.hashCode % 1000)}';
+
+    // 立即加入队列，状态为待解析
+    final initialItem = BatchItem(
       id: id,
       type: type,
       title: title,
       content: content,
       stringContent: title,
       processingMode: mode,
-    ));
+      status: BatchStatus.extracting,
+      statusMessage: '准备中...',
+    );
+
+    addToQueue(initialItem);
+
+    // 异步提取内容 (不阻塞 UI)
+    _extractItemContent(initialItem);
+  }
+
+  Future<void> _extractItemContent(BatchItem item) async {
+    try {
+      ExtractionResult? extraction;
+      switch (item.type) {
+        case BatchType.url:
+          extraction =
+              await ContentExtractionService.extractFromUrl(item.content);
+          break;
+        case BatchType.text:
+          extraction = ContentExtractionService.extractFromText(item.content,
+              title: item.title);
+          break;
+        case BatchType.file:
+          extraction = await ContentExtractionService.extractContentFromFile(
+              item.content,
+              filename: item.title);
+          break;
+      }
+
+      state = state.copyWith(
+        queue: state.queue.map((i) {
+          if (i.id == item.id) {
+            return i.copyWith(
+              status: BatchStatus.pending,
+              statusMessage: '等待中 (${extraction!.content.length} 字)',
+              extractionResult: extraction,
+            );
+          }
+          return i;
+        }).toList(),
+      );
+    } catch (e) {
+      _updateItemStatus(item.id, BatchStatus.error, '解析失败: $e', 0.0);
+    }
   }
 
   Future<void> startProcessing(String targetModuleId) async {
@@ -153,26 +205,27 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
   }
 
   Future<void> _processItem(BatchItem item, String moduleId) async {
-    _updateItemStatus(item.id, BatchStatus.extracting, '正在提取内容...', 0.1);
-
     try {
-      ExtractionResult? extraction;
+      ExtractionResult? extraction = item.extractionResult;
 
-      // 1. Extraction
-      switch (item.type) {
-        case BatchType.url:
-          extraction =
-              await ContentExtractionService.extractFromUrl(item.content);
-          break;
-        case BatchType.text:
-          extraction = ContentExtractionService.extractFromText(item.content,
-              title: item.title);
-          break;
-        case BatchType.file:
-          extraction = await ContentExtractionService.extractContentFromFile(
-              item.content,
-              filename: item.title);
-          break;
+      // 1. Extraction (If not already extracted)
+      if (extraction == null) {
+        _updateItemStatus(item.id, BatchStatus.extracting, '正在提取内容...', 0.1);
+        switch (item.type) {
+          case BatchType.url:
+            extraction =
+                await ContentExtractionService.extractFromUrl(item.content);
+            break;
+          case BatchType.text:
+            extraction = ContentExtractionService.extractFromText(item.content,
+                title: item.title);
+            break;
+          case BatchType.file:
+            extraction = await ContentExtractionService.extractContentFromFile(
+                item.content,
+                filename: item.title);
+            break;
+        }
       }
 
       List<FeedItem> generatedItems = [];
@@ -202,38 +255,43 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
         }
         ref.read(feedProvider.notifier).addCustomItems([feedItem]);
       } else {
-        // AI Generation
-        // 2. Generation (Streaming)
-        _updateItemStatus(item.id, BatchStatus.generating, 'AI 正在分析...', 0.3);
+        // AI Generation via Cloud Functions
+        _updateItemStatus(item.id, BatchStatus.generating, '正在提交任务...', 0.1);
+
+        // 1. 计算所需积分
+        final int credits = ContentExtractionService.calculateRequiredCredits(
+            extraction.content.length);
+
+        // 2. 扣除积分
+        final canUse =
+            await ref.read(creditProvider.notifier).useAI(amount: credits);
+        if (!canUse) {
+          throw Exception('积分不足，无法开始 AI 处理');
+        }
+
+        // 3. 提交任务到云函数 (Fire-and-Forget)
+        final String jobId = await ContentExtractionService.submitJobAndForget(
+          extraction.content,
+          moduleId: moduleId,
+        );
+
+        // 4. 监听 Firestore 获取实时进度
+        _updateItemStatus(item.id, BatchStatus.generating, 'AI 处理中...', 0.2);
+
+        final db = FirebaseFirestore.instanceFor(
+          app: Firebase.app(),
+          databaseId: 'reado',
+        );
 
         await for (final event
-            in ContentExtractionService.generateKnowledgeCardsStream(
-          extraction,
-          moduleId: moduleId,
-          onChunkProcess: (credits) async {
-            // 每开始一个 chunk，扣除对应等级的积分
-            final canUse =
-                await ref.read(creditProvider.notifier).useAI(amount: credits);
-            // 批量处理中如果不满足积分，将直接返回 false 中断流处理
-            return canUse;
-          },
-        )) {
-          if (event.type == StreamingEventType.outline) {
-            // just outline
-          } else if (event.type == StreamingEventType.status) {
+            in ContentExtractionService.listenToJob(db, jobId)) {
+          if (event.type == StreamingEventType.status) {
             _updateItemStatus(item.id, BatchStatus.generating,
                 event.statusMessage ?? '', 0.4);
           } else if (event.type == StreamingEventType.card) {
             if (event.card != null) {
               generatedItems.add(event.card!);
-              // Save to DB immediately
-              final user = FirebaseAuth.instance.currentUser;
-              if (user != null) {
-                await ref
-                    .read(dataServiceProvider)
-                    .saveCustomFeedItem(event.card!, user.uid);
-              }
-              // Update UI
+              // 卡片已由云函数存入 Firestore，此处仅同步 UI 状态
               ref.read(feedProvider.notifier).addCustomItems([event.card!]);
 
               final progress = 0.4 +
@@ -244,6 +302,8 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
                   '已生成 ${event.currentIndex}/${event.totalCards}',
                   progress.clamp(0.0, 0.99));
             }
+          } else if (event.type == StreamingEventType.complete) {
+            break;
           } else if (event.type == StreamingEventType.error) {
             throw Exception(event.error);
           }
@@ -272,7 +332,7 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
             return i.copyWith(
               status: BatchStatus.error,
               errorMessage: e.toString(),
-              statusMessage: '失败',
+              statusMessage: '失败: ${e.toString().split('\n').first}',
               progress: 0.0,
             );
           }

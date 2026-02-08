@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../models/feed_item.dart';
 import '../../../../data/services/content_extraction_service.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../providers/batch_import_provider.dart';
 import '../../../../core/providers/credit_provider.dart';
-import 'task_center_page.dart';
+import '../../../../core/router/router_provider.dart';
 
 class AddMaterialModal extends ConsumerStatefulWidget {
   final String? targetModuleId;
@@ -64,6 +65,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       });
 
       final moduleId = widget.targetModuleId ?? 'custom';
+      print(
+          '📦 Starting generation with moduleId: $moduleId (targetModuleId: ${widget.targetModuleId})');
 
       // 扣除积分 (一次性扣除)
       final canUse =
@@ -115,11 +118,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
           label: '查看进度',
           textColor: Colors.white,
           onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const TaskCenterPage(),
-              ),
-            );
+            // 使用 routerProvider 确保即使 Context 可能失活也能跳转
+            try {
+              ref.read(routerProvider).push('/task-center');
+            } catch (e) {
+              context.push('/task-center');
+            }
           },
         ),
       ),

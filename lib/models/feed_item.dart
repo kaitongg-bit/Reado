@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 /// 页面基类
 abstract class CardPageContent {
   final String type; // 'text', 'image', 'user_note'
@@ -68,6 +70,9 @@ class FeedItem {
   // 是否为自定义内容
   final bool isCustom;
 
+  // 创建时间 (用于排序)
+  final DateTime? createdAt;
+
   // Getters for compatibility
   String get module => moduleId; // Alias
 
@@ -85,6 +90,7 @@ class FeedItem {
     this.masteryLevel = FeedItemMastery.unknown,
     this.isFavorited = false,
     this.isCustom = false,
+    this.createdAt,
   });
 
   /// CopyWith
@@ -115,8 +121,8 @@ class FeedItem {
       easeFactor: easeFactor ?? this.easeFactor,
       masteryLevel: masteryLevel ?? this.masteryLevel,
       isFavorited: isFavorited ?? this.isFavorited,
-      isCustom: this
-          .isCustom, // Copy original value, usually not changed via copyWith
+      isCustom: this.isCustom,
+      createdAt: this.createdAt,
     );
   }
 
@@ -135,6 +141,7 @@ class FeedItem {
       'masteryLevel': masteryLevel.name,
       'isFavorited': isFavorited,
       'isCustom': isCustom,
+      'createdAt': createdAt?.toIso8601String(),
       'pages': pages.map((p) {
         if (p is OfficialPage) {
           return {
@@ -219,6 +226,18 @@ class FeedItem {
       masteryLevel: mastery,
       isFavorited: json['isFavorited'] ?? false,
       isCustom: json['isCustom'] ?? false,
+      createdAt: () {
+        final val = json['createdAt'];
+        if (val is String) {
+          try {
+            return DateTime.parse(val);
+          } catch (_) {}
+        }
+        if (val is Timestamp) {
+          return val.toDate();
+        }
+        return null;
+      }(),
     );
   }
 }

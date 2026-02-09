@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../../models/feed_item.dart';
 import '../../../core/providers/credit_provider.dart';
+import '../../../core/providers/adhd_provider.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -376,6 +377,9 @@ class ProfilePage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
 
+                  _buildAdhdSettings(context, ref, isDark),
+                  const SizedBox(height: 12),
+
                   _GlassTile(
                     icon: Icons.visibility_off_outlined,
                     title: '隐藏的内容',
@@ -456,6 +460,157 @@ class ProfilePage extends ConsumerWidget {
               style: const TextStyle(
                   fontWeight: FontWeight.bold, color: Colors.green)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAdhdSettings(BuildContext context, WidgetRef ref, bool isDark) {
+    final adhdSettings = ref.watch(adhdSettingsProvider);
+    final notifier = ref.read(adhdSettingsProvider.notifier);
+
+    return Column(
+      children: [
+        _GlassTile(
+          icon: Icons.psychology_outlined,
+          title: '阅读辅助 (ADHD Focus)',
+          subtitle: adhdSettings.isEnabled ? '已开启三色随机引导' : '未开启',
+          isDark: isDark,
+          trailing: Switch(
+            value: adhdSettings.isEnabled,
+            activeColor: Colors.orangeAccent,
+            onChanged: (val) => notifier.setEnabled(val),
+          ),
+        ),
+        if (adhdSettings.isEnabled) ...[
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withOpacity(0.05)
+                      : Colors.white.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                      color: isDark
+                          ? Colors.white.withOpacity(0.1)
+                          : Colors.white.withOpacity(0.5)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('辅助模式',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color:
+                                isDark ? Colors.grey[400] : Colors.grey[700])),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _buildModeChip(ref, '标色', AdhdReadingMode.color,
+                            adhdSettings.mode, isDark),
+                        const SizedBox(width: 8),
+                        _buildModeChip(ref, '加粗', AdhdReadingMode.bold,
+                            adhdSettings.mode, isDark),
+                        const SizedBox(width: 8),
+                        _buildModeChip(ref, '混合', AdhdReadingMode.hybrid,
+                            adhdSettings.mode, isDark),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Text('引导强度',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color:
+                                isDark ? Colors.grey[400] : Colors.grey[700])),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: AdhdIntensity.values.map((intensity) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _buildIntensityChip(ref, intensity.label,
+                              intensity, adhdSettings.intensity, isDark),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    Text('💡 采用动态随机算法，在文中分布三色视觉锚点，防止视线漂移。',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color:
+                                isDark ? Colors.grey[500] : Colors.grey[600])),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildIntensityChip(WidgetRef ref, String label,
+      AdhdIntensity intensity, AdhdIntensity current, bool isDark) {
+    final isSelected = intensity == current;
+    return GestureDetector(
+      onTap: () =>
+          ref.read(adhdSettingsProvider.notifier).setIntensity(intensity),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.orangeAccent.withOpacity(0.2)
+              : (isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? Colors.orangeAccent : Colors.transparent,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected
+                ? Colors.orangeAccent
+                : (isDark ? Colors.white70 : Colors.black54),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeChip(WidgetRef ref, String label, AdhdReadingMode mode,
+      AdhdReadingMode current, bool isDark) {
+    final isSelected = mode == current;
+    return GestureDetector(
+      onTap: () => ref.read(adhdSettingsProvider.notifier).setMode(mode),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.orangeAccent.withOpacity(0.2)
+              : (isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? Colors.orangeAccent : Colors.transparent,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected
+                ? Colors.orangeAccent
+                : (isDark ? Colors.white70 : Colors.black54),
+          ),
+        ),
       ),
     );
   }

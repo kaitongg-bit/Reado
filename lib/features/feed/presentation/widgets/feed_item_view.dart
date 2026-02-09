@@ -1,10 +1,13 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:markdown/markdown.dart' as md;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../models/feed_item.dart';
 import '../feed_provider.dart';
+import '../../../../core/providers/adhd_provider.dart';
+import '../../../../core/providers/adhd_text_transformer.dart';
 
 class FeedItemView extends ConsumerStatefulWidget {
   final FeedItem feedItem;
@@ -461,6 +464,11 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                                     : Colors.grey[200],
                               ),
                             ),
+                            builders: {
+                              'p': AdhdMarkdownParagraphBuilder(
+                                adhdSettings: ref.watch(adhdSettingsProvider),
+                              ),
+                            },
                           ),
                         ),
                         const SizedBox(height: 48),
@@ -687,6 +695,11 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                               fontFamily: 'JinghuaSong',
                               fontStyle: FontStyle.italic),
                         ),
+                        builders: {
+                          'p': AdhdMarkdownParagraphBuilder(
+                            adhdSettings: ref.watch(adhdSettingsProvider),
+                          ),
+                        },
                       ),
                       const SizedBox(height: 48),
                       // "Swipe Left to Return" Hint
@@ -748,6 +761,28 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
             ]),
         alignment: Alignment.center,
         child: customChild ?? Icon(icon, color: color, size: 24),
+      ),
+    );
+  }
+}
+
+/// ADHD 专用 Markdown 段落构建器
+class AdhdMarkdownParagraphBuilder extends MarkdownElementBuilder {
+  final AdhdSettings adhdSettings;
+
+  AdhdMarkdownParagraphBuilder({required this.adhdSettings});
+
+  @override
+  Widget? visitText(md.Text text, TextStyle? preferredStyle) {
+    if (!adhdSettings.isEnabled || preferredStyle == null) return null;
+
+    return RichText(
+      text: TextSpan(
+        children: AdhdTextTransformer.transform(
+          text.text,
+          preferredStyle,
+          adhdSettings,
+        ),
       ),
     );
   }

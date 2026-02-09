@@ -253,6 +253,9 @@ ${content.substring(0, 30000)}
                         cardJson.module = moduleId;
                         cardJson.isCustom = true;
                         cardJson.readingTimeMinutes = 5;
+                        // 递增时间戳：i=0 是最旧的，i=N 是最新的
+                        // 配合前端 ASC 排序，知识点会按 1, 2, 3... 的顺序从上到下依次追加到末尾
+                        cardJson.createdAt = new Date(Date.now() + i * 1000).toISOString();
 
                         // 格式化 pages 结构
                         cardJson.pages = [{

@@ -1,8 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../models/feed_item.dart';
 import '../../../../data/services/content_extraction_service.dart';
 import '../../feed/presentation/feed_provider.dart';
@@ -77,10 +77,13 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       }
 
       // 🔥 Fire-and-Forget: 提交任务后立刻返回
-      await ContentExtractionService.submitJobAndForget(
+      final jobId = await ContentExtractionService.submitJobAndForget(
         text,
         moduleId: moduleId,
       );
+
+      // 注册全局监听，即使弹窗关闭也能在后台自动向 Feed 注入新生成的卡片
+      ref.read(feedProvider.notifier).observeJob(jobId);
 
       // 关闭弹窗并提示用户
       if (mounted) {
@@ -98,32 +101,35 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     }
   }
 
-  /// 显示任务已提交的提示
   void _showTaskSubmittedSnackbar(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    // 关键修正：从全局 Provider 获取 Router 和 Messenger
+    final router = ref.read(routerProvider);
+    final messenger = ref.read(scaffoldMessengerKey).currentState;
+    if (messenger == null) return;
+
+    // 先清除可能存在的旧 SnackBar，防止堆叠或卡顿
+    messenger.clearSnackBars();
+
+    messenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.check_circle, color: Colors.white),
+            const Icon(Icons.check_circle, color: Colors.white, size: 20),
             const SizedBox(width: 12),
             const Expanded(
               child: Text('任务已提交！AI 正在后台生成，完成后自动保存'),
             ),
           ],
         ),
-        backgroundColor: Colors.green[700],
+        backgroundColor: Colors.green[800],
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 3), // 确保 3 秒后自动消失
         action: SnackBarAction(
           label: '查看进度',
           textColor: Colors.white,
           onPressed: () {
-            // 使用 routerProvider 确保即使 Context 可能失活也能跳转
-            try {
-              ref.read(routerProvider).push('/task-center');
-            } catch (e) {
-              context.push('/task-center');
-            }
+            // 使用全局 router 进行跳转
+            router.push('/task-center');
           },
         ),
       ),
@@ -227,10 +233,13 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       }
 
       // 🔥 Fire-and-Forget: 提交任务后立刻返回
-      await ContentExtractionService.submitJobAndForget(
+      final jobId = await ContentExtractionService.submitJobAndForget(
         _extractionResult!.content,
         moduleId: moduleId,
       );
+
+      // 注册全局监听，确保生成的卡片能实时同步到 Feed 列表
+      ref.read(feedProvider.notifier).observeJob(jobId);
 
       // 关闭弹窗并提示用户
       if (mounted) {

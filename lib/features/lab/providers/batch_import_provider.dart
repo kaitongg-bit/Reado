@@ -275,7 +275,10 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
           moduleId: moduleId,
         );
 
-        // 4. 监听 Firestore 获取实时进度
+        // 注册全局监听，确保生成的卡片能实时流向 Feed 列表
+        ref.read(feedProvider.notifier).observeJob(jobId);
+
+        // 4. 监听 Firestore 获取实时进度 (用于当前界面的进度条显示)
         _updateItemStatus(item.id, BatchStatus.generating, 'AI 处理中...', 0.2);
 
         final db = FirebaseFirestore.instanceFor(
@@ -291,8 +294,8 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
           } else if (event.type == StreamingEventType.card) {
             if (event.card != null) {
               generatedItems.add(event.card!);
-              // 卡片已由云函数存入 Firestore，此处仅同步 UI 状态
-              ref.read(feedProvider.notifier).addCustomItems([event.card!]);
+              // 🔥 核心修正：此处不再手动调用 addCustomItems，因为 observeJob (line 279) 已经在全局负责这件事了。
+              // 防止重复添加或列表跳动。
 
               final progress = 0.4 +
                   (0.6 * ((event.currentIndex ?? 0) / (event.totalCards ?? 1)));

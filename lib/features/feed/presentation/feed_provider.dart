@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,6 +8,10 @@ import '../../../models/feed_item.dart';
 import '../../../data/services/firestore_service.dart';
 import '../../../core/services/content_generator_service.dart';
 import '../../../config/api_config.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
+import '../../../data/services/content_extraction_service.dart';
+import 'package:flutter/foundation.dart';
 
 // Global provider to track reviewed items in the current session (persist across navigation)
 final reviewedSessionProvider = StateProvider<Set<String>>((ref) => {});
@@ -175,6 +180,9 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
   // Source of Truth
   List<FeedItem> _allItems = [];
 
+  // Track active background job listeners
+  final Map<String, StreamSubscription> _jobSubscriptions = {};
+
   List<FeedItem> get allItems => _allItems;
 
   /// 获取当前用户ID
@@ -215,11 +223,11 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
       // 3. 合并所有内容
       _allItems = [...officialItems, ...customItems];
 
-      // 4. 排序：按时间倒序 (新生成的在前)
+      // 4. 排序：按时间正序 (从旧到新，符合阅读习惯)
       _allItems.sort((a, b) {
         final dateA = a.createdAt ?? DateTime(1970);
         final dateB = b.createdAt ?? DateTime(1970);
-        return dateB.compareTo(dateA); // 降序
+        return dateA.compareTo(dateB); // 升序
       });
 
       print('📊 总计: ${_allItems.length} 个知识点 (已按时间排序)');
@@ -239,9 +247,67 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
   /// 动态添加自定义内容 (用于 AddMaterialModal)
   void addCustomItems(List<FeedItem> newItems) {
     if (newItems.isEmpty) return;
-    _allItems = [..._allItems, ...newItems];
-    // 直接追加到当前视图 (假设当前就在该 Module)
-    state = [...state, ...newItems];
+
+    // 1. 去重检查：防止后台监听和手动刷新导致数据冲突
+    final existingIds = _allItems.map((e) => e.id).toSet();
+    final uniqueNewItems =
+        newItems.where((i) => !existingIds.contains(i.id)).toList();
+
+    if (uniqueNewItems.isEmpty) return;
+
+    // 2. 同步全量数据
+    _allItems = [...uniqueNewItems, ..._allItems];
+
+    // 3. 统一排序：按创建时间正序排列 (最早的在顶，最新的在底)
+    _allItems.sort((a, b) {
+      final dateA = a.createdAt ?? DateTime.now();
+      final dateB = b.createdAt ?? DateTime.now();
+      return dateA.compareTo(dateB); // ASC: Oldest first
+    });
+
+    // 4. 更新当前视图 state：直接追加在后面，并保持正序排列
+    state = [...state, ...uniqueNewItems];
+    state.sort((a, b) {
+      final dateA = a.createdAt ?? DateTime.now();
+      final dateB = b.createdAt ?? DateTime.now();
+      return dateA.compareTo(dateB);
+    });
+  }
+
+  /// 监听特定的后台任务，并将生成的卡片实时同步到 Feed
+  void observeJob(String jobId) {
+    if (_jobSubscriptions.containsKey(jobId)) return;
+
+    if (kDebugMode) print('📡 FeedNotifier: Observing background job $jobId');
+
+    final db = FirebaseFirestore.instanceFor(
+      app: Firebase.app(),
+      databaseId: 'reado',
+    );
+
+    final subscription =
+        ContentExtractionService.listenToJob(db, jobId).listen((event) {
+      if (event.type == StreamingEventType.card && event.card != null) {
+        addCustomItems([event.card!]);
+      } else if (event.type == StreamingEventType.complete ||
+          event.type == StreamingEventType.error) {
+        _jobSubscriptions[jobId]?.cancel();
+        _jobSubscriptions.remove(jobId);
+        if (kDebugMode)
+          print('🏁 FeedNotifier: Job $jobId finished, observer removed.');
+      }
+    });
+
+    _jobSubscriptions[jobId] = subscription;
+  }
+
+  @override
+  void dispose() {
+    for (final sub in _jobSubscriptions.values) {
+      sub.cancel();
+    }
+    _jobSubscriptions.clear();
+    super.dispose();
   }
 
   /// 加载指定模块的数据 (Feed Logic)

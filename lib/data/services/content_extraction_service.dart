@@ -838,39 +838,52 @@ $chunkContent
 
   /// 从 Map 解析 FeedItem
   static FeedItem _parseCardFromMap(Map<String, dynamic> cardMap) {
-    final pages = cardMap['pages'] as List<dynamic>?;
-    String pageContent = '';
-    String? flashQ, flashA;
+    try {
+      // 1. 尝试使用标准的 fromJson (云函数已调整为兼容格式)
+      return FeedItem.fromJson(cardMap);
+    } catch (e) {
+      if (kDebugMode) print('Parser: fallback to manual parse due to: $e');
 
-    if (pages != null && pages.isNotEmpty) {
-      final firstPage = pages[0] as Map<String, dynamic>;
-      pageContent = firstPage['content'] as String? ?? '';
-      flashQ = firstPage['flashcardQuestion'] as String?;
-      flashA = firstPage['flashcardAnswer'] as String?;
-    } else {
-      pageContent = cardMap['content'] as String? ?? '';
-      flashQ = (cardMap['flashcard'] as Map<String, dynamic>?)?['question']
-          as String?;
-      flashA =
-          (cardMap['flashcard'] as Map<String, dynamic>?)?['answer'] as String?;
+      // 2. 备选方案：手动兼容处理
+      final pages = cardMap['pages'] as List<dynamic>?;
+      String pageContent = '';
+      String? flashQ, flashA;
+
+      if (pages != null && pages.isNotEmpty) {
+        final firstPage = pages[0] as Map<String, dynamic>;
+        // 兼容 content 和 markdownContent 两个字段
+        pageContent = (firstPage['markdownContent'] ??
+                firstPage['content'] ??
+                'No content generated')
+            .toString();
+        flashQ = firstPage['flashcardQuestion']?.toString();
+        flashA = firstPage['flashcardAnswer']?.toString();
+      } else {
+        pageContent = (cardMap['content'] ?? '').toString();
+        final flashMap = cardMap['flashcard'] as Map<String, dynamic>?;
+        flashQ = flashMap?['question']?.toString();
+        flashA = flashMap?['answer']?.toString();
+      }
+
+      return FeedItem(
+        id: (cardMap['id'] ?? 'temp_${DateTime.now().millisecondsSinceEpoch}')
+            .toString(),
+        moduleId:
+            (cardMap['moduleId'] ?? cardMap['module'] ?? 'custom').toString(),
+        title: (cardMap['title'] ?? '未命名知识点').toString(),
+        category: (cardMap['category'] ?? 'AI Generated').toString(),
+        difficulty: (cardMap['difficulty'] ?? 'Medium').toString(),
+        createdAt: DateTime.now(),
+        pages: [
+          OfficialPage(
+            pageContent,
+            flashcardQuestion: flashQ,
+            flashcardAnswer: flashA,
+          )
+        ],
+        isCustom: true,
+      );
     }
-
-    return FeedItem(
-      id: cardMap['id'] as String,
-      moduleId: cardMap['moduleId'] as String,
-      title: cardMap['title'] as String,
-      category: cardMap['category'] as String? ?? 'AI Generated',
-      difficulty: cardMap['difficulty'] as String? ?? 'Medium',
-      readingTimeMinutes: 5,
-      isCustom: true,
-      pages: [
-        OfficialPage(
-          pageContent,
-          flashcardQuestion: flashQ,
-          flashcardAnswer: flashA,
-        )
-      ],
-    );
   }
 
   /// 检查是否有未完成的任务（用户重新打开应用时调用）

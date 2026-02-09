@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/feed/presentation/feed_page.dart';
@@ -17,8 +18,14 @@ import '../../features/profile/presentation/about_page.dart';
 import '../../features/search/presentation/search_results_page.dart';
 import '../../features/admin/presentation/admin_page.dart';
 
+// 全局 Key，确保在任何地方都能准确触发提示和跳转
+final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/onboarding',
     redirect: (context, state) {
       final user = FirebaseAuth.instance.currentUser;

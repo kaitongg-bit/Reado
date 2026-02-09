@@ -98,7 +98,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         backgroundColor:
             Theme.of(context).bottomNavigationBarTheme.backgroundColor,
         indicatorColor: const Color(0xFFFF8A65).withOpacity(0.3),
-        height: 70,
+        height: 80,
         elevation: 8,
         destinations: const [
           NavigationDestination(

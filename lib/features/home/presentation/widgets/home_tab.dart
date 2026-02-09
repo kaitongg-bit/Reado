@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart' hide ThemeMode;
+import '../../../../core/widgets/app_background.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../feed/presentation/feed_provider.dart';
@@ -68,68 +69,8 @@ class HomeTab extends ConsumerWidget {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
-          // 0. Full Screen Background Gradient (Subtle)
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: isDark
-                    ? [
-                        const Color(0xFF1E1E1E),
-                        const Color(0xFF121212),
-                      ]
-                    : [
-                        const Color(0xFFFFF6F3), // Light warm tint top-left
-                        const Color(0xFFF3F6FF), // Light cool tint bottom-right
-                      ],
-              ),
-            ),
-          ),
-
-          // 1. Ambient Background - Top Left (Warmer/Orange)
-          Positioned(
-            top: -120,
-            left: -100,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.transparent,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFFF8A65).withOpacity(
-                        isDark ? 0.15 : 0.25), // Stronger visibility
-                    blurRadius: 140,
-                    spreadRadius: 80,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // 2. Ambient Background - Bottom Right (Cooler/Blue)
-          Positioned(
-            bottom: -50,
-            right: -80,
-            child: Container(
-              width: 350,
-              height: 350,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.transparent,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF64B5F6).withOpacity(
-                        isDark ? 0.12 : 0.2), // Stronger visibility
-                    blurRadius: 160,
-                    spreadRadius: 80,
-                  ),
-                ],
-              ),
-            ),
-          ),
+          // Global App Background
+          const AppBackground(),
 
           // Main Content
           SafeArea(

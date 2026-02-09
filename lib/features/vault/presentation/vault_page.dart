@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/app_background.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../../models/feed_item.dart';
@@ -75,48 +76,8 @@ class _VaultPageState extends ConsumerState<VaultPage> {
       ),
       body: Stack(
         children: [
-          // Ambient Background - Top Left
-          Positioned(
-            top: -50,
-            left: -100,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.transparent,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFFF8A65)
-                        .withOpacity(isDark ? 0.15 : 0.2),
-                    blurRadius: 120,
-                    spreadRadius: 60,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Ambient Background - Bottom Right
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.transparent,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blueAccent.withOpacity(isDark ? 0.1 : 0.15),
-                    blurRadius: 150,
-                    spreadRadius: 40,
-                  ),
-                ],
-              ),
-            ),
-          ),
+          // Global App Background
+          const AppBackground(),
 
           SafeArea(
             child: Column(

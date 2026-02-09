@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/app_background.dart';
 
 /// Knowledge Marketplace - Explore Page
 /// Displays official knowledge bases for discovery and user-sold knowledge bases
@@ -37,47 +38,8 @@ class _ExplorePageState extends State<ExplorePage>
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
-          // Ambient Background - Top Left (Teal gradient for marketplace feel)
-          Positioned(
-            top: -80,
-            left: -80,
-            child: Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF0D9488)
-                        .withOpacity(isDark ? 0.2 : 0.25),
-                    blurRadius: 120,
-                    spreadRadius: 60,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Ambient Background - Bottom Right (Orange for CTA feel)
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFEA580C)
-                        .withOpacity(isDark ? 0.15 : 0.2),
-                    blurRadius: 120,
-                    spreadRadius: 40,
-                  ),
-                ],
-              ),
-            ),
-          ),
+          // Global App Background
+          const AppBackground(),
 
           // Main Content
           SafeArea(

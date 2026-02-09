@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/app_background.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/services/auth_service.dart';
 
@@ -131,45 +132,8 @@ class _OnboardingPageState extends State<OnboardingPage>
       backgroundColor: backgroundColor,
       body: Stack(
         children: [
-          // Ambient Background Blobs
-          Positioned(
-            top: -100,
-            left: -100,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFFF8A65).withOpacity(isDark ? 0.08 : 0.1),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFFF8A65).withOpacity(0.3),
-                    blurRadius: 100,
-                    spreadRadius: 20,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.blueAccent.withOpacity(isDark ? 0.05 : 0.08),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blueAccent.withOpacity(0.2),
-                    blurRadius: 100,
-                    spreadRadius: 20,
-                  ),
-                ],
-              ),
-            ),
-          ),
+          // Global App Background
+          const AppBackground(),
 
           SafeArea(
             child: FadeTransition(

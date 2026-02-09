@@ -357,6 +357,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
 
   Widget _buildPageContent(CardPageContent content) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final adhdSettings = ref.watch(adhdSettingsProvider);
 
     // Base Glass Style for the Page
     final backgroundColor =
@@ -464,11 +465,13 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                                     : Colors.grey[200],
                               ),
                             ),
-                            builders: {
-                              'p': AdhdMarkdownParagraphBuilder(
-                                adhdSettings: ref.watch(adhdSettingsProvider),
-                              ),
-                            },
+                            builders: adhdSettings.isEnabled
+                                ? {
+                                    'p': AdhdMarkdownParagraphBuilder(
+                                      adhdSettings: adhdSettings,
+                                    ),
+                                  }
+                                : {},
                           ),
                         ),
                         const SizedBox(height: 48),
@@ -695,11 +698,13 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                               fontFamily: 'JinghuaSong',
                               fontStyle: FontStyle.italic),
                         ),
-                        builders: {
-                          'p': AdhdMarkdownParagraphBuilder(
-                            adhdSettings: ref.watch(adhdSettingsProvider),
-                          ),
-                        },
+                        builders: adhdSettings.isEnabled
+                            ? {
+                                'p': AdhdMarkdownParagraphBuilder(
+                                  adhdSettings: adhdSettings,
+                                ),
+                              }
+                            : {},
                       ),
                       const SizedBox(height: 48),
                       // "Swipe Left to Return" Hint

@@ -378,7 +378,7 @@ class ProfilePage extends ConsumerWidget {
                   const SizedBox(height: 12),
 
                   _buildAdhdSettings(context, ref, isDark),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 24),
 
                   _GlassTile(
                     icon: Icons.visibility_off_outlined,

@@ -69,15 +69,6 @@ exports.geminiProxy = functions.https.onRequest(async (req, res) => {
 
 /**
  * 完全后台 AI 提取任务
- * 
- * 工作流程：
- * 1. 前端创建 job 文档到 Firestore (extraction_jobs/{jobId})
- * 2. 前端调用此函数，传入 jobId
- * 3. 函数从 Firestore 读取任务内容
- * 4. AI 处理过程中，实时更新 Firestore 进度
- * 5. 完成后，结果保存到 Firestore
- * 6. 即使客户端断连，函数继续执行到完成
- * 7. 前端监听 Firestore 文档获取实时更新
  */
 exports.processExtractionJob = functions
     .runWith({
@@ -96,11 +87,7 @@ exports.processExtractionJob = functions
         }
 
         const userId = context.auth.uid;
-
-        // 🔥 使用 'reado' 命名数据库（与前端一致）
-        // getFirestore(app, databaseId) - 第二个参数指定数据库 ID
         const db = getFirestore(admin.app(), 'reado');
-
         const jobRef = db.collection('extraction_jobs').doc(jobId);
 
         console.log(`🚀 Starting background job ${jobId} for user ${userId}`);
@@ -113,15 +100,14 @@ exports.processExtractionJob = functions
             }
 
             const jobData = jobDoc.data();
-
-            // 验证任务属于当前用户
             if (jobData.userId !== userId) {
                 throw new functions.https.HttpsError('permission-denied', '无权访问此任务');
             }
 
             const content = jobData.content;
             const moduleId = jobData.moduleId || 'custom';
-            console.log(`📦 Job moduleId: ${moduleId}`);
+            const mode = jobData.deconstructionMode || (jobData.isGrandmaMode ? 'grandma' : 'standard');
+            console.log(`📦 Job moduleId: ${moduleId}, Mode: ${mode}`);
 
             if (!content || content.length === 0) {
                 await jobRef.update({ status: 'failed', error: '内容为空' });
@@ -137,11 +123,6 @@ exports.processExtractionJob = functions
             });
 
             const apiKey = process.env.GEMINI_API_KEY;
-            if (!apiKey) {
-                await jobRef.update({ status: 'failed', error: 'API Key missing' });
-                throw new functions.https.HttpsError('internal', 'API Key missing');
-            }
-
             const genAI = new GoogleGenerativeAI(apiKey);
             const model = genAI.getGenerativeModel({
                 model: "gemini-2.5-flash",
@@ -149,8 +130,14 @@ exports.processExtractionJob = functions
             });
 
             // 3. 生成大纲
+            const modeOutlineInstructions = mode === 'grandma'
+                ? "采用“极简大白话”风格：识别出最基础、最通俗的核心知识点，标题要平实直白。"
+                : (mode === 'phd' ? "采用“智障博士生”风格：极简大白话，但逻辑极严密，不要任何花哨类比，直接提取硬核逻辑支柱。" : "");
+
             const outlinePrompt = `
 你是一位资深的教育内容专家。请快速分析用户提供的学习资料，识别出其中的核心知识点。
+
+${modeOutlineInstructions}
 
 ## 任务
 1. 阅读用户的学习资料
@@ -180,15 +167,13 @@ ${content.substring(0, 30000)}
             const outlineJson = JSON.parse(cleanOutline);
             const topics = outlineJson.topics || outlineJson.items || [];
 
-            console.log(`✅ Found ${topics.length} topics`);
-
             await jobRef.update({
                 progress: 0.2,
                 message: `发现 ${topics.length} 个知识点，开始生成...`,
                 totalCards: topics.length
             });
 
-            // 4. 逐个生成卡片并实时保存
+            // 4. 逐个生成卡片
             const cards = [];
             for (let i = 0; i < topics.length; i++) {
                 const topic = topics[i];
@@ -199,10 +184,28 @@ ${content.substring(0, 30000)}
                     progress: 0.2 + (0.7 * (i / topics.length))
                 });
 
-                console.log(`📝 Generating card ${i + 1}/${topics.length}: ${title}`);
+                let modeInstructions = '';
+                if (mode === 'grandma') {
+                    modeInstructions = `
+## 🚨 重要：采用“极简大白话”风格 🚨
+- **语言风格**：严禁使用专业术语。如果必须使用，必须通过“生活化类比”进行降维解释。
+- **类比要求**：必须包含一个极其生活化、接地气的类比（如：买菜、做饭、点外卖等）。
+- **讲解要求**：亲切直白。禁止任何寒暄，直接开始讲解知识点本身。
+`;
+                } else if (mode === 'phd') {
+                    modeInstructions = `
+## 🚨 重要：采用“智障博士生”级别拆解 🚨
+- **目标**：像是在给逻辑非常严密、但认知极简的人解释。
+- **语言风格**：必须使用**极简的大白话**，傻子都能听懂的语言。严禁堆砌专业术语，严禁使用长句。**严禁在文字之间添加任何多余的空格或空格占位**。
+- **逻辑要求**：禁止任何感性类比（如：买菜、带孩子）。必须通过严密的逻辑推导、事实陈述、因果链条来拆解核心。
+- **语气**：直白。禁止任何寒暄，直接开始讲解知识点本身。
+`;
+                }
 
                 const cardPrompt = `
 你是一位资深的教育内容专家。请针对以下知识点，生成一张详细的知识卡片。
+
+${modeInstructions}
 
 ## 知识点标题
 ${title}
@@ -211,9 +214,9 @@ ${title}
 ${content.substring(0, 30000)}
 
 ## 要求
-1. **正文内容**：300-800 字，通俗易懂，采用"是什么 → 为什么 → 怎么做"的结构
+1. **正文内容**：必须生成 300-800 字的详细解释。${mode === 'grandma' ? "采用极简大白话和生活类比。" : (mode === 'phd' ? "采用极简大白话，严密逻辑拆解，禁止类比。" : "采用\"是什么 → 为什么 → 怎么做\"的结构。")}
 2. **Flashcard**：一个具体的测试问题 + 简洁但完整的答案（100-200字）
-3. 使用 Markdown 格式
+3. 使用 Markdown 格式。
 4. **语言要求**：输出的所有内容必须使用简体中文。
 
 ## 输出格式
@@ -223,7 +226,7 @@ ${content.substring(0, 30000)}
   "title": "${title}",
   "category": "${topic.category || 'AI Generated'}",
   "difficulty": "${topic.difficulty || 'Medium'}",
-  "content": "# 标题\\n\\n## 是什么\\n\\n[Markdown 正文]",
+  "content": "# 标题\\n\\n[在此处填写详细的知识点正文内容，不少于300字]",
   "flashcard": {
     "question": "具体的测试问题",
     "answer": "简洁但完整的答案"
@@ -232,32 +235,22 @@ ${content.substring(0, 30000)}
 `;
 
                 let cardJson = null;
-                let retries = 2; // 最多重试2次
+                let retries = 2;
 
                 while (retries >= 0 && !cardJson) {
                     try {
                         const cardResult = await model.generateContent(cardPrompt);
                         const cardText = cardResult.response.text();
 
-                        // 更鲁棒的 JSON 提取：尝试匹配第一个 { 和最后一个 }
                         const jsonMatch = cardText.match(/\{[\s\S]*\}/);
-                        if (!jsonMatch) {
-                            throw new Error('No JSON object found in response');
-                        }
+                        if (!jsonMatch) throw new Error('No JSON object found');
 
-                        const cleanCard = jsonMatch[0].trim();
-                        cardJson = JSON.parse(cleanCard);
-
-                        // Add metadata
+                        cardJson = JSON.parse(jsonMatch[0].trim());
                         cardJson.id = `custom_${Date.now()}_${i}`;
                         cardJson.module = moduleId;
                         cardJson.isCustom = true;
                         cardJson.readingTimeMinutes = 5;
-                        // 递增时间戳：i=0 是最旧的，i=N 是最新的
-                        // 配合前端 ASC 排序，知识点会按 1, 2, 3... 的顺序从上到下依次追加到末尾
                         cardJson.createdAt = new Date(Date.now() + i * 1000).toISOString();
-
-                        // 格式化 pages 结构
                         cardJson.pages = [{
                             type: 'text',
                             markdownContent: cardJson.content || cardJson.markdownContent || 'No content generated',
@@ -266,8 +259,6 @@ ${content.substring(0, 30000)}
                         }];
 
                         cards.push(cardJson);
-
-                        // 实时保存已生成的卡片到 Firestore
                         await jobRef.update({
                             cards: cards,
                             progress: 0.2 + (0.7 * ((i + 1) / topics.length)),
@@ -275,64 +266,40 @@ ${content.substring(0, 30000)}
                         });
 
                     } catch (err) {
-                        console.error(`⚠️ Attempt failing to generate card ${i} (Retries left: ${retries}):`, err);
+                        console.error(`⚠️ Attempt failing to generate card ${i}:`, err);
                         retries--;
-                        if (retries < 0) {
-                            console.error(`❌ Permanently failed to generate card ${i}:`, topics[i]);
-                        } else {
-                            // 稍微等待一下再重试
-                            await new Promise(resolve => setTimeout(resolve, 1000));
-                        }
+                        if (retries >= 0) await new Promise(r => setTimeout(r, 1000));
                     }
                 }
             }
 
-            // 5. 标记完成
-            await jobRef.update({
-                status: 'completed',
-                progress: 1.0,
-                message: '全部完成！',
-                cards: cards,
-                completedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-
-            // 6. 🔥 自动保存到用户的 custom_items
-            console.log(`💾 Auto-saving ${cards.length} cards to user ${userId}, moduleId: ${moduleId}`);
-
-            // 确保用户文档存在（有些新账号可能没有用户文档）
+            // 5. 标记完成并保存
             const userRef = db.collection('users').doc(userId);
             await userRef.set({ lastActive: new Date() }, { merge: true });
 
             const userItemsRef = userRef.collection('custom_items');
             const batch = db.batch();
-
             for (const card of cards) {
-                const cardDoc = userItemsRef.doc(card.id);
-                const cardToSave = {
+                batch.set(userItemsRef.doc(card.id), {
                     ...card,
-                    module: moduleId, // 对应前端 FeedItem.fromJson 中的 'module'
-                    createdAt: new Date(), // 使用 JS Date 避免引用问题
+                    module: moduleId,
+                    createdAt: new Date(),
                     autoSaved: true,
                     sourceJobId: jobId
-                };
-                console.log(`📝 Preparing card ${card.id} for module ${moduleId}`);
-                batch.set(cardDoc, cardToSave);
+                });
             }
-
             await batch.commit();
-            console.log(`✅ Successfully auto-saved ${cards.length} cards to users/${userId}/custom_items`);
 
-            // 更新任务状态
             await jobRef.update({
-                autoSaved: true,
-                savedCount: cards.length,
                 status: 'completed',
                 progress: 1.0,
-                message: cards.length === topics.length ? '全部完成！' : `完成（解析出 ${cards.length}/${topics.length} 个知识点）`,
+                message: `全部完成！（解析出 ${cards.length}/${topics.length} 个知识点）`,
+                autoSaved: true,
+                savedCount: cards.length,
                 completedAt: new Date()
             });
 
-            return { success: true, jobId: jobId, autoSaved: true, cardCount: cards.length };
+            return { success: true, jobId, cardCount: cards.length };
 
         } catch (error) {
             console.error(`❌ Job ${jobId} failed:`, error);

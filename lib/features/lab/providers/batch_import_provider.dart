@@ -5,6 +5,7 @@ import '../../../data/services/content_extraction_service.dart';
 import '../../../models/feed_item.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../../core/providers/credit_provider.dart';
+import '../../../core/providers/ai_settings_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 
@@ -273,6 +274,7 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
         final String jobId = await ContentExtractionService.submitJobAndForget(
           extraction.content,
           moduleId: moduleId,
+          mode: ref.read(aiSettingsProvider).mode,
         );
 
         // 注册全局监听，确保生成的卡片能实时流向 Feed 列表

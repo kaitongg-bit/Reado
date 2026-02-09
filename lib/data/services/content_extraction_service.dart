@@ -13,6 +13,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../../../core/services/proxy_http_client.dart';
+import '../../core/providers/ai_settings_provider.dart';
 
 /// 内容来源类型
 enum SourceType {
@@ -276,6 +277,7 @@ class ContentExtractionService {
   static Future<List<FeedItem>> generateKnowledgeCards(
     ExtractionResult extraction, {
     required String moduleId,
+    AiDeconstructionMode mode = AiDeconstructionMode.standard,
   }) async {
     final apiKey = ApiConfig.getApiKey();
     final proxyUrl = ApiConfig.geminiProxyUrl;
@@ -293,8 +295,28 @@ class ContentExtractionService {
       ),
     );
 
-    const prompt = '''
+    String modeInstructions = '';
+    if (mode == AiDeconstructionMode.grandma) {
+      modeInstructions = '''
+## 🚨 重要：采用“极简大白话”风格 🚨
+- **语言风格**：严禁使用任何专业术语。如果不得不提术语，必须用“大白话”进行降维打击式的解释。
+- **类比要求**：必须包含至少一个极其生活化、接地气的类比来解释复杂逻辑。
+- **讲解要求**：亲切、耐心、直白。禁止任何寒暄（如“奶奶您好”），直接开始深入浅出地讲解知识点本身。
+''';
+    } else if (mode == AiDeconstructionMode.phd) {
+      modeInstructions = '''
+## 🚨 重要：采用“智障博士生”级别拆解 🚨
+- **目标**：像是在给逻辑极度敏感、但认知极简的人解释。
+- **语言风格**：必须使用**极简的大白话**，傻子都能听懂的语音。严禁堆砌专业术语，严禁使用长句。**严禁在文字之间添加任何多余的空格或空格占位**。
+- **逻辑要求**：禁止任何感性类比（如：买菜、带孩子、点外卖）。必须通过严密的逻辑推导、事实陈述、因果链条来拆解核心。
+- **语气**：直白。禁止任何寒暄，直接开始讲解知识点本身。
+''';
+    }
+
+    final prompt = '''
 你是一位资深的教育内容专家和产品经理导师。你的任务是将用户提供的学习资料转化为易于理解和记忆的知识卡片。
+
+$modeInstructions
 
 ## 核心要求
 
@@ -314,7 +336,7 @@ class ContentExtractionService {
   - 使用日常语言，避免过度的专业术语
   - 如果必须使用术语，先用简单语言解释
   - 多用类比、比喻、实际案例
-  - 采用"是什么 → 为什么 → 怎么做"的结构
+  - **结构要求**：${mode == AiDeconstructionMode.grandma ? "采用极简大白话和生活类比。" : (mode == AiDeconstructionMode.phd ? "采用极简大白话，严密逻辑拆解，禁止类比，文内严禁多余空格。" : "采用\"是什么 → 为什么 → 怎么做\"的结构。")}
 
 ### 3. Flashcard 设计原则
 每个知识点的 flashcard 必须：
@@ -330,7 +352,7 @@ class ContentExtractionService {
     "title": "知识点的简洁标题（10-20字）",
     "category": "分类名称",
     "difficulty": "Easy|Medium|Hard",
-    "content": "# 标题\\n\\n## 是什么\\n\\n[Markdown 正文]",
+    "content": "# 标题\\n\\n[在此处填写详细的知识点正文内容，不少于 300 字]",
     "flashcard": {
       "question": "具体的测试问题",
       "answer": "简洁但完整的答案"
@@ -405,6 +427,7 @@ class ContentExtractionService {
     ExtractionResult extraction, {
     required String moduleId,
     required Future<bool> Function(int) onChunkProcess, // 传入需要扣除的积分数
+    AiDeconstructionMode mode = AiDeconstructionMode.standard,
   }) async* {
     const int baseLimit = 15000;
     const double graceFactor = 1.2; // 20% 的宽容度
@@ -458,8 +481,17 @@ class ContentExtractionService {
       }
 
       // ========== 第一步：获取当前 Chunk 的大纲 ==========
-      const outlinePrompt = '''
+      String modeOutlineInstructions = '';
+      if (mode == AiDeconstructionMode.grandma) {
+        modeOutlineInstructions = "采用“极简大白话”风格：识别出最基础、最通俗的核心知识点，标题要平实直白。";
+      } else if (mode == AiDeconstructionMode.phd) {
+        modeOutlineInstructions = "采用“智障博士生”风格：极简大白话，禁止多余空格，逻辑严密，直接提取逻辑支柱。";
+      }
+
+      final outlinePrompt = '''
 你是一位资深的教育内容专家。请快速分析用户提供的学习资料，识别出其中的核心知识点。
+
+$modeOutlineInstructions
 
 ## 任务
 1. 阅读用户的学习资料
@@ -545,8 +577,17 @@ class ContentExtractionService {
           yield StreamingGenerationEvent.status(
               '正在生成: $title (${i + 1}/${topics.length})');
 
+          String modeInstructions = '';
+          if (mode == AiDeconstructionMode.grandma) {
+            modeInstructions = '采用“极简大白话”风格：极其通俗易懂，严禁术语，多用生活化类比。禁止寒暄，直接讲解。';
+          } else if (mode == AiDeconstructionMode.phd) {
+            modeInstructions = '采用“智障博士生”风格：极简大白话，严禁文中空格，禁止类比。重点在于硬核逻辑拆解。直接讲解。';
+          }
+
           final cardPrompt = '''
 你是一位资深的教育内容专家。请针对以下知识点，生成一张详细的知识卡片。
+
+$modeInstructions
 
 ## 知识点标题
 $title
@@ -555,7 +596,7 @@ $title
 $chunkContent
 
 ## 要求
-1. **正文内容**：300-800 字，通俗易懂，采用"是什么 → 为什么 → 怎么做"的结构
+1. 正文内容：必须生成 300-800 字的详细解释。${mode == AiDeconstructionMode.grandma ? "采用极简大白话和生活类比。" : (mode == AiDeconstructionMode.phd ? "采用极简大白话，严密逻辑拆解，严禁文中多余空格。" : "采用\"是什么 → 为什么 → 怎么做\"的结构。")}
 2. **Flashcard**：一个具体的测试问题 + 简洁但完整的答案（100-200字）
 3. 使用 Markdown 格式
 4. **语言要求**：输出的所有内容必须使用简体中文。
@@ -567,7 +608,7 @@ $chunkContent
   "title": "$title",
   "category": "$category",
   "difficulty": "$difficulty",
-  "content": "# 标题\\n\\n## 是什么\\n\\n[Markdown 正文]",
+  "content": "# 标题\\n\\n[在此处填写详细的知识点正文内容，不少于 300 字]",
   "flashcard": {
     "question": "具体的测试问题",
     "answer": "简洁但完整的答案"
@@ -665,6 +706,7 @@ $chunkContent
   static Stream<StreamingGenerationEvent> startBackgroundJob(
     String content, {
     required String moduleId,
+    bool isGrandmaMode = false,
   }) async* {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception('未登录');
@@ -684,6 +726,7 @@ $chunkContent
         'userId': user.uid,
         'content': content,
         'moduleId': moduleId,
+        'isGrandmaMode': isGrandmaMode,
         'status': 'pending',
         'progress': 0.0,
         'message': '等待服务器...',
@@ -724,6 +767,7 @@ $chunkContent
   static Future<String> submitJobAndForget(
     String content, {
     required String moduleId,
+    AiDeconstructionMode mode = AiDeconstructionMode.standard,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception('未登录');
@@ -740,6 +784,8 @@ $chunkContent
       'userId': user.uid,
       'content': content,
       'moduleId': moduleId,
+      'isGrandmaMode': mode == AiDeconstructionMode.grandma, // 兼容旧逻辑
+      'deconstructionMode': mode.name,
       'status': 'pending',
       'progress': 0.0,
       'message': '等待服务器...',

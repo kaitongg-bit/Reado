@@ -8,6 +8,7 @@ import '../../../../data/services/content_extraction_service.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../providers/batch_import_provider.dart';
 import '../../../../core/providers/credit_provider.dart';
+import '../../../../core/providers/ai_settings_provider.dart';
 import '../../../../core/router/router_provider.dart';
 
 class AddMaterialModal extends ConsumerStatefulWidget {
@@ -80,6 +81,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       final jobId = await ContentExtractionService.submitJobAndForget(
         text,
         moduleId: moduleId,
+        mode: ref.read(aiSettingsProvider).mode,
       );
 
       // 注册全局监听，即使弹窗关闭也能在后台自动向 Feed 注入新生成的卡片
@@ -239,6 +241,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       final jobId = await ContentExtractionService.submitJobAndForget(
         _extractionResult!.content,
         moduleId: moduleId,
+        mode: ref.read(aiSettingsProvider).mode,
       );
 
       // 注册全局监听，确保生成的卡片能实时同步到 Feed 列表
@@ -1025,6 +1028,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                           ],
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      _buildAiDeconstructionSelector(ref, isDark),
 
                       // 底部留白，防止被键盘遮挡体验不好
                       const SizedBox(height: 20),
@@ -1637,6 +1642,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                           },
                         ),
 
+                        const SizedBox(height: 12),
+                        _buildAiDeconstructionSelector(ref, isDark),
+
                         // 3. Status / Info Area (Result or Error)
                         if (_error != null || _urlError != null) ...[
                           const SizedBox(height: 16),
@@ -1982,6 +1990,11 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
             const Text('💡 提示：AI 解析内容是免费的，智能拆解将根据内容深度自动匹配最佳方案。',
                 style: TextStyle(fontSize: 12, color: Colors.grey)),
             const Divider(height: 24),
+            Consumer(builder: (context, ref, _) {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              return _buildAiDeconstructionSelector(ref, isDark);
+            }),
+            const Divider(height: 24),
             Row(
               children: [
                 Icon(Icons.volunteer_activism_outlined,
@@ -2045,6 +2058,81 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
   }
 
   // New Minimal Chip for Coming Soon Sources
+  Widget _buildAiDeconstructionSelector(WidgetRef ref, bool isDark) {
+    final aiSettings = ref.watch(aiSettingsProvider);
+    final accentColor = const Color(0xFFee8f4b);
+
+    Widget _buildModeChip(AiDeconstructionMode mode, String label, String sub) {
+      final isSelected = aiSettings.mode == mode;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => ref.read(aiSettingsProvider.notifier).setMode(mode),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? accentColor.withOpacity(0.1)
+                  : (isDark
+                      ? Colors.white.withOpacity(0.05)
+                      : Colors.black.withOpacity(0.03)),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected
+                    ? accentColor
+                    : (isDark ? Colors.white12 : Colors.black12),
+                width: 1.5,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected
+                          ? accentColor
+                          : (isDark ? Colors.white70 : Colors.black87),
+                    )),
+                const SizedBox(height: 2),
+                Text(sub,
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: isDark ? Colors.grey : Colors.grey[600],
+                    )),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text('AI 拆解风格',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              )),
+        ),
+        Row(
+          children: [
+            _buildModeChip(AiDeconstructionMode.standard, '普通 🤖', '严谨全面'),
+            const SizedBox(width: 8),
+            _buildModeChip(AiDeconstructionMode.grandma, '大白话 👵', '极其通俗'),
+            const SizedBox(width: 8),
+            _buildModeChip(AiDeconstructionMode.phd, '智障博士 🎓', '严密逻辑'),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildComingSoonChip(String label, IconData icon) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? const Color(0xFF2d3233) : const Color(0xFFF8FAFC);

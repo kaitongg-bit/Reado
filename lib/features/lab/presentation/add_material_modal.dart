@@ -88,7 +88,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       // 关闭弹窗并提示用户
       if (mounted) {
         Navigator.of(context).pop();
-        _showTaskSubmittedSnackbar(context);
+        _showTaskSubmittedSnackbar();
       }
     } catch (e) {
       if (!mounted) return;
@@ -101,13 +101,16 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
     }
   }
 
-  void _showTaskSubmittedSnackbar(BuildContext context) {
-    // 关键修正：从全局 Provider 获取 Router 和 Messenger
-    final router = ref.read(routerProvider);
-    final messenger = ref.read(scaffoldMessengerKey).currentState;
+  void _showTaskSubmittedSnackbar() {
+    // 使用静态全局 Key 触发，确保无视弹窗生命周期
+    final messenger = rootScaffoldMessengerKey.currentState;
     if (messenger == null) return;
 
-    // 先清除可能存在的旧 SnackBar，防止堆叠或卡顿
+    // 🔥 核心修正：提前捕获 Router 实例。
+    // 这样在 SnackBar 的回调（可能在弹窗关闭后触发）中，就不再需要访问已销毁的 ref。
+    final router = ref.read(routerProvider);
+
+    // 强力清除所有旧提示条，解决“不消失”的问题
     messenger.clearSnackBars();
 
     messenger.showSnackBar(
@@ -123,12 +126,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
         ),
         backgroundColor: Colors.green[800],
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3), // 确保 3 秒后自动消失
+        duration: const Duration(seconds: 3), // 严格限制 3 秒
         action: SnackBarAction(
           label: '查看进度',
           textColor: Colors.white,
           onPressed: () {
-            // 使用全局 router 进行跳转
+            // 使用捕获到的 router 进行跳转
             router.push('/task-center');
           },
         ),
@@ -244,7 +247,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
       // 关闭弹窗并提示用户
       if (mounted) {
         Navigator.of(context).pop();
-        _showTaskSubmittedSnackbar(context);
+        _showTaskSubmittedSnackbar();
       }
     } catch (e) {
       if (!mounted) return;
@@ -861,6 +864,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                               ? () {
                                   // Close modal
                                   Navigator.of(context).pop();
+                                  _showTaskSubmittedSnackbar();
                                 }
                               : (queue.every(
                                       (i) => i.status == BatchStatus.completed)

@@ -51,7 +51,7 @@ class QuickPMApp extends ConsumerWidget {
         },
       ),
       routerConfig: router,
-      scaffoldMessengerKey: ref.watch(scaffoldMessengerKey),
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
     );
   }

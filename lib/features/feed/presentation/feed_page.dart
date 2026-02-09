@@ -163,9 +163,10 @@ class _FeedPageState extends ConsumerState<FeedPage> {
             print('✅ Position restored to $savedIndex');
           }
         });
-      } else {
-        print('🎯 Already at correct position $savedIndex');
       }
+      _initialPositionRestored = true;
+    } else if (itemCount > 0) {
+      // 如果没有保存进度，或者进度越界，也视为已尝试恢复，防止反复跳转
       _initialPositionRestored = true;
     }
   }
@@ -178,23 +179,26 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     ref.listen<Map<String, int>>(feedProgressProvider, (previous, next) {
       final newIndex = next[widget.moduleId];
       // Only jump if we have data and the view is ready
-      if (newIndex != null && feedItems.isNotEmpty) {
-        // Switching Logic
-        if (!_isSingleView) {
-          setState(() {
-            _isSingleView = true;
-            _focusedItemIndex = newIndex;
-          });
-        } else if (_focusedItemIndex != newIndex) {
-          setState(() => _focusedItemIndex = newIndex);
-        }
-
-        // Execution
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_verticalController.hasClients) {
-            _verticalController.jumpToPage(newIndex);
+      if (newIndex != null &&
+          feedItems.isNotEmpty &&
+          newIndex < feedItems.length) {
+        // 只有当索引确实发生变化且非当前页面时才强制跳转（处理多端同步）
+        if (_focusedItemIndex != newIndex) {
+          if (!_isSingleView) {
+            setState(() {
+              _isSingleView = true;
+              _focusedItemIndex = newIndex;
+            });
+          } else {
+            setState(() => _focusedItemIndex = newIndex);
           }
-        });
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_verticalController.hasClients) {
+              _verticalController.jumpToPage(newIndex);
+            }
+          });
+        }
       }
     });
 
@@ -777,6 +781,9 @@ class _FeedPageState extends ConsumerState<FeedPage> {
 
                         return GestureDetector(
                           onTap: () {
+                            // 🚀 核心关键：标记已恢复状态，防止 build 中的自动恢复逻辑把用户“抓”回去
+                            _initialPositionRestored = true;
+
                             ref
                                 .read(feedProgressProvider.notifier)
                                 .setProgress(widget.moduleId, index);
@@ -785,6 +792,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                               _focusedItemIndex = index;
                               _isSingleView = true;
                             });
+
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               if (_verticalController.hasClients) {
                                 _verticalController.jumpToPage(index);

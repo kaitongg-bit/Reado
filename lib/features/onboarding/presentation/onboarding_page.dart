@@ -22,6 +22,7 @@ class _OnboardingPageState extends State<OnboardingPage>
   bool _isSignUpMode = false;
   bool _showEmailFields = false;
   bool _isAuthView = false;
+  bool _obscurePassword = true;
 
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
@@ -390,10 +391,23 @@ class _OnboardingPageState extends State<OnboardingPage>
               const SizedBox(height: 12),
               TextField(
                 controller: _passwordController,
-                obscureText: true,
+                obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   hintText: '密码',
                   prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
                   filled: true,
                   fillColor: isDark
                       ? Colors.white.withOpacity(0.05)

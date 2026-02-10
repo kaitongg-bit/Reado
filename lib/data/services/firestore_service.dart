@@ -50,6 +50,8 @@ abstract class DataService {
   Future<Set<String>> fetchHiddenModuleIds(String userId);
   Future<List<FeedItem>> fetchHiddenFeedItems(String userId);
   Future<void> submitFeedback(String type, String content, String? contact);
+  Future<KnowledgeModule?> fetchModuleDetail(
+      String userId, String moduleId); // 🆕 获取模块详情
 }
 
 class FirestoreService implements DataService {
@@ -251,21 +253,34 @@ class FirestoreService implements DataService {
       String userId, String moduleId) async {
     try {
       print(
-          '📥 (Sharing) Fetching shared custom items: user=$userId, module=$moduleId');
-      final snapshot = await _usersRef
+          '📥 (Sharing) Fetching shared items: user=$userId, module=$moduleId');
+
+      // Try 'module' field first
+      final snapshot1 = await _usersRef
           .doc(userId)
           .collection('custom_items')
           .where('module', isEqualTo: moduleId)
           .get();
 
-      final items = snapshot.docs.map<FeedItem>((doc) {
+      // Try 'moduleId' field as fallback
+      final snapshot2 = await _usersRef
+          .doc(userId)
+          .collection('custom_items')
+          .where('moduleId', isEqualTo: moduleId)
+          .get();
+
+      // Combine and deduplicate if necessary, but usually only one structure exists
+      final allDocs = [...snapshot1.docs, ...snapshot2.docs];
+      final seenIds = <String>{};
+      final uniqueDocs = allDocs.where((doc) => seenIds.add(doc.id)).toList();
+
+      print('✅ Found ${uniqueDocs.length} items for shared module $moduleId');
+
+      return uniqueDocs.map<FeedItem>((doc) {
         final data = doc.data();
-        data['isCustom'] = true; // Mark as custom
-        // data['isReadOnly'] = true; // Maybe later
+        data['isCustom'] = true;
         return FeedItem.fromJson(data);
       }).toList();
-
-      return items;
     } catch (e) {
       print('❌ Error fetching shared custom items: $e');
       return [];
@@ -990,6 +1005,26 @@ class FirestoreService implements DataService {
     } catch (e) {
       print('❌ Error submitting feedback: $e');
       rethrow;
+    }
+  }
+
+  @override
+  Future<KnowledgeModule?> fetchModuleDetail(
+      String userId, String moduleId) async {
+    try {
+      print('📥 Fetching module detail: user=$userId, module=$moduleId');
+      final doc =
+          await _usersRef.doc(userId).collection('modules').doc(moduleId).get();
+
+      if (!doc.exists) {
+        print('⚠️ Module not found in Firestore: $moduleId');
+        return null;
+      }
+
+      return KnowledgeModule.fromJson(doc.data()!, doc.id);
+    } catch (e) {
+      print('❌ Error fetching module detail: $e');
+      return null;
     }
   }
 }

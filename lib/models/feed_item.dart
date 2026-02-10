@@ -178,18 +178,7 @@ class FeedItem {
           pageList.add(UserNotePage(
             question: p['question'] ?? 'Q',
             answer: p['answer'] ?? 'A',
-            createdAt: () {
-              final val = p['createdAt'];
-              if (val is String) {
-                try {
-                  return DateTime.parse(val);
-                } catch (_) {}
-              }
-              try {
-                return (val as dynamic).toDate();
-              } catch (_) {}
-              return DateTime.now();
-            }(),
+            createdAt: _parseDate(p['createdAt']) ?? DateTime.now(),
             isReadOnly: () {
               final val = p['isReadOnly'];
               if (val == true) return true;
@@ -212,32 +201,44 @@ class FeedItem {
 
     return FeedItem(
       id: json['id'] ?? '',
-      moduleId: json['module'] ?? 'A',
+      moduleId: json['module'] ?? json['moduleId'] ?? 'A',
       title: json['title'] ?? 'Untitled',
       category: json['category'] ?? 'General',
       difficulty: json['difficulty'] ?? 'Normal',
       readingTimeMinutes: json['readingTimeMinutes'] ?? 3,
       pages: pageList,
-      nextReviewTime: json['nextReviewTime'] != null
-          ? DateTime.parse(json['nextReviewTime'])
-          : null,
+      nextReviewTime: _parseDate(json['nextReviewTime']),
       interval: json['interval'] ?? 0,
       easeFactor: (json['easeFactor'] ?? 2.5).toDouble(),
       masteryLevel: mastery,
       isFavorited: json['isFavorited'] ?? false,
       isCustom: json['isCustom'] ?? false,
-      createdAt: () {
-        final val = json['createdAt'];
-        if (val is String) {
-          try {
-            return DateTime.parse(val);
-          } catch (_) {}
-        }
-        if (val is Timestamp) {
-          return val.toDate();
-        }
-        return null;
-      }(),
+      createdAt: _parseDate(json['createdAt']),
     );
+  }
+
+  static DateTime? _parseDate(dynamic val) {
+    if (val == null) return null;
+    if (val is String) {
+      try {
+        return DateTime.parse(val);
+      } catch (_) {}
+    }
+    if (val is Timestamp) {
+      return val.toDate();
+    }
+    if (val is DateTime) {
+      return val;
+    }
+    // Handle Map-based timestamps (often from proxies or certain environments)
+    if (val is Map) {
+      if (val['_seconds'] != null) {
+        return DateTime.fromMillisecondsSinceEpoch(val['_seconds'] * 1000);
+      }
+      if (val['seconds'] != null) {
+        return DateTime.fromMillisecondsSinceEpoch(val['seconds'] * 1000);
+      }
+    }
+    return null;
   }
 }

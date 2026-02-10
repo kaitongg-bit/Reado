@@ -11,6 +11,18 @@
             ]
         }
     ],
+    "firestore": [
+        {
+            "database": "(default)",
+            "rules": "firestore.rules",
+            "indexes": "firestore.indexes.json"
+        },
+        {
+            "database": "reado",
+            "rules": "firestore.rules",
+            "indexes": "firestore.indexes.json"
+        }
+    ],
     "hosting": {
         "public": "build/web",
         "ignore": [

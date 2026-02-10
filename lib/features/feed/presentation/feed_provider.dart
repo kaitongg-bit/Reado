@@ -179,9 +179,13 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
 
   // Source of Truth
   List<FeedItem> _allItems = [];
+  List<FeedItem> _sharedItems = []; // 🆕 持久化存储通过 loadSharedModule 加载的项
 
   // Track active background job listeners
   final Map<String, StreamSubscription> _jobSubscriptions = {};
+
+  // 当前激活的模块ID，用于恢复过滤状态
+  String? _activeModuleId;
 
   List<FeedItem> get allItems => _allItems;
 
@@ -220,8 +224,16 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
         print('⚠️ 用户未登录，跳过自定义内容');
       }
 
-      // 3. 合并所有内容
-      _allItems = [...officialItems, ...customItems];
+      // 3. 合并所有内容 (保留已经存在的共享内容)
+      final existingIds = _allItems.map((e) => e.id).toSet();
+      final newOfficialAndCustom = [...officialItems, ...customItems];
+      final dedupedNew = newOfficialAndCustom
+          .where((i) => !existingIds.contains(i.id))
+          .toList();
+
+      // Ensure we keep what we already have (like shared items loaded before loadAllData finished)
+      // 🌟 核心修复：始终合并 _sharedItems，防止其被官方加载流覆盖
+      _allItems = [..._sharedItems, ...dedupedNew];
 
       // 4. 排序：按时间正序 (从旧到新，符合阅读习惯)
       _allItems.sort((a, b) {
@@ -230,11 +242,10 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
         return dateA.compareTo(dateB); // 升序
       });
 
-      print('📊 总计: ${_allItems.length} 个知识点 (已按时间排序)');
+      print('📊 总计: ${_allItems.length} 个知识点 (已包含共享和本地数据)');
 
-      // 🔔 关键修复：强制更新 state 以通知 allItemsProvider
-      // 即使 state 内容不变，重新赋值也会触发 notifyListeners
-      state = [...state];
+      // 🔔 关键修复：刷新 state
+      _refreshState();
     } catch (e) {
       print('❌ Basic load failed: $e');
       rethrow;
@@ -256,22 +267,17 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     if (uniqueNewItems.isEmpty) return;
 
     // 2. 同步全量数据
-    _allItems = [...uniqueNewItems, ..._allItems];
+    _allItems.addAll(uniqueNewItems);
 
-    // 3. 统一排序：按创建时间倒序排列 (最新的在顶，最早的在底)
+    // 3. 统一排序：按创建时间正序排列 (从旧到新，让新知识卡片出现在列表底部)
     _allItems.sort((a, b) {
       final dateA = a.createdAt ?? DateTime.now();
       final dateB = b.createdAt ?? DateTime.now();
-      return dateB.compareTo(dateA); // DESC: Newest first
+      return dateA.compareTo(dateB); // ASC: Oldest first
     });
 
-    // 4. 更新当前视图 state：直接追加在后面，并保持倒序排列
-    state = [...uniqueNewItems, ...state]; // Prepend new items
-    state.sort((a, b) {
-      final dateA = a.createdAt ?? DateTime.now();
-      final dateB = b.createdAt ?? DateTime.now();
-      return dateB.compareTo(dateA); // DESC
-    });
+    // 4. 更新当前视图 state：确保全局数据同步并应用过滤
+    _refreshState();
   }
 
   /// 监听特定的后台任务，并将生成的卡片实时同步到 Feed
@@ -312,23 +318,44 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
 
   /// 加载指定模块的数据 (Feed Logic)
   void loadModule(String moduleId) {
+    _activeModuleId = moduleId;
     if (_allItems.isEmpty) {
       // Retry logic if called too early
       loadAllData().then((_) {
-        state = _allItems.where((item) => item.module == moduleId).toList();
+        _refreshState();
       });
     } else {
-      state = _allItems.where((item) => item.module == moduleId).toList();
+      _refreshState();
     }
   }
 
+  /// 内部方法：根据当前的过滤器刷新 state
+  void _refreshState() {
+    if (_activeModuleId == null) {
+      // 如果没有激活模块（如全局搜索或共享空间初期），显示全量
+      state = [..._allItems];
+    } else {
+      state =
+          _allItems.where((item) => item.moduleId == _activeModuleId).toList();
+    }
+    print(
+        '✨ FeedNotifier State Refreshed: ${state.length} items (Module: $_activeModuleId)');
+  }
+
   /// 加载别人分享的模块 (Shared Module Logic)
-  Future<void> loadSharedModule(String moduleId, String ownerId) async {
+  Future<int> loadSharedModule(String moduleId, String ownerId) async {
     print('🔄 Loading shared module: $moduleId from owner: $ownerId');
     _ref.read(feedLoadingProvider.notifier).state = true;
     try {
-      final sharedItems =
-          await _dataService.fetchCustomFeedItemsByModule(ownerId, moduleId);
+      List<FeedItem> sharedItems = [];
+
+      // 🆕 Handle official modules
+      if (['A', 'B', 'C', 'D'].contains(moduleId)) {
+        sharedItems = await _dataService.fetchFeedItems(moduleId);
+      } else {
+        sharedItems =
+            await _dataService.fetchCustomFeedItemsByModule(ownerId, moduleId);
+      }
 
       if (sharedItems.isNotEmpty) {
         // Add to allItems if not exists
@@ -340,16 +367,28 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
         newItems.sort((a, b) {
           final dateA = a.createdAt ?? DateTime.now();
           final dateB = b.createdAt ?? DateTime.now();
-          return dateB.compareTo(dateA);
+          return dateA.compareTo(dateB);
         });
 
+        // Add to sharedItems tracker to persist across loadAllData refreshes
+        final existingSharedIds = _sharedItems.map((e) => e.id).toSet();
+        final brandNewShared = sharedItems
+            .where((i) => !existingSharedIds.contains(i.id))
+            .toList();
+        _sharedItems.addAll(brandNewShared);
+
         _allItems.addAll(newItems);
-        // Re-sort all items just in case
+
+        // Re-sort all items just in case (ASC)
         _allItems.sort((a, b) {
           final dateA = a.createdAt ?? DateTime.now();
           final dateB = b.createdAt ?? DateTime.now();
-          return dateB.compareTo(dateA);
+          return dateA.compareTo(dateB);
         });
+
+        // 🆕 IMPORTANT: If we are jump starting a shared module,
+        // we might want to pre-fill progress or set active module
+        _ref.read(lastActiveModuleProvider.notifier).setActiveModule(moduleId);
 
         // Show only these items in the feed/module view
         // Don't override state HERE if we align with loadModule logic later.
@@ -358,14 +397,20 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
         // We can set state to just these items so UI updates effectively if viewing feed?
         // But ModuleDetailPage views 'allItemsProvider' filtered by module locally.
 
-        // Just notifying listeners (by setting state = state or similar) is enough for ModulePage?
-        // But let's set state to reflect loaded items for now.
-        state = sharedItems;
+        // Update state from allItems to trigger listeners without losing data
+        // For shared modules, we typically want to see all shared items,
+        // but loadSharedModule is usually called from ModuleDetailPage which
+        // filters from allItemsProvider itself.
+        _refreshState();
+
+        return sharedItems.length;
       } else {
         print('⚠️ Shared module is empty or not found');
+        return 0;
       }
     } catch (e) {
       print('❌ Failed to load shared module: $e');
+      throw e;
     } finally {
       _ref.read(feedLoadingProvider.notifier).state = false;
     }

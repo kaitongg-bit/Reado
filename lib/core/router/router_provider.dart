@@ -30,11 +30,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final user = FirebaseAuth.instance.currentUser;
       final isLoggingIn = state.matchedLocation == '/onboarding';
-      final isSharedLink = state.matchedLocation.startsWith('/module/');
 
       if (user == null) {
-        // 未登录用户只能看 Onboarding 或 分享链接
-        return (isLoggingIn || isSharedLink) ? null : '/onboarding';
+        // 🔒 强制登录策略：未登录用户只能访问 Onboarding，分享链接也会被拦截并跳转
+        return isLoggingIn ? null : '/onboarding';
       }
 
       // 已登录用户不能去 Onboarding
@@ -65,8 +64,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/feed/:moduleId',
         pageBuilder: (context, state) {
           final moduleId = state.pathParameters['moduleId']!;
+          final ownerId = state.uri.queryParameters['ownerId'];
           return NoTransitionPage(
-            child: FeedPage(moduleId: moduleId),
+            child: FeedPage(moduleId: moduleId, ownerId: ownerId),
           );
         },
       ),

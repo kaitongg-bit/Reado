@@ -24,18 +24,57 @@ class ModuleDetailPage extends ConsumerStatefulWidget {
 }
 
 class _ModuleDetailPageState extends ConsumerState<ModuleDetailPage> {
+  bool _isLoading = false;
+  String? _errorMessage;
+  KnowledgeModule? _sharedModule; // 🆕 Store fetched shared module metadata
+
   @override
   void initState() {
     super.initState();
     // Check if we need to load shared content
-    if (widget.ownerId != null) {
-      final currentUser = FirebaseAuth.instance.currentUser;
-      // Only load if the owner is NOT the current user (my own content is already loaded)
-      if (currentUser == null || currentUser.uid != widget.ownerId) {
-        Future.microtask(() {
-          ref
-              .read(feedProvider.notifier)
-              .loadSharedModule(widget.moduleId, widget.ownerId!);
+    // Load if ownerId is provided OR if it's an official module (for guests)
+    final bool isOfficial = ['A', 'B', 'C', 'D'].contains(widget.moduleId);
+    if (widget.ownerId != null || isOfficial) {
+      _loadSharedContent();
+    }
+  }
+
+  Future<void> _loadSharedContent() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // 1. Fetch Module Metadata (if not official)
+      final bool isOfficial = ['A', 'B', 'C', 'D'].contains(widget.moduleId);
+      if (!isOfficial && widget.ownerId != null) {
+        final module = await ref
+            .read(dataServiceProvider)
+            .fetchModuleDetail(widget.ownerId!, widget.moduleId);
+        if (mounted) {
+          setState(() => _sharedModule = module);
+        }
+      }
+
+      // 2. Fetch Feed Items
+      final count = await ref
+          .read(feedProvider.notifier)
+          .loadSharedModule(widget.moduleId, widget.ownerId ?? 'official');
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          if (count == 0) {
+            _errorMessage = "未找到内容。可能是链接无效，或者您没有权限访问此私有知识库。";
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = "加载失败: ${e.toString()}\n请确保分享者已开启相关权限。";
         });
       }
     }
@@ -43,24 +82,70 @@ class _ModuleDetailPageState extends ConsumerState<ModuleDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('正在加载分享的内容...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('出错了')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => context.go('/'),
+                  child: const Text('返回首页'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final moduleState = ref.watch(moduleProvider);
     final feedItems = ref.watch(allItemsProvider);
 
     // Find the module
     // If it's a shared module, it might not be in moduleState (which only has mine and official).
-    // So if not found, we use a placeholder "Shared Knowledge Base".
+    // So if not found, we use the fetched _sharedModule or a placeholder.
     final module = [...moduleState.officials, ...moduleState.custom]
         .firstWhere((m) => m.id == widget.moduleId,
-            orElse: () => KnowledgeModule(
+            orElse: () =>
+                _sharedModule ??
+                KnowledgeModule(
                   id: widget.moduleId,
-                  title: '📑 分享的知识库', // Placeholder title for shared content
-                  description: '这是即使来自其他用户的分享内容',
+                  title: '📑 正在加载分享内容...', // Placeholder while loading
+                  description: '请稍候，我们正在为您加载云端内容',
                   ownerId: widget.ownerId ?? 'unknown',
                   isOfficial: false,
                 ));
 
     // Get module items
+    // Re-filter specifically for this moduleId to ensure consistency
     final moduleItems =
         feedItems.where((item) => item.moduleId == widget.moduleId).toList();
     final cardCount = moduleItems.length;
@@ -72,6 +157,8 @@ class _ModuleDetailPageState extends ConsumerState<ModuleDetailPage> {
     // Get current progress for this module
     final currentProgress = ref.watch(feedProgressProvider);
     final currentModuleIndex = currentProgress[widget.moduleId] ?? 0;
+
+    final user = FirebaseAuth.instance.currentUser; // 🆕 Check current user
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -88,138 +175,140 @@ class _ModuleDetailPageState extends ConsumerState<ModuleDetailPage> {
                     onPressed: () => context.go('/'),
                   ),
                   const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.share),
-                    onPressed: () {
-                      final user = FirebaseAuth.instance.currentUser;
-                      if (user == null) return;
+                  if (user != null) // Only show share action if logged in
+                    IconButton(
+                      icon: const Icon(Icons.share),
+                      onPressed: () {
+                        // 1. 生成专属链接
+                        // 生产环境使用实际域名，开发环境使用 window.location.origin
+                        final String baseUrl = html.window.location.origin;
+                        // 显式添加 /#/ 以确保 Web Hash 模式下的路由匹配
+                        // 🆕 关键修复：添加 ownerId 参数
+                        final ownerParam = widget.ownerId != null
+                            ? "&ownerId=${widget.ownerId}"
+                            : "&ownerId=${user.uid}";
 
-                      // 1. 生成专属链接
-                      // 生产环境使用实际域名，开发环境使用 window.location.origin
-                      final String baseUrl = html.window.location.origin;
-                      // 显式添加 /#/ 以确保 Web Hash 模式下的路由匹配
-                      // 🆕 关键修复：添加 ownerId 参数
-                      final ownerParam = widget.ownerId != null
-                          ? "&ownerId=${widget.ownerId}"
-                          : "&ownerId=${user.uid}";
+                        final String shareUrl =
+                            "$baseUrl/#/module/${widget.moduleId}?ref=${user.uid}$ownerParam";
 
-                      final String shareUrl =
-                          "$baseUrl/#/module/${widget.moduleId}?ref=${user.uid}$ownerParam";
+                        // 2. 复制到剪贴板
+                        Clipboard.setData(ClipboardData(
+                            text: '嘿！我正在使用 Reado 学习这个超棒的知识库，快来看看：\n$shareUrl'));
 
-                      // 2. 复制到剪贴板
-                      Clipboard.setData(ClipboardData(
-                          text: '嘿！我正在使用 Reado 学习这个超棒的知识库，快来看看：\n$shareUrl'));
+                        // 3. 奖励积分 (动作奖励)
+                        ref
+                            .read(creditProvider.notifier)
+                            .rewardShare(amount: 10);
 
-                      // 3. 奖励积分 (动作奖励)
-                      ref.read(creditProvider.notifier).rewardShare(amount: 10);
-
-                      // 4. 显示提示
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Icon(Icons.stars, color: Color(0xFFFFB300)),
-                                  SizedBox(width: 8),
-                                  Text('分享成功！获得 10 积分动作奖励 🎁'),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              const Text('当好友通过您的链接加入时，您将再获得 50 积分！',
-                                  style: TextStyle(
-                                      fontSize: 12, color: Colors.white)),
-                              const SizedBox(height: 4),
-                              Text('专属链接已复制: $shareUrl',
-                                  style: const TextStyle(
-                                      fontSize: 10, color: Colors.white70)),
-                            ],
-                          ),
-                          backgroundColor: const Color(0xFF2E7D32),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    },
-                  ),
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert),
-                    onSelected: (value) async {
-                      if (value == 'delete' || value == 'hide') {
-                        final isHide = value == 'hide';
-                        final confirmed = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: Text(isHide ? '隐藏此知识库？' : '彻底删除知识库？'),
-                            content: Text(isHide
-                                ? '知识库将被隐藏，您可以在“个人中心 - 隐藏的内容”中恢复。'
-                                : '警告：此操作不可逆！该知识库及其包含的所有知识点将永久移除。'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('取消'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: Text(isHide ? '隐藏' : '彻底删除',
-                                    style: const TextStyle(color: Colors.red)),
-                              ),
-                            ],
+                        // 4. 显示提示
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.stars, color: Color(0xFFFFB300)),
+                                    SizedBox(width: 8),
+                                    Text('分享成功！获得 10 积分动作奖励 🎁'),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                const Text('当好友通过您的链接加入时，您将再获得 50 积分！',
+                                    style: TextStyle(
+                                        fontSize: 12, color: Colors.white)),
+                                const SizedBox(height: 4),
+                                Text('专属链接已复制: $shareUrl',
+                                    style: const TextStyle(
+                                        fontSize: 10, color: Colors.white70)),
+                              ],
+                            ),
+                            backgroundColor: const Color(0xFF2E7D32),
+                            behavior: SnackBarBehavior.floating,
                           ),
                         );
+                      },
+                    ),
+                  if (user != null) // Only show menu if logged in
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert),
+                      onSelected: (value) async {
+                        if (value == 'delete' || value == 'hide') {
+                          final isHide = value == 'hide';
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: Text(isHide ? '隐藏此知识库？' : '彻底删除知识库？'),
+                              content: Text(isHide
+                                  ? '知识库将被隐藏，您可以在“个人中心 - 隐藏的内容”中恢复。'
+                                  : '警告：此操作不可逆！该知识库及其包含的所有知识点将永久移除。'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: const Text('取消'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: Text(isHide ? '隐藏' : '彻底删除',
+                                      style:
+                                          const TextStyle(color: Colors.red)),
+                                ),
+                              ],
+                            ),
+                          );
 
-                        if (confirmed == true) {
-                          if (isHide) {
-                            // Logic to hide (even if custom)
-                            final user = FirebaseAuth.instance.currentUser;
-                            if (user != null) {
+                          if (confirmed == true) {
+                            if (isHide) {
+                              // Logic to hide (even if custom)
                               await ref
                                   .read(dataServiceProvider)
                                   .hideOfficialModule(
                                       user.uid, widget.moduleId);
                               ref.read(moduleProvider.notifier).refresh();
+                            } else {
+                              await ref
+                                  .read(moduleProvider.notifier)
+                                  .deleteModule(widget.moduleId);
                             }
-                          } else {
-                            await ref
-                                .read(moduleProvider.notifier)
-                                .deleteModule(widget.moduleId);
-                          }
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(isHide ? '已隐藏知识库' : '已删除知识库')),
-                            );
-                            context.pop();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content:
+                                        Text(isHide ? '已隐藏知识库' : '已删除知识库')),
+                              );
+                              context.pop();
+                            }
                           }
                         }
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'hide',
-                        child: Row(
-                          children: [
-                            Icon(Icons.visibility_off_outlined,
-                                color: Colors.orange, size: 20),
-                            SizedBox(width: 8),
-                            Text('隐藏', style: TextStyle(color: Colors.orange)),
-                          ],
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'hide',
+                          child: Row(
+                            children: [
+                              Icon(Icons.visibility_off_outlined,
+                                  color: Colors.orange, size: 20),
+                              SizedBox(width: 8),
+                              Text('隐藏',
+                                  style: TextStyle(color: Colors.orange)),
+                            ],
+                          ),
                         ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline,
-                                color: Colors.red, size: 20),
-                            SizedBox(width: 8),
-                            Text('永久删除', style: TextStyle(color: Colors.red)),
-                          ],
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline,
+                                  color: Colors.red, size: 20),
+                              SizedBox(width: 8),
+                              Text('永久删除', style: TextStyle(color: Colors.red)),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -293,8 +382,11 @@ class _ModuleDetailPageState extends ConsumerState<ModuleDetailPage> {
                             // 5. Switch to Feed tab via provider
                             ref.read(homeTabControlProvider.notifier).state = 1;
 
-                            // 6. Pop back to HomePage
-                            context.pop();
+                            // 6. Go to FeedPage directly
+                            final ownerParam = widget.ownerId != null
+                                ? '?ownerId=${widget.ownerId}'
+                                : '';
+                            context.push('/feed/${widget.moduleId}$ownerParam');
                           },
                           icon: const Icon(Icons.play_arrow),
                           label: const Text('开始学习',
@@ -310,24 +402,26 @@ class _ModuleDetailPageState extends ConsumerState<ModuleDetailPage> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFCDFF64),
-                          borderRadius: BorderRadius.circular(16),
+                      if (user != null) ...[
+                        const SizedBox(width: 12),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFCDFF64),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: IconButton(
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AddMaterialModal(
+                                    targetModuleId: widget.moduleId),
+                              );
+                            },
+                            icon: const Icon(Icons.add, color: Colors.black),
+                            iconSize: 28,
+                          ),
                         ),
-                        child: IconButton(
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AddMaterialModal(
-                                  targetModuleId: widget.moduleId),
-                            );
-                          },
-                          icon: const Icon(Icons.add, color: Colors.black),
-                          iconSize: 28,
-                        ),
-                      ),
+                      ],
                     ],
                   ),
                 ],
@@ -406,8 +500,10 @@ class _ModuleDetailPageState extends ConsumerState<ModuleDetailPage> {
         // Switch HomePage tab to Feed (index 1)
         ref.read(homeTabControlProvider.notifier).state = 1;
 
-        // Simply pop back to HomePage!
-        context.pop();
+        // Navigate directly to FeedPage
+        final ownerParam =
+            widget.ownerId != null ? '?ownerId=${widget.ownerId}' : '';
+        context.push('/feed/${item.moduleId}$ownerParam');
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -499,7 +595,8 @@ class _ModuleDetailPageState extends ConsumerState<ModuleDetailPage> {
               ),
             ),
             // Arrow / Actions
-            if (true) // Allow hiding official cards too based on USER request
+            if (FirebaseAuth.instance.currentUser !=
+                null) // Only allow actions for logged in users
               PopupMenuButton<String>(
                 icon: Icon(
                   Icons.more_horiz,

@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/reado/documents {
+    // 💡 知识点库所有权模型：所有人可读，仅主人或管理员可写
+    
+    // 1. 官方内容 (feed_items)
+    match /feed_items/{itemId} {
+      allow read: if true;
+      allow write: if request.auth.uid == 'KAITONGG_UID';
+    }
+
+    // 2. 用户数据 (users)
+    match /users/{userId} {
+      allow read: if true;
+      // 仅限本人或管理员修改基本文档
+      allow write: if request.auth != null && (request.auth.uid == userId || request.auth.uid == 'KAITONGG_UID');
+      
+      // 💡 关键修复：允许增加分享点击数和积分（即使未登录）
+      // 这是为了让分享奖励逻辑在访客点击时也能生效
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['shareClicks', 'credits', 'lastShareClickAt']);
+
+      // 💡 子集合逻辑：模块、自定义项目、笔记、掌握情况等
+      match /{allSubcollections=**} {
+        allow read: if true; // 🌟 所有人可读，确保分享链接有效
+        allow write: if request.auth != null && (request.auth.uid == userId || request.auth.uid == 'KAITONGG_UID');
+      }
+    }
+
+    // 3. 通用规则
+    match /{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == 'KAITONGG_UID';
+    }
+  }
+}

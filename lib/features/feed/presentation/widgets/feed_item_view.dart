@@ -1,3 +1,5 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:go_router/go_router.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -12,11 +14,13 @@ import '../../../../core/providers/adhd_text_transformer.dart';
 class FeedItemView extends ConsumerStatefulWidget {
   final FeedItem feedItem;
   final bool isReviewMode;
+  final String? ownerId; // 🆕 Added ownerId
 
   const FeedItemView({
     super.key,
     required this.feedItem,
     this.isReviewMode = false,
+    this.ownerId,
     this.onNextTap,
     this.onViewModeChanged,
   });
@@ -71,7 +75,44 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     }
   }
 
+  bool _checkAuth() {
+    if (FirebaseAuth.instance.currentUser == null) {
+      showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+                title: const Text('需要登录'),
+                content: const Text('收藏、笔记等功能需要登录后使用。'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('取消')),
+                  TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        context.go('/onboarding');
+                      },
+                      child: const Text('去登录')),
+                ],
+              ));
+      return false;
+    }
+    return true;
+  }
+
+  bool get _isOwner =>
+      widget.ownerId == null ||
+      (FirebaseAuth.instance.currentUser != null &&
+          FirebaseAuth.instance.currentUser!.uid == widget.ownerId);
+
+  bool get _isOfficial => !widget.feedItem.isCustom;
+
+  bool get _isAdmin => FirebaseAuth.instance.currentUser?.uid == "KAITONGG_UID";
+
+  bool get _canEdit => _isOwner && (!_isOfficial || _isAdmin);
+
   void _showAskAISheet(BuildContext context) {
+    if (!_checkAuth()) return;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -81,6 +122,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
       ),
       builder: (context) => _AskAISheet(
         feedItem: widget.feedItem,
+        ownerId: widget.ownerId,
         onPin: (question, answer) {
           ref.read(feedProvider.notifier).pinNoteToItem(
                 widget.feedItem.id,
@@ -101,6 +143,8 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
   }
 
   void _toggleFavorite() {
+    if (!_checkAuth()) return;
+
     ref.read(feedProvider.notifier).toggleFavorite(widget.feedItem.id);
     final isFavorited = !widget.feedItem.isFavorited;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -113,6 +157,8 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
   }
 
   void _handleDeleteNote(UserNotePage note) {
+    if (!_checkAuth()) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -139,6 +185,8 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
   }
 
   void _handleEditNote(UserNotePage note) {
+    if (!_checkAuth()) return;
+
     setState(() {
       _isEditing = true;
       _editingNote = note;
@@ -271,15 +319,16 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           bottom: 110,
           child: Column(
             children: [
-              _buildActionButton(
-                icon: widget.feedItem.isFavorited
-                    ? Icons.favorite
-                    : Icons.favorite_border,
-                color: widget.feedItem.isFavorited
-                    ? Colors.redAccent
-                    : Colors.white,
-                onTap: _toggleFavorite,
-              ),
+              if (_isOwner)
+                _buildActionButton(
+                  icon: widget.feedItem.isFavorited
+                      ? Icons.favorite
+                      : Icons.favorite_border,
+                  color: widget.feedItem.isFavorited
+                      ? Colors.redAccent
+                      : Colors.white,
+                  onTap: _toggleFavorite,
+                ),
               const SizedBox(height: 16),
               // Note Navigation Icon (if notes exist)
               if (widget.feedItem.pages.length > 1) ...[
@@ -618,7 +667,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
 
                   const Spacer(),
                   // Direct Action Buttons instead of Menu
-                  if (!content.isReadOnly)
+                  if (!content.isReadOnly && _canEdit)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -828,15 +877,31 @@ class _ChatMessage {
 
 class _AskAISheet extends ConsumerStatefulWidget {
   final FeedItem feedItem;
+  final String? ownerId; // 🆕 Added ownerId
   final Function(String q, String a) onPin;
 
-  const _AskAISheet({required this.feedItem, required this.onPin});
+  const _AskAISheet({
+    required this.feedItem,
+    required this.onPin,
+    this.ownerId,
+  });
 
   @override
   ConsumerState<_AskAISheet> createState() => _AskAISheetState();
 }
 
 class _AskAISheetState extends ConsumerState<_AskAISheet> {
+  bool get _isOwner =>
+      widget.ownerId == null ||
+      (FirebaseAuth.instance.currentUser != null &&
+          FirebaseAuth.instance.currentUser!.uid == widget.ownerId);
+
+  bool get _isOfficial => !widget.feedItem.isCustom;
+
+  bool get _isAdmin => FirebaseAuth.instance.currentUser?.uid == "KAITONGG_UID";
+
+  bool get _canEdit => _isOwner && (!_isOfficial || _isAdmin);
+
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<_ChatMessage> _messages = [];
@@ -1265,8 +1330,8 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
               ),
             ),
 
-            // Single Action Button (Only show for AI when not in selection mode)
-            if (!msg.isUser && !_isSelectionMode) ...[
+            // Single Action Button (Only show for AI when not in selection mode and user can edit)
+            if (!msg.isUser && !_isSelectionMode && _canEdit) ...[
               const SizedBox(width: 8),
               IconButton(
                 icon: Icon(isPinned ? Icons.push_pin : Icons.push_pin_outlined,

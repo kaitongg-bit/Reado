@@ -4,6 +4,7 @@ import '../../../../core/widgets/app_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,11 +18,17 @@ import 'widgets/feed_item_view.dart';
 
 class FeedPage extends ConsumerStatefulWidget {
   final String moduleId; // e.g. "A" or "SEARCH"
+  final String? ownerId; // 🆕 Added ownerId for shared content
   final String? searchQuery;
   final int? initialIndex; // Optional: jump to specific item
 
-  const FeedPage(
-      {super.key, required this.moduleId, this.searchQuery, this.initialIndex});
+  const FeedPage({
+    super.key,
+    required this.moduleId,
+    this.ownerId,
+    this.searchQuery,
+    this.initialIndex,
+  });
 
   @override
   ConsumerState<FeedPage> createState() => _FeedPageState();
@@ -275,14 +282,39 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    // 判断是否为主任：如果未传 ownerId，则默认为自己的空间
+    final bool isOwner = widget.ownerId == null ||
+        (currentUser != null && currentUser.uid == widget.ownerId);
 
     final moduleState = ref.watch(moduleProvider);
+    final isA = widget.moduleId == 'A';
+    final isB = widget.moduleId == 'B';
     final currentModule =
         moduleState.all.where((m) => m.id == widget.moduleId).firstOrNull;
 
-    final title = widget.moduleId == 'SEARCH'
-        ? '搜索结果'
-        : (currentModule?.title ?? 'Module ${widget.moduleId}');
+    String title = '';
+    if (widget.moduleId == 'SEARCH') {
+      title = '搜索结果';
+    } else if (currentModule != null) {
+      title = currentModule.title;
+    } else {
+      // Logic for shared modules
+      if (isA) {
+        title = '硬核知识';
+      } else if (isB) {
+        title = 'PM 知识';
+      } else if (feedItems.isNotEmpty) {
+        title = '📑 分享的知识库';
+      } else {
+        // Check if we are in a shared context (moduleId is long ID)
+        if (widget.moduleId.length > 5) {
+          title = '📑 加载中的分享空间...';
+        } else {
+          title = 'Module ${widget.moduleId}';
+        }
+      }
+    }
 
     if (feedItems.isEmpty) {
       return Scaffold(
@@ -306,7 +338,9 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                   color: isDark ? Colors.grey[400] : Colors.grey[600],
                 ),
               ),
-              if (currentModule != null && !currentModule.isOfficial) ...[
+              if (currentModule != null &&
+                  !currentModule.isOfficial &&
+                  isOwner) ...[
                 const SizedBox(height: 24),
                 ElevatedButton.icon(
                   onPressed: () {
@@ -459,6 +493,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                         Row(
                           children: [
                             // Right: View All (back to detail page)
+                            // Right: View All (back to detail page)
                             GestureDetector(
                               onTap: () =>
                                   context.push('/module/${widget.moduleId}'),
@@ -487,110 +522,117 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            // More Options (Delete)
-                            PopupMenuButton<String>(
-                              icon: Icon(Icons.more_horiz,
-                                  color:
-                                      isDark ? Colors.white70 : Colors.black54),
-                              padding: EdgeInsets.zero,
-                              onSelected: (value) async {
-                                if (value == 'delete' || value == 'hide') {
-                                  final isHide = value == 'hide';
-                                  final item = feedItems[_focusedItemIndex];
-                                  final confirmed = await showDialog<bool>(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title:
-                                          Text(isHide ? '隐藏此知识卡？' : '彻底删除知识卡？'),
-                                      content: Text(isHide
-                                          ? '知识卡将被隐藏，您可以在“个人中心 - 隐藏的内容”中恢复。'
-                                          : '警告：此操作不可逆！该知识卡将永久从云端移除。'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, false),
-                                          child: const Text('取消'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, true),
-                                          child: Text(isHide ? '隐藏' : '彻底删除',
-                                              style: const TextStyle(
-                                                  color: Colors.red)),
-                                        ),
+                            if (isOwner &&
+                                feedItems[_focusedItemIndex].isCustom) ...[
+                              const SizedBox(width: 10),
+                              // More Options (Delete)
+                              PopupMenuButton<String>(
+                                icon: Icon(Icons.more_horiz,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black54),
+                                padding: EdgeInsets.zero,
+                                onSelected: (value) async {
+                                  if (value == 'delete' || value == 'hide') {
+                                    final isHide = value == 'hide';
+                                    final item = feedItems[_focusedItemIndex];
+                                    final confirmed = await showDialog<bool>(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: Text(
+                                            isHide ? '隐藏此知识卡？' : '彻底删除知识卡？'),
+                                        content: Text(isHide
+                                            ? '知识卡将被隐藏，您可以在“个人中心 - 隐藏的内容”中恢复。'
+                                            : '警告：此操作不可逆！该知识卡将永久从云端移除。'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
+                                            child: const Text('取消'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
+                                            child: Text(isHide ? '隐藏' : '彻底删除',
+                                                style: const TextStyle(
+                                                    color: Colors.red)),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+
+                                    if (confirmed == true) {
+                                      final bool isLast = _focusedItemIndex ==
+                                          feedItems.length - 1;
+
+                                      if (isHide) {
+                                        await ref
+                                            .read(feedProvider.notifier)
+                                            .hideFeedItem(item.id);
+                                      } else {
+                                        await ref
+                                            .read(feedProvider.notifier)
+                                            .deleteFeedItem(item.id);
+                                      }
+
+                                      // 🚀 CRITICAL: Handle auto-scroll / refresh UI immediately
+                                      if (mounted && _isSingleView) {
+                                        if (isLast && _focusedItemIndex > 0) {
+                                          // If deleted the last one, jump to the previous one
+                                          setState(() => _focusedItemIndex--);
+                                          _verticalController
+                                              .jumpToPage(_focusedItemIndex);
+                                        } else {
+                                          // If deleted a middle one, PageView stays at same index
+                                          // which now contains the next item. No jump needed,
+                                          // but we must refresh progress tracking for the "new" current item.
+                                          ref
+                                              .read(
+                                                  feedProgressProvider.notifier)
+                                              .setProgress(widget.moduleId,
+                                                  _focusedItemIndex);
+                                        }
+                                      }
+
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                            content: Text(
+                                                isHide ? '已隐藏知识卡' : '已移除知识卡')),
+                                      );
+                                    }
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'hide',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.visibility_off_outlined,
+                                            color: Colors.orange, size: 20),
+                                        SizedBox(width: 8),
+                                        Text('隐藏',
+                                            style: TextStyle(
+                                                color: Colors.orange)),
                                       ],
                                     ),
-                                  );
-
-                                  if (confirmed == true) {
-                                    final bool isLast = _focusedItemIndex ==
-                                        feedItems.length - 1;
-
-                                    if (isHide) {
-                                      await ref
-                                          .read(feedProvider.notifier)
-                                          .hideFeedItem(item.id);
-                                    } else {
-                                      await ref
-                                          .read(feedProvider.notifier)
-                                          .deleteFeedItem(item.id);
-                                    }
-
-                                    // 🚀 CRITICAL: Handle auto-scroll / refresh UI immediately
-                                    if (mounted && _isSingleView) {
-                                      if (isLast && _focusedItemIndex > 0) {
-                                        // If deleted the last one, jump to the previous one
-                                        setState(() => _focusedItemIndex--);
-                                        _verticalController
-                                            .jumpToPage(_focusedItemIndex);
-                                      } else {
-                                        // If deleted a middle one, PageView stays at same index
-                                        // which now contains the next item. No jump needed,
-                                        // but we must refresh progress tracking for the "new" current item.
-                                        ref
-                                            .read(feedProgressProvider.notifier)
-                                            .setProgress(widget.moduleId,
-                                                _focusedItemIndex);
-                                      }
-                                    }
-
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                          content: Text(
-                                              isHide ? '已隐藏知识卡' : '已移除知识卡')),
-                                    );
-                                  }
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: 'hide',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.visibility_off_outlined,
-                                          color: Colors.orange, size: 20),
-                                      SizedBox(width: 8),
-                                      Text('隐藏',
-                                          style:
-                                              TextStyle(color: Colors.orange)),
-                                    ],
                                   ),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.delete_outline,
-                                          color: Colors.red, size: 20),
-                                      SizedBox(width: 8),
-                                      Text('永久删除',
-                                          style: TextStyle(color: Colors.red)),
-                                    ],
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.delete_outline,
+                                            color: Colors.red, size: 20),
+                                        SizedBox(width: 8),
+                                        Text('永久删除',
+                                            style:
+                                                TextStyle(color: Colors.red)),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ],
@@ -654,6 +696,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
           child: FeedItemView(
             key: ValueKey(item.id),
             feedItem: item,
+            ownerId: widget.ownerId,
             onViewModeChanged: (isNote) {
               // Defer state update to avoid build collisions
               if (_isVerticalNavLocked != isNote) {

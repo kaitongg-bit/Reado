@@ -9,6 +9,8 @@ import '../../models/knowledge_module.dart';
 abstract class DataService {
   Future<List<FeedItem>> fetchFeedItems(String moduleId);
   Future<List<FeedItem>> fetchCustomFeedItems(String userId); // 获取用户自定义内容
+  Future<List<FeedItem>> fetchCustomFeedItemsByModule(
+      String userId, String moduleId); // 获取特定用户的特定模块内容（分享用）
   Future<void> saveUserNote(String itemId, String question, String answer);
   Future<void> deleteUserNote(String itemId, UserNotePage note);
   Future<void> updateUserNote(
@@ -240,6 +242,32 @@ class FirestoreService implements DataService {
       return items;
     } catch (e) {
       print('❌ 获取自定义内容失败: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<List<FeedItem>> fetchCustomFeedItemsByModule(
+      String userId, String moduleId) async {
+    try {
+      print(
+          '📥 (Sharing) Fetching shared custom items: user=$userId, module=$moduleId');
+      final snapshot = await _usersRef
+          .doc(userId)
+          .collection('custom_items')
+          .where('module', isEqualTo: moduleId)
+          .get();
+
+      final items = snapshot.docs.map<FeedItem>((doc) {
+        final data = doc.data();
+        data['isCustom'] = true; // Mark as custom
+        // data['isReadOnly'] = true; // Maybe later
+        return FeedItem.fromJson(data);
+      }).toList();
+
+      return items;
+    } catch (e) {
+      print('❌ Error fetching shared custom items: $e');
       return [];
     }
   }

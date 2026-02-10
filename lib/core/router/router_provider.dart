@@ -127,7 +127,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           // ------------------
 
           return NoTransitionPage(
-            child: ModuleDetailPage(moduleId: moduleId),
+            child: ModuleDetailPage(
+              moduleId: moduleId,
+              ownerId: state.uri.queryParameters['ownerId'],
+            ),
           );
         },
       ),

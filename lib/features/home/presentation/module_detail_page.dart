@@ -13,31 +13,56 @@ import 'home_page.dart'; // Import for homeTabControlProvider
 import '../../lab/presentation/add_material_modal.dart';
 import '../../../../core/providers/credit_provider.dart';
 
-class ModuleDetailPage extends ConsumerWidget {
+class ModuleDetailPage extends ConsumerStatefulWidget {
   final String moduleId;
+  final String? ownerId; // 🆕 Added ownerId for shared content
 
-  const ModuleDetailPage({super.key, required this.moduleId});
+  const ModuleDetailPage({super.key, required this.moduleId, this.ownerId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ModuleDetailPage> createState() => _ModuleDetailPageState();
+}
+
+class _ModuleDetailPageState extends ConsumerState<ModuleDetailPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Check if we need to load shared content
+    if (widget.ownerId != null) {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      // Only load if the owner is NOT the current user (my own content is already loaded)
+      if (currentUser == null || currentUser.uid != widget.ownerId) {
+        Future.microtask(() {
+          ref
+              .read(feedProvider.notifier)
+              .loadSharedModule(widget.moduleId, widget.ownerId!);
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final moduleState = ref.watch(moduleProvider);
     final feedItems = ref.watch(allItemsProvider);
 
     // Find the module
+    // If it's a shared module, it might not be in moduleState (which only has mine and official).
+    // So if not found, we use a placeholder "Shared Knowledge Base".
     final module = [...moduleState.officials, ...moduleState.custom]
-        .firstWhere((m) => m.id == moduleId,
+        .firstWhere((m) => m.id == widget.moduleId,
             orElse: () => KnowledgeModule(
-                  id: moduleId,
-                  title: '未知知识库',
-                  description: '',
-                  ownerId: 'unknown',
+                  id: widget.moduleId,
+                  title: '📑 分享的知识库', // Placeholder title for shared content
+                  description: '这是即使来自其他用户的分享内容',
+                  ownerId: widget.ownerId ?? 'unknown',
                   isOfficial: false,
                 ));
 
     // Get module items
     final moduleItems =
-        feedItems.where((item) => item.moduleId == moduleId).toList();
+        feedItems.where((item) => item.moduleId == widget.moduleId).toList();
     final cardCount = moduleItems.length;
     final learned = moduleItems
         .where((i) => i.masteryLevel != FeedItemMastery.unknown)
@@ -46,7 +71,7 @@ class ModuleDetailPage extends ConsumerWidget {
 
     // Get current progress for this module
     final currentProgress = ref.watch(feedProgressProvider);
-    final currentModuleIndex = currentProgress[moduleId] ?? 0;
+    final currentModuleIndex = currentProgress[widget.moduleId] ?? 0;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -73,8 +98,13 @@ class ModuleDetailPage extends ConsumerWidget {
                       // 生产环境使用实际域名，开发环境使用 window.location.origin
                       final String baseUrl = html.window.location.origin;
                       // 显式添加 /#/ 以确保 Web Hash 模式下的路由匹配
+                      // 🆕 关键修复：添加 ownerId 参数
+                      final ownerParam = widget.ownerId != null
+                          ? "&ownerId=${widget.ownerId}"
+                          : "&ownerId=${user.uid}";
+
                       final String shareUrl =
-                          "$baseUrl/#/module/$moduleId?ref=${user.uid}";
+                          "$baseUrl/#/module/${widget.moduleId}?ref=${user.uid}$ownerParam";
 
                       // 2. 复制到剪贴板
                       Clipboard.setData(ClipboardData(
@@ -146,13 +176,14 @@ class ModuleDetailPage extends ConsumerWidget {
                             if (user != null) {
                               await ref
                                   .read(dataServiceProvider)
-                                  .hideOfficialModule(user.uid, moduleId);
+                                  .hideOfficialModule(
+                                      user.uid, widget.moduleId);
                               ref.read(moduleProvider.notifier).refresh();
                             }
                           } else {
                             await ref
                                 .read(moduleProvider.notifier)
-                                .deleteModule(moduleId);
+                                .deleteModule(widget.moduleId);
                           }
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -238,7 +269,8 @@ class ModuleDetailPage extends ConsumerWidget {
                           onPressed: () {
                             // 1. Filter items for this module to find how many we have
                             final moduleItems = feedItems
-                                .where((item) => item.moduleId == moduleId)
+                                .where(
+                                    (item) => item.moduleId == widget.moduleId)
                                 .toList();
 
                             // 2. Determine random starting index
@@ -251,12 +283,12 @@ class ModuleDetailPage extends ConsumerWidget {
                             // 3. Save active module
                             ref
                                 .read(lastActiveModuleProvider.notifier)
-                                .setActiveModule(moduleId);
+                                .setActiveModule(widget.moduleId);
 
                             // 4. Set progress to the random index
                             ref
                                 .read(feedProgressProvider.notifier)
-                                .setProgress(moduleId, targetIndex);
+                                .setProgress(widget.moduleId, targetIndex);
 
                             // 5. Switch to Feed tab via provider
                             ref.read(homeTabControlProvider.notifier).state = 1;
@@ -288,8 +320,8 @@ class ModuleDetailPage extends ConsumerWidget {
                           onPressed: () {
                             showDialog(
                               context: context,
-                              builder: (context) =>
-                                  AddMaterialModal(targetModuleId: moduleId),
+                              builder: (context) => AddMaterialModal(
+                                  targetModuleId: widget.moduleId),
                             );
                           },
                           icon: const Icon(Icons.add, color: Colors.black),

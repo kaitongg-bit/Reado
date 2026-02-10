@@ -322,6 +322,55 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     }
   }
 
+  /// 加载别人分享的模块 (Shared Module Logic)
+  Future<void> loadSharedModule(String moduleId, String ownerId) async {
+    print('🔄 Loading shared module: $moduleId from owner: $ownerId');
+    _ref.read(feedLoadingProvider.notifier).state = true;
+    try {
+      final sharedItems =
+          await _dataService.fetchCustomFeedItemsByModule(ownerId, moduleId);
+
+      if (sharedItems.isNotEmpty) {
+        // Add to allItems if not exists
+        final existingIds = _allItems.map((e) => e.id).toSet();
+        final newItems =
+            sharedItems.where((i) => !existingIds.contains(i.id)).toList();
+
+        // Sort new items
+        newItems.sort((a, b) {
+          final dateA = a.createdAt ?? DateTime.now();
+          final dateB = b.createdAt ?? DateTime.now();
+          return dateB.compareTo(dateA);
+        });
+
+        _allItems.addAll(newItems);
+        // Re-sort all items just in case
+        _allItems.sort((a, b) {
+          final dateA = a.createdAt ?? DateTime.now();
+          final dateB = b.createdAt ?? DateTime.now();
+          return dateB.compareTo(dateA);
+        });
+
+        // Show only these items in the feed/module view
+        // Don't override state HERE if we align with loadModule logic later.
+        // But ModuleDetailPage uses allItemsProvider which watches notifier.
+        // If we update state, it notifies listeners.
+        // We can set state to just these items so UI updates effectively if viewing feed?
+        // But ModuleDetailPage views 'allItemsProvider' filtered by module locally.
+
+        // Just notifying listeners (by setting state = state or similar) is enough for ModulePage?
+        // But let's set state to reflect loaded items for now.
+        state = sharedItems;
+      } else {
+        print('⚠️ Shared module is empty or not found');
+      }
+    } catch (e) {
+      print('❌ Failed to load shared module: $e');
+    } finally {
+      _ref.read(feedLoadingProvider.notifier).state = false;
+    }
+  }
+
   /// 搜索逻辑
   void searchItems(String query) {
     if (query.isEmpty) {

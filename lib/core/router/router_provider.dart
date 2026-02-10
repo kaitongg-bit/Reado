@@ -30,11 +30,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final user = FirebaseAuth.instance.currentUser;
       final isLoggingIn = state.matchedLocation == '/onboarding';
-      final isSharedLink = state.matchedLocation.startsWith('/module/');
 
       if (user == null) {
-        // 未登录用户只能看 Onboarding 或 分享链接
-        return (isLoggingIn || isSharedLink) ? null : '/onboarding';
+        // 未登录用户只能看 Onboarding
+        return isLoggingIn ? null : '/onboarding';
       }
 
       // 已登录用户不能去 Onboarding

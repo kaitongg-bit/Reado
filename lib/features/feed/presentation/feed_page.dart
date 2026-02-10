@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/providers/adhd_provider.dart';
 import '../../../models/feed_item.dart';
 
 import '../../home/presentation/module_provider.dart';
@@ -1095,7 +1097,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
 // Overscroll Navigation Logic ("The Mud Effect")
 // -----------------------------------------------------------------------------
 
-class _OverscrollNavigatable extends StatefulWidget {
+class _OverscrollNavigatable extends ConsumerStatefulWidget {
   final Widget child;
   final VoidCallback? onTriggerPrev;
   final VoidCallback? onTriggerNext;
@@ -1113,10 +1115,11 @@ class _OverscrollNavigatable extends StatefulWidget {
   });
 
   @override
-  State<_OverscrollNavigatable> createState() => _OverscrollNavigatableState();
+  ConsumerState<_OverscrollNavigatable> createState() =>
+      _OverscrollNavigatableState();
 }
 
-class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
+class _OverscrollNavigatableState extends ConsumerState<_OverscrollNavigatable>
     with SingleTickerProviderStateMixin {
   Offset _dragOffset = Offset.zero;
 
@@ -1135,6 +1138,59 @@ class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
         _dragOffset = _resetAnimation.value;
       });
     });
+
+    // 🆕 ADHD First-Time Check
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      _checkAndShowAdhdNotice(context);
+    });
+  }
+
+  Future<void> _checkAndShowAdhdNotice(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasShown = prefs.getBool('has_shown_adhd_notice') ?? false;
+
+    if (!hasShown) {
+      if (!mounted) return;
+
+      // Ensure it's enabled
+      final adhdState = ref.read(adhdSettingsProvider);
+      if (adhdState.isEnabled) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.auto_awesome, color: Colors.amber),
+                SizedBox(width: 12),
+                Text('已启用沉浸阅读模式'),
+              ],
+            ),
+            content: const Text(
+                '为了帮助提升阅读专注力，我们默认开启了 ADHD 辅助变色模式。\n\n如需关闭或调整，请点击页面右上角的设置。'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Text('知道了'),
+              ),
+              TextButton(
+                onPressed: () {
+                  // TODO: Navigate to settings or toggle off directly
+                  ref.read(adhdSettingsProvider.notifier).setEnabled(false);
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(const SnackBar(content: Text('已关闭辅助模式')));
+                },
+                child: const Text('关闭'),
+              ),
+            ],
+          ),
+        );
+        prefs.setBool('has_shown_adhd_notice', true);
+      }
+    }
   }
 
   @override

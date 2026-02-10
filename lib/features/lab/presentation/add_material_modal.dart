@@ -265,105 +265,42 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
 
   void _parseLocally() {
     if (_textController.text.trim().isEmpty) return;
+    _parseTextToItems(_textController.text);
+  }
 
-    final text = _textController.text;
+  void _parseTextToItems(String text, {String? title}) {
     final List<FeedItem> items = [];
-    final lines = text.split('\n');
 
-    List<String> headerStack = [];
-    StringBuffer currentContent = StringBuffer();
-    String? activeTitle; // 当前正在积累内容的标题
-
-    void saveCurrent() {
-      final contentStr = currentContent.toString().trim();
-      if (contentStr.isNotEmpty) {
-        String title = activeTitle ?? 'Overview';
-
-        // 如果没有标题 (activeTitle 为 null)，尝试用正文第一行作为标题
-        if (activeTitle == null) {
-          final firstLine = contentStr.split('\n').first.trim();
-          if (firstLine.isNotEmpty) {
-            title = firstLine.length > 20
-                ? '${firstLine.substring(0, 20)}...'
-                : firstLine;
-          }
-        }
-
-        // 智能优化：如果由于层级深导致标题只有"场景题"这种简单词，尝试拼接上一级
-        // 比如: "Redis > 场景题"
-        if (headerStack.length > 1 && title.length < 5) {
-          final parent = headerStack[headerStack.length - 2];
-          title = '$parent > $title';
-        }
-
-        // 尝试提取分类
-        String category = 'Note';
-        if (headerStack.isNotEmpty) {
-          category = headerStack.first; // 最高层级作为分类
-        }
-
-        items.add(FeedItem(
-          id: DateTime.now().millisecondsSinceEpoch.toString() +
-              items.length.toString(),
-          moduleId: widget.targetModuleId ?? 'custom',
-          title: title,
-          pages: [OfficialPage("# $title\n\n$contentStr")],
-          category: category,
-          masteryLevel: FeedItemMastery.unknown,
-          isCustom: true, // 用户生成的内容，可删除
-        ));
-      }
-    }
-
-    final headerRegex = RegExp(r'^(#+)\s+(.*)');
-
-    for (var line in lines) {
-      final match = headerRegex.firstMatch(line);
-
-      // 忽略代码块中的 # (简单处理，不完美但有效)
-      // 如果正处于代码块中... 这里暂时不搞那么复杂，假设 # 开头就是标题
-
-      if (match != null) {
-        // === 遇到新标题 ===
-        // 1. 先结算上一段内容
-        saveCurrent();
-
-        // 2. 解析新标题信息
-        final level = match.group(1)!.length;
-        final titleRaw = match.group(2)!.trim();
-
-        // 3. 维护标题栈
-        if (level <= headerStack.length) {
-          // 回退栈：保留 0 到 level-1
-          headerStack = headerStack.sublist(0, level - 1);
-        }
-        headerStack.add(titleRaw);
-
-        activeTitle = titleRaw;
-        currentContent = StringBuffer(); // 重置正文缓冲
+    // 1. Determine Title
+    String finalTitle = title ?? 'Untitled';
+    if (title == null) {
+      if (_pickedFileName != null) {
+        finalTitle = _pickedFileName!;
       } else {
-        // === 遇到正文 ===
-        currentContent.writeln(line);
+        final firstLine = text.trim().split('\n').first;
+        finalTitle = firstLine.length > 30
+            ? '${firstLine.substring(0, 30)}...'
+            : firstLine;
       }
     }
-    // 循环结束，结算最后一张
-    saveCurrent();
 
-    // Fallback: 全文无标题
-    if (items.isEmpty && text.trim().isNotEmpty) {
-      final firstLine = text.trim().split('\n').first;
-      items.add(FeedItem(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        moduleId: widget.targetModuleId ?? 'custom',
-        title: firstLine.length > 30
-            ? '${firstLine.substring(0, 30)}...'
-            : firstLine,
-        pages: [OfficialPage(text)],
-        category: 'Manual',
-        masteryLevel: FeedItemMastery.unknown,
-        isCustom: true, // 用户生成的内容，可删除
-      ));
-    }
+    // 2. Calculate Reading Time (Estimate)
+    // Average reading speed: 400 chars/min for Chinese/mixed
+    final int readingTime = (text.length / 400).ceil();
+    final int safeReadingTime = readingTime < 1 ? 1 : readingTime;
+
+    // 3. Create Single Item (No Splitting)
+    items.add(FeedItem(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      moduleId: widget.targetModuleId ?? 'custom',
+      title: finalTitle,
+      pages: [OfficialPage(text)],
+      category: 'Manual',
+      difficulty: 'Normal', // Default
+      readingTimeMinutes: safeReadingTime,
+      masteryLevel: FeedItemMastery.unknown,
+      isCustom: true,
+    ));
 
     setState(() {
       _generatedItems = items;
@@ -1824,42 +1761,82 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
                         Expanded(
                           child: SizedBox(
                             width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: hasQueueItems
-                                  ? () => _showQueueConflictMessage()
-                                  : ((_extractionResult != null &&
-                                          !_isGenerating)
-                                      ? _startGeneration
-                                      : null),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isDark
-                                    ? accentColor
-                                    : const Color(0xFF1E293B),
-                                foregroundColor: Colors.white,
-                                disabledBackgroundColor: isDark
-                                    ? Colors.grey.withOpacity(0.1)
-                                    : const Color(0xFFE2E8F0),
-                                disabledForegroundColor:
-                                    const Color(0xFF94A3B8),
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16)),
-                              ),
-                              child: _isGenerating
-                                  ? const CircularProgressIndicator(
-                                      color: Colors.white)
-                                  : const Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.auto_awesome, size: 28),
-                                        SizedBox(height: 8),
-                                        Text('AI 拆解',
-                                            style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.bold)),
-                                      ],
+                            child: Column(
+                              children: [
+                                // AI Deconstruction Button (Primary)
+                                Expanded(
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton(
+                                      onPressed: hasQueueItems
+                                          ? () => _showQueueConflictMessage()
+                                          : ((_extractionResult != null &&
+                                                  !_isGenerating)
+                                              ? _startGeneration
+                                              : null),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: isDark
+                                            ? accentColor
+                                            : const Color(0xFF1E293B),
+                                        foregroundColor: Colors.white,
+                                        disabledBackgroundColor: isDark
+                                            ? Colors.grey.withOpacity(0.1)
+                                            : const Color(0xFFE2E8F0),
+                                        disabledForegroundColor:
+                                            const Color(0xFF94A3B8),
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(16)),
+                                      ),
+                                      child: _isGenerating
+                                          ? const CircularProgressIndicator(
+                                              color: Colors.white)
+                                          : const Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(Icons.auto_awesome,
+                                                    size: 28),
+                                                SizedBox(height: 8),
+                                                Text('AI 拆解',
+                                                    style: TextStyle(
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.bold)),
+                                              ],
+                                            ),
                                     ),
+                                  ),
+                                ),
+
+                                // Direct Import Button (Secondary)
+                                if (_extractionResult != null && !_isGenerating)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 12.0),
+                                    child: SizedBox(
+                                      width: double.infinity,
+                                      child: TextButton(
+                                        onPressed: () {
+                                          _parseTextToItems(
+                                              _extractionResult!.content);
+                                        },
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 12),
+                                          foregroundColor: secondaryTextColor,
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              side: BorderSide(
+                                                  color: borderColor)),
+                                        ),
+                                        child: const Text('直接收藏 (不拆解)',
+                                            style: TextStyle(fontSize: 12)),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ),
@@ -2122,11 +2099,11 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal> {
         ),
         Row(
           children: [
-            _buildModeChip(AiDeconstructionMode.standard, '普通 🤖', '严谨全面'),
+            _buildModeChip(AiDeconstructionMode.standard, '普通', '严谨全面'),
             const SizedBox(width: 8),
-            _buildModeChip(AiDeconstructionMode.grandma, '大白话 👵', '极其通俗'),
+            _buildModeChip(AiDeconstructionMode.grandma, '老奶奶', '极其通俗'),
             const SizedBox(width: 8),
-            _buildModeChip(AiDeconstructionMode.phd, '智障博士 🎓', '严密逻辑'),
+            _buildModeChip(AiDeconstructionMode.phd, '智障博士', '大白话'),
           ],
         ),
       ],

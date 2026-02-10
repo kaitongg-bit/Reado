@@ -258,19 +258,19 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     // 2. 同步全量数据
     _allItems = [...uniqueNewItems, ..._allItems];
 
-    // 3. 统一排序：按创建时间正序排列 (最早的在顶，最新的在底)
+    // 3. 统一排序：按创建时间倒序排列 (最新的在顶，最早的在底)
     _allItems.sort((a, b) {
       final dateA = a.createdAt ?? DateTime.now();
       final dateB = b.createdAt ?? DateTime.now();
-      return dateA.compareTo(dateB); // ASC: Oldest first
+      return dateB.compareTo(dateA); // DESC: Newest first
     });
 
-    // 4. 更新当前视图 state：直接追加在后面，并保持正序排列
-    state = [...state, ...uniqueNewItems];
+    // 4. 更新当前视图 state：直接追加在后面，并保持倒序排列
+    state = [...uniqueNewItems, ...state]; // Prepend new items
     state.sort((a, b) {
       final dateA = a.createdAt ?? DateTime.now();
       final dateB = b.createdAt ?? DateTime.now();
-      return dateA.compareTo(dateB);
+      return dateB.compareTo(dateA); // DESC
     });
   }
 

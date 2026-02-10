@@ -63,9 +63,20 @@ class AdhdSettingsNotifier extends StateNotifier<AdhdSettings> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    final isEnabled = prefs.getBool('adhd_enabled') ?? false;
-    final modeIndex =
-        prefs.getInt('adhd_mode_index') ?? AdhdReadingMode.color.index;
+
+    // Default to true if key doesn't exist (First time user)
+    final bool isEnabled;
+    if (prefs.containsKey('adhd_enabled')) {
+      isEnabled = prefs.getBool('adhd_enabled')!;
+    } else {
+      isEnabled = true; // Default ON
+      // Save it immediately so we know it's not first time next launch?
+      // Or keep dynamic. Let's save it to be explicit.
+      await prefs.setBool('adhd_enabled', true);
+    }
+
+    final modeIndex = prefs.getInt('adhd_mode_index') ??
+        AdhdReadingMode.hybrid.index; // Default Hybrid
     final intensityIndex =
         prefs.getInt('adhd_intensity_index') ?? AdhdIntensity.low.index;
 

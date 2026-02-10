@@ -470,6 +470,21 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                                     'p': AdhdMarkdownParagraphBuilder(
                                       adhdSettings: adhdSettings,
                                     ),
+                                    'li': AdhdMarkdownParagraphBuilder(
+                                      adhdSettings: adhdSettings,
+                                    ),
+                                    'blockquote': AdhdMarkdownParagraphBuilder(
+                                      adhdSettings: adhdSettings,
+                                    ),
+                                    'h1': AdhdMarkdownParagraphBuilder(
+                                      adhdSettings: adhdSettings,
+                                    ),
+                                    'h2': AdhdMarkdownParagraphBuilder(
+                                      adhdSettings: adhdSettings,
+                                    ),
+                                    'h3': AdhdMarkdownParagraphBuilder(
+                                      adhdSettings: adhdSettings,
+                                    ),
                                   }
                                 : {},
                           ),
@@ -701,6 +716,12 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                         builders: adhdSettings.isEnabled
                             ? {
                                 'p': AdhdMarkdownParagraphBuilder(
+                                  adhdSettings: adhdSettings,
+                                ),
+                                'li': AdhdMarkdownParagraphBuilder(
+                                  adhdSettings: adhdSettings,
+                                ),
+                                'blockquote': AdhdMarkdownParagraphBuilder(
                                   adhdSettings: adhdSettings,
                                 ),
                               }

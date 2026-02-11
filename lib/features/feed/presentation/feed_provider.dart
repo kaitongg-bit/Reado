@@ -223,24 +223,27 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
       // 3. 合并所有内容
       _allItems = [...officialItems, ...customItems];
 
-      // 4. 排序：按时间正序 (从旧到新，符合阅读习惯)
+      // 4. 排序：按时间正序 (从旧到新，符合阅读习惯: 最先生成的在上面)
       _allItems.sort((a, b) {
         final dateA = a.createdAt ?? DateTime(1970);
         final dateB = b.createdAt ?? DateTime(1970);
-        return dateA.compareTo(dateB); // 升序
+        return dateA.compareTo(dateB); // 升序 (ASC)
       });
 
-      print('📊 总计: ${_allItems.length} 个知识点 (已按时间排序)');
+      print('📊 总计: ${_allItems.length} 个知识点 (已按时间正序排序)');
 
-      // 🔔 关键修复：强制更新 state 以通知 allItemsProvider
-      // 即使 state 内容不变，重新赋值也会触发 notifyListeners
-      state = [...state];
+      // 5. 更新 State
+      if (mounted) {
+        state = [..._allItems];
+      }
     } catch (e) {
       print('❌ Basic load failed: $e');
       rethrow;
     } finally {
       print('🏁 加载状态结束');
-      _ref.read(feedLoadingProvider.notifier).state = false;
+      if (mounted) {
+        _ref.read(feedLoadingProvider.notifier).state = false;
+      }
     }
   }
 
@@ -256,22 +259,17 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     if (uniqueNewItems.isEmpty) return;
 
     // 2. 同步全量数据
-    _allItems = [...uniqueNewItems, ..._allItems];
+    _allItems = [..._allItems, ...uniqueNewItems]; // Append new items
 
-    // 3. 统一排序：按创建时间倒序排列 (最新的在顶，最早的在底)
+    // 3. 统一排序：按创建时间正序排列 (从旧到新)
     _allItems.sort((a, b) {
-      final dateA = a.createdAt ?? DateTime.now();
-      final dateB = b.createdAt ?? DateTime.now();
-      return dateB.compareTo(dateA); // DESC: Newest first
+      final dateA = a.createdAt ?? DateTime(1970);
+      final dateB = b.createdAt ?? DateTime(1970);
+      return dateA.compareTo(dateB); // ASC
     });
 
-    // 4. 更新当前视图 state：直接追加在后面，并保持倒序排列
-    state = [...uniqueNewItems, ...state]; // Prepend new items
-    state.sort((a, b) {
-      final dateA = a.createdAt ?? DateTime.now();
-      final dateB = b.createdAt ?? DateTime.now();
-      return dateB.compareTo(dateA); // DESC
-    });
+    // 4. 更新当前视图 state
+    state = [..._allItems];
   }
 
   /// 监听特定的后台任务，并将生成的卡片实时同步到 Feed

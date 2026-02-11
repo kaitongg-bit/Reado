@@ -64,6 +64,26 @@ class ModuleNotifier extends StateNotifier<ModuleState> {
         officials: officials,
         custom: custom,
       );
+
+      // 3. Auto-create "Default Knowledge Base" if missing (and user is logged in)
+      if (user != null && !custom.any((m) => m.title == '默认知识库')) {
+        try {
+          // We initiate creation but don't await to block UI,
+          // but we DO want to update state when done.
+          // However, since we are inside _loadInitialData which is async, we can await.
+          final defaultModule = await _dataService.createModule(
+            user.uid,
+            '默认知识库',
+            '系统预设的默认知识库',
+          );
+          // Update state again with the new module
+          state = state.copyWith(
+            custom: [defaultModule, ...custom],
+          );
+        } catch (e) {
+          print('Failed to auto-create default module: $e');
+        }
+      }
     } catch (e) {
       print('❌ Failed to load modules: $e');
     } finally {

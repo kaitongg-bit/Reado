@@ -80,7 +80,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     final currentModuleId = lastActiveModule ?? 'ALL';
 
     final screens = [
-      HomeTab(onLoadModule: _loadModule),
+      HomeTab(
+        onLoadModule: _loadModule,
+        onJumpToFeed: () {
+          ref.read(homeTabControlProvider.notifier).state = 1;
+        },
+      ),
       FeedPage(key: ValueKey(currentModuleId), moduleId: currentModuleId),
       const VaultPage(),
     ];
@@ -97,9 +102,11 @@ class _HomePageState extends ConsumerState<HomePage> {
         },
         backgroundColor:
             Theme.of(context).bottomNavigationBarTheme.backgroundColor,
-        indicatorColor: const Color(0xFFFF8A65).withOpacity(0.3),
-        height: 80,
-        elevation: 8,
+        indicatorColor:
+            const Color(0xFFFF8A65).withOpacity(0.2), // Lighter orange
+        indicatorShape: const CircleBorder(),
+        height: 70, // Slightly shorter for a cleaner look
+        elevation: 0, // Flat look to match the white design
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),

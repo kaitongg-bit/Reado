@@ -833,6 +833,7 @@ $chunkContent
       final message = data['message'] as String?;
       final cardsData = data['cards'] as List<dynamic>? ?? [];
       final totalCards = data['totalCards'] as int? ?? cardsData.length;
+      final jobModuleId = data['moduleId'] as String?; // Retrieve module ID
 
       // 1. 发送状态消息
       if (message != null) {
@@ -851,7 +852,9 @@ $chunkContent
         for (int i = yieldedCardsCount; i < cardsData.length; i++) {
           try {
             final cardMap = cardsData[i] as Map<String, dynamic>;
-            final item = _parseCardFromMap(cardMap);
+            // Pass jobModuleId to parser
+            final item =
+                _parseCardFromMap(cardMap, defaultModuleId: jobModuleId);
             controller
                 .add(StreamingGenerationEvent.card(item, i + 1, totalCards));
           } catch (e) {
@@ -883,10 +886,17 @@ $chunkContent
   }
 
   /// 从 Map 解析 FeedItem
-  static FeedItem _parseCardFromMap(Map<String, dynamic> cardMap) {
+  static FeedItem _parseCardFromMap(Map<String, dynamic> cardMap,
+      {String? defaultModuleId}) {
     try {
       // 1. 尝试使用标准的 fromJson (云函数已调整为兼容格式)
-      return FeedItem.fromJson(cardMap);
+      // 如果 defaultModuleId 存在，确保它被优先使用 (copy logic)
+      final item = FeedItem.fromJson(cardMap);
+      if (defaultModuleId != null &&
+          (item.moduleId == 'custom' || item.moduleId.isEmpty)) {
+        return item.copyWith(moduleId: defaultModuleId);
+      }
+      return item;
     } catch (e) {
       if (kDebugMode) print('Parser: fallback to manual parse due to: $e');
 
@@ -911,11 +921,14 @@ $chunkContent
         flashA = flashMap?['answer']?.toString();
       }
 
+      // Determine Module ID: defaultModuleId > cardMap > 'custom'
+      final effectiveModuleId = defaultModuleId ??
+          (cardMap['moduleId'] ?? cardMap['module'] ?? 'custom').toString();
+
       return FeedItem(
         id: (cardMap['id'] ?? 'temp_${DateTime.now().millisecondsSinceEpoch}')
             .toString(),
-        moduleId:
-            (cardMap['moduleId'] ?? cardMap['module'] ?? 'custom').toString(),
+        moduleId: effectiveModuleId,
         title: (cardMap['title'] ?? '未命名知识点').toString(),
         category: (cardMap['category'] ?? 'AI Generated').toString(),
         difficulty: (cardMap['difficulty'] ?? 'Medium').toString(),

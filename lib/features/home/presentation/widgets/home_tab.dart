@@ -1,675 +1,386 @@
-import 'dart:ui';
-import 'package:flutter/material.dart' hide ThemeMode;
-import '../../../../core/widgets/app_background.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../feed/presentation/feed_provider.dart';
-import '../../../../models/feed_item.dart';
-import '../module_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/providers/credit_provider.dart';
-import '../../../lab/presentation/task_center_page.dart';
+import '../../../feed/presentation/feed_provider.dart';
+import '../../../../models/feed_item.dart';
+import '../../../../models/knowledge_module.dart';
+import '../module_provider.dart';
+import '../../../lab/presentation/add_material_modal.dart';
+import '../../../lab/presentation/widgets/tutorial_pulse.dart'; // Import TutorialPulseding_provider.dart';
+import '../../../onboarding/providers/onboarding_provider.dart';
+
+// Helper provider for the filter tab state
+final _homeModuleFilterProvider = StateProvider.autoDispose<int>(
+    (ref) => 0); // 0: Official, 1: Personal, 2: Recent
 
 class HomeTab extends ConsumerWidget {
-  final Function(String moduleId)? onLoadModule; // 加载模块的回调
+  final Function(String moduleId)? onLoadModule;
 
-  const HomeTab({super.key, this.onLoadModule});
+  final VoidCallback? onJumpToFeed;
+
+  const HomeTab({super.key, this.onLoadModule, this.onJumpToFeed});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isFeedLoading = ref.watch(feedLoadingProvider);
-    final moduleState = ref.watch(moduleProvider);
-    ref.watch(authStateProvider); // Rebuild when auth state changes
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final filterIndex = ref.watch(_homeModuleFilterProvider);
 
-    // 1. Loading State
-    if (isFeedLoading || moduleState.isLoading) {
-      return Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(color: Color(0xFFFF8A65)),
-              const SizedBox(height: 16),
-              Text(
-                '正在准备知识库...',
-                style: TextStyle(
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+    // Data Sources
+    final feedItems = ref.watch(allItemsProvider);
+    final moduleState = ref.watch(moduleProvider);
+
+    // Filter Modules
+    List<KnowledgeModule> displayedModules = [];
+    if (filterIndex == 0) {
+      // Official (A & B) + any other official ones
+      // Use the 'isOfficial' flag if available, or fallback to defaults
+      displayedModules = moduleState.officials;
+    } else if (filterIndex == 1) {
+      // Personal
+      displayedModules = moduleState.custom;
+    } else {
+      // Recent - For now combine all
+      displayedModules = [...moduleState.custom, ...moduleState.officials];
+      // In a real app, we would sort by 'lastAccessTime' or similar.
+      // For now, let's just reverse them to show something different or keep as is.
+      // displayedModules = displayedModules.reversed.toList();
     }
 
-    // 2. Data Preparation
-    final feedItems = ref.watch(allItemsProvider);
+    // Theme Colors
+    final bgOrange = const Color(0xFFFFE0B2); // Background orange
 
-    // Calculate stats for Official Modules (Legacy A/B logic)
-    final hardcoreItems = feedItems.where((i) => i.moduleId == 'A').toList();
-    final pmItems = feedItems.where((i) => i.moduleId == 'B').toList();
-
-    final hardcoreCount = hardcoreItems.length;
-    final hardcoreLearned = hardcoreItems
-        .where((i) => i.masteryLevel != FeedItemMastery.unknown)
-        .length;
-    final hardcoreProgress =
-        hardcoreCount == 0 ? 0.0 : hardcoreLearned / hardcoreCount;
-
-    final pmCount = pmItems.length;
-    final pmLearned =
-        pmItems.where((i) => i.masteryLevel != FeedItemMastery.unknown).length;
-    final pmProgress = pmCount == 0 ? 0.0 : pmLearned / pmCount;
-
-    // 3. Main Content
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : bgOrange,
       body: Stack(
         children: [
-          // Global App Background
-          const AppBackground(),
+          // 1. Top Orange Background
+          Container(
+            height:
+                MediaQuery.of(context).size.height * 0.55, // Increased height
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFFFCC80),
+            ),
+          ),
 
-          // Main Content
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(
-                      parent: AlwaysScrollableScrollPhysics()),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight,
+          // 2. White Content Sheet
+          Container(
+            margin: const EdgeInsets.only(top: 220), // Pushed down
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF121212) : const Color(0xFFFAFAFA),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(36)),
+            ),
+            child: ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(36)),
+              child: Column(
+                children: [
+                  // Tabs Area (The "Calendar" replacement)
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _FilterTabItem(
+                            label: '官方',
+                            isSelected: filterIndex == 0,
+                            onTap: () => ref
+                                .read(_homeModuleFilterProvider.notifier)
+                                .state = 0),
+                        _FilterTabItem(
+                            label: '个人',
+                            isSelected: filterIndex == 1,
+                            onTap: () => ref
+                                .read(_homeModuleFilterProvider.notifier)
+                                .state = 1),
+                        _FilterTabItem(
+                            label: '最近在学',
+                            isSelected: filterIndex == 2,
+                            onTap: () => ref
+                                .read(_homeModuleFilterProvider.notifier)
+                                .state = 2),
+                      ],
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // 1. Conversational Header Row
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Left Area: Greeting & Quote
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '${_getGreeting()}，${_getUserName()}',
-                                          style: TextStyle(
-                                            color: isDark
-                                                ? Colors.white
-                                                : Colors.black87,
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: -0.5,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        // Simple text quote without heavy containers
-                                        _buildSimpleQuote(
-                                            isDark, pmCount + hardcoreCount),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  // Right Area: Credits, Tasks & Avatar
-                                  Row(
-                                    children: [
-                                      // Credits
-                                      Consumer(
-                                        builder: (context, ref, child) {
-                                          final creditsAsync =
-                                              ref.watch(creditProvider);
-                                          return creditsAsync.when(
-                                            data: (stats) => Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFFFB300)
-                                                    .withOpacity(0.1),
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  const Icon(Icons.stars,
-                                                      size: 14,
-                                                      color: Color(0xFFFFB300)),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    '${stats.credits}',
-                                                    style: const TextStyle(
-                                                      color: Color(0xFFE65100),
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            loading: () =>
-                                                const SizedBox.shrink(),
-                                            error: (_, __) =>
-                                                const SizedBox.shrink(),
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(width: 8),
-                                      // Task Center Button with Badge
-                                      Consumer(
-                                        builder: (context, ref, child) {
-                                          final activeCount = ref
-                                              .watch(activeTaskCountProvider);
-                                          return GestureDetector(
-                                            onTap: () =>
-                                                context.push('/task-center'),
-                                            child: Container(
-                                              padding: const EdgeInsets.all(6),
-                                              decoration: BoxDecoration(
-                                                color: activeCount > 0
-                                                    ? const Color(0xFF2196F3)
-                                                        .withOpacity(0.1)
-                                                    : (isDark
-                                                        ? Colors.white
-                                                            .withOpacity(0.05)
-                                                        : Colors.black
-                                                            .withOpacity(0.05)),
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              child: Stack(
-                                                clipBehavior: Clip.none,
-                                                children: [
-                                                  Icon(
-                                                    activeCount > 0
-                                                        ? Icons.sync
-                                                        : Icons.task_alt,
-                                                    size: 20,
-                                                    color: activeCount > 0
-                                                        ? const Color(
-                                                            0xFF2196F3)
-                                                        : (isDark
-                                                            ? Colors.white54
-                                                            : Colors.black54),
-                                                  ),
-                                                  if (activeCount > 0)
-                                                    Positioned(
-                                                      right: -6,
-                                                      top: -6,
-                                                      child: Container(
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .all(4),
-                                                        decoration:
-                                                            const BoxDecoration(
-                                                          color:
-                                                              Color(0xFF2196F3),
-                                                          shape:
-                                                              BoxShape.circle,
-                                                        ),
-                                                        child: Text(
-                                                          activeCount > 9
-                                                              ? '9+'
-                                                              : '$activeCount',
-                                                          style:
-                                                              const TextStyle(
-                                                            color: Colors.white,
-                                                            fontSize: 9,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(width: 8),
-                                      // Avatar
-                                      GestureDetector(
-                                        onTap: () => context.push('/profile'),
-                                        child: Builder(
-                                          builder: (context) {
-                                            final user = FirebaseAuth
-                                                .instance.currentUser;
+                  ),
 
-                                            ImageProvider? imageProvider;
-                                            // Strict Local Avatar Logic
-                                            if (user?.photoURL != null &&
-                                                user!.photoURL!
-                                                    .startsWith('assets/')) {
-                                              imageProvider =
-                                                  AssetImage(user.photoURL!);
-                                            } else {
-                                              // Default EVERYONE to avatar_1.png
-                                              imageProvider = const AssetImage(
-                                                  'assets/images/avatars/avatar_1.png');
-                                            }
-
-                                            return CircleAvatar(
-                                              radius: 18,
-                                              backgroundColor:
-                                                  Colors.transparent,
-                                              backgroundImage: imageProvider,
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 28), // Space to Search bar
-
-                              // 2. Search Bar (Glassmorphism) with Button
-                              _SearchBar(isDark: isDark),
-                              const SizedBox(height: 32), // Reduced from 40
-
-                              // 初始化数据库按钮（显眼位置）
-                              if (pmCount == 0 && hardcoreCount == 0)
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(24),
-                                  decoration: BoxDecoration(
-                                      color: isDark
-                                          ? const Color(0xFF1E1E1E)
-                                          : Colors.white,
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                          color: Colors.orangeAccent
-                                              .withOpacity(0.3)),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.orangeAccent
-                                              .withOpacity(0.1),
-                                          blurRadius: 20,
-                                          offset: const Offset(0, 10),
-                                        )
-                                      ]),
-                                  child: Column(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: Colors.orangeAccent
-                                              .withOpacity(0.1),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(
-                                            Icons.cloud_download_outlined,
-                                            color: Colors.orangeAccent,
-                                            size: 32),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        '初始化内容',
-                                        style: TextStyle(
-                                            color: isDark
-                                                ? Colors.white
-                                                : Colors.black87,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        '您的知识库是空的。点击下方加载 30+ 官方卡片。',
-                                        style: TextStyle(
-                                            color: isDark
-                                                ? Colors.grey[400]
-                                                : Colors.grey[600],
-                                            fontSize: 14),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                      const SizedBox(height: 24),
-                                      SizedBox(
-                                        width: double.infinity,
-                                        child: ElevatedButton.icon(
-                                          onPressed: () async {
-                                            final messenger =
-                                                ScaffoldMessenger.of(context);
-
-                                            // Check if user is logged in (though official cards don't strictly require it,
-                                            // it's better for consistent state)
-                                            final user = FirebaseAuth
-                                                .instance.currentUser;
-                                            if (user == null) {
-                                              messenger
-                                                  .showSnackBar(const SnackBar(
-                                                content: Text('⚠️ 请先登录后再初始化内容'),
-                                                backgroundColor: Colors.orange,
-                                              ));
-                                              return;
-                                            }
-
-                                            messenger
-                                                .showSnackBar(const SnackBar(
-                                              content: Text(
-                                                  '🔄 正在从云端导入 30+ 知识卡片...'),
-                                              duration: Duration(seconds: 2),
-                                            ));
-
-                                            try {
-                                              await ref
-                                                  .read(feedProvider.notifier)
-                                                  .seedDatabase();
-
-                                              // After seeding, trigger a refresh of the module progress as well
-                                              await ref
-                                                  .read(moduleProvider.notifier)
-                                                  .refresh();
-
-                                              if (context.mounted) {
-                                                messenger.showSnackBar(
-                                                    const SnackBar(
-                                                  content: Text(
-                                                      '✅ 数据初始化成功！已入脑 30+ 官方卡片'),
-                                                  backgroundColor: Colors.green,
-                                                  duration:
-                                                      Duration(seconds: 3),
-                                                ));
-                                              }
-                                            } catch (e) {
-                                              if (context.mounted) {
-                                                print('❌ Seeding failed: $e');
-                                                messenger.showSnackBar(SnackBar(
-                                                  content: Text('❌ 初始化失败: $e'),
-                                                  backgroundColor: Colors.red,
-                                                  action: SnackBarAction(
-                                                    label: '详情',
-                                                    onPressed: () {
-                                                      showDialog(
-                                                        context: context,
-                                                        builder: (ctx) =>
-                                                            AlertDialog(
-                                                          title: const Text(
-                                                              '错误详情'),
-                                                          content: Text(
-                                                              e.toString()),
-                                                          actions: [
-                                                            TextButton(
-                                                              onPressed: () =>
-                                                                  Navigator.pop(
-                                                                      ctx),
-                                                              child: const Text(
-                                                                  '好的'),
-                                                            )
-                                                          ],
-                                                        ),
-                                                      );
-                                                    },
-                                                  ),
-                                                ));
-                                              }
-                                            }
-                                          },
-                                          icon: const Icon(Icons.rocket_launch),
-                                          label: const Text('开始设置',
-                                              style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold)),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                Colors.orangeAccent,
-                                            foregroundColor: Colors.black,
-                                            padding: const EdgeInsets.symmetric(
-                                                vertical: 16),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            elevation: 0,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                  // Module List
+                  Expanded(
+                    child: displayedModules.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.folder_open,
+                                    size: 48, color: Colors.grey[400]),
+                                const SizedBox(height: 16),
+                                Text(
+                                  '这里空空如也',
+                                  style: TextStyle(color: Colors.grey[600]),
                                 ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 8),
+                            itemCount: displayedModules.length +
+                                1, // Add space at bottom
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 16),
+                            itemBuilder: (context, index) {
+                              if (index == displayedModules.length) {
+                                return const SizedBox(
+                                    height: 80); // Bottom padding
+                              }
 
-                              if (pmCount == 0 && hardcoreCount == 0)
-                                const SizedBox(height: 32),
+                              final module = displayedModules[index];
+                              // Calculate progress
+                              final mItems = feedItems
+                                  .where((i) => i.moduleId == module.id)
+                                  .toList();
+                              final count = mItems.length;
+                              final learned = mItems
+                                  .where((i) =>
+                                      i.masteryLevel != FeedItemMastery.unknown)
+                                  .length;
+                              final progress =
+                                  count > 0 ? learned / count : 0.0;
 
-                              // 3. Knowledge Spaces Section (Unified)
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    '我的知识库',
+                              // Highlight logic: First item in list gets the "Yellow" style
+                              final isHighlighted = index == 0;
+
+                              return _WideKnowledgeCard(
+                                title: module.title,
+                                description: module.description,
+                                progress: progress,
+                                cardCount: count,
+                                isHighlighted: isHighlighted,
+                                onTap: () {
+                                  if (onLoadModule != null) {
+                                    onLoadModule!(module.id);
+                                  } else {
+                                    context.push('/module/${module.id}');
+                                  }
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 3. Header & Search Content
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 10),
+                  // Top Bar: Greeting + Actions
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Greeting Column
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "${_getGreeting()}, ${_getUserName()}",
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors.white70
+                                  : const Color(0xFF5D4037),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          _buildSimpleQuote(isDark, feedItems.length),
+                        ],
+                      ),
+
+                      // Right Actions
+                      Row(
+                        children: [
+                          // Credits
+                          Consumer(builder: (ctx, ref, _) {
+                            final credits =
+                                ref.watch(creditProvider).value?.credits ?? 0;
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(children: [
+                                Icon(Icons.stars,
+                                    size: 16,
+                                    color: isDark
+                                        ? Colors.amber
+                                        : const Color(0xFFE65100)),
+                                const SizedBox(width: 4),
+                                Text('$credits',
                                     style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: isDark
+                                            ? Colors.white
+                                            : const Color(0xFFE65100))),
+                              ]),
+                            );
+                          }),
+                          const SizedBox(width: 12),
+                          // Task Icon
+                          Consumer(builder: (context, ref, child) {
+                            final highlight = ref
+                                .watch(onboardingProvider)
+                                .highlightTaskCenter;
+                            return TutorialPulse(
+                              isActive: highlight,
+                              child: GestureDetector(
+                                onTap: () {
+                                  // Clear highlight when clicked
+                                  ref
+                                      .read(onboardingProvider.notifier)
+                                      .setHighlightTaskCenter(false);
+                                  context.push('/task-center');
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.3),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.task_alt,
                                       color: isDark
                                           ? Colors.white
-                                          : Colors.black87,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: -0.5,
-                                    ),
-                                  ),
-                                  Row(
-                                    children: [
-                                      GestureDetector(
-                                        onTap: () => _showCreateModuleDialog(
-                                            context, ref),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 12, vertical: 6),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFFF8A65)
-                                                .withOpacity(0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(20),
-                                            border: Border.all(
-                                              color: const Color(0xFFFF8A65)
-                                                  .withOpacity(0.3),
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.add,
-                                                size: 16,
-                                                color: const Color(0xFFFF8A65),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                '新建',
-                                                style: TextStyle(
-                                                  color:
-                                                      const Color(0xFFFF8A65),
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      GestureDetector(
-                                        onTap: () => context.push('/explore'),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 12, vertical: 6),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF0D9488)
-                                                .withOpacity(0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(20),
-                                            border: Border.all(
-                                              color: const Color(0xFF0D9488)
-                                                  .withOpacity(0.3),
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.explore_outlined,
-                                                size: 16,
-                                                color: const Color(0xFF0D9488),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                '探索',
-                                                style: TextStyle(
-                                                  color:
-                                                      const Color(0xFF0D9488),
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              LayoutBuilder(builder: (context, constraints) {
-                                // Responsive: 2+ cards per row
-                                final cardWidth = 160.0; // Smaller cards
-                                final crossAxisCount =
-                                    (constraints.maxWidth ~/ (cardWidth + 16))
-                                        .clamp(2, 4);
-
-                                // Combine all modules
-                                final allModules = [
-                                  ...moduleState.officials,
-                                  ...moduleState.custom,
-                                ];
-
-                                if (allModules.isEmpty) {
-                                  return GestureDetector(
-                                    onTap: () =>
-                                        _showCreateModuleDialog(context, ref),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(32),
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                          color: isDark
-                                              ? Colors.white.withOpacity(0.05)
-                                              : Colors.grey[100],
-                                          borderRadius:
-                                              BorderRadius.circular(24),
-                                          border: Border.all(
-                                            color: isDark
-                                                ? Colors.white.withOpacity(0.1)
-                                                : Colors.grey[300]!,
-                                            style: BorderStyle.solid,
-                                          )),
-                                      child: Column(
-                                        children: [
-                                          Icon(Icons.add_circle_outline,
-                                              size: 48,
-                                              color: isDark
-                                                  ? Colors.grey[600]
-                                                  : Colors.grey[400]),
-                                          const SizedBox(height: 12),
-                                          Text(
-                                            "创建你的第一个知识库",
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              color: isDark
-                                                  ? Colors.grey[400]
-                                                  : Colors.grey[600],
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                }
-
-                                return Wrap(
-                                  spacing: 16,
-                                  runSpacing: 16,
-                                  children: allModules.map((m) {
-                                    // Calculate stats
-                                    int count = 0;
-                                    double progress = 0.0;
-
-                                    if (m.id == 'A') {
-                                      count = hardcoreCount;
-                                      progress = hardcoreProgress;
-                                    } else if (m.id == 'B') {
-                                      count = pmCount;
-                                      progress = pmProgress;
-                                    } else {
-                                      final mItems = feedItems
-                                          .where((i) => i.moduleId == m.id)
-                                          .toList();
-                                      count = mItems.length;
-                                      final learned = mItems
-                                          .where((i) =>
-                                              i.masteryLevel !=
-                                              FeedItemMastery.unknown)
-                                          .length;
-                                      progress =
-                                          count > 0 ? learned / count : 0.0;
-                                    }
-                                    final mastered = (progress * count).toInt();
-
-                                    return SizedBox(
-                                      width: (constraints.maxWidth -
-                                              16 * (crossAxisCount - 1)) /
-                                          crossAxisCount,
-                                      child: _KnowledgeSpaceCard(
-                                        moduleId: m.id,
-                                        title: m.title,
-                                        description: m.description,
-                                        cardCount: count,
-                                        masteredCount: mastered,
-                                        progress: progress,
-                                        color: Colors.transparent,
-                                        badgeText: m.isOfficial ? '官方' : '私有',
-                                        onLoad: () => onLoadModule?.call(m.id),
-                                      ),
-                                    );
-                                  }).toList(),
-                                );
-                              }),
-                            ],
-                          ),
-                          // Footer at the absolute bottom
-                          Padding(
-                            padding: const EdgeInsets.only(top: 60, bottom: 40),
-                            child: Center(
-                              child: Text(
-                                'Reado 2026 Inc',
-                                style: TextStyle(
-                                  color: isDark
-                                      ? Colors.white.withOpacity(0.15)
-                                      : Colors.black.withOpacity(0.1),
-                                  fontSize: 12,
-                                  letterSpacing: 1.2,
-                                  fontWeight: FontWeight.w500,
+                                          : const Color(0xFF3E2723),
+                                      size: 20),
                                 ),
                               ),
-                            ),
+                            );
+                          }),
+                          const SizedBox(width: 12),
+                          // Avatar
+                          GestureDetector(
+                            onTap: () => context.push('/profile'),
+                            child: _buildAvatar(),
                           ),
                         ],
                       ),
-                    ),
+                    ],
                   ),
-                );
-              },
+
+                  const SizedBox(height: 24),
+
+                  // Two Elegant Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ElegantMenuButton(
+                          title: 'AI 拆解',
+                          icon: Icons.auto_awesome,
+                          color: const Color(0xFFFF5252), // Red Accent
+                          bgColor: const Color(0xFFFFEBEE), // Pink/Red Light
+                          onTap: () {
+                            final onboardingState =
+                                ref.read(onboardingProvider);
+                            final shouldShowTutorial = !onboardingState
+                                    .hasSeenDeconstructionTutorial ||
+                                onboardingState.isAlwaysShowTutorial;
+
+                            showDialog(
+                              context: context,
+                              builder: (context) => AddMaterialModal(
+                                isTutorialMode: shouldShowTutorial,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _ElegantMenuButton(
+                          title: 'AI 笔记',
+                          icon: Icons.menu_book,
+                          color: const Color(0xFF1976D2), // Blue Accent
+                          bgColor: const Color(0xFFE3F2FD), // Blue Light
+                          onTap: () => onJumpToFeed?.call(),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Search Row
+                  Row(
+                    children: [
+                      // Search Bar
+                      Expanded(
+                        child: GestureDetector(
+                          // In a real app, this might navigate to a specific search page or focus a field
+                          onTap: () => context.push('/search'),
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white.withOpacity(0.1)
+                                  : const Color(0xFFFFF3E0), // Light beige
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Row(
+                              children: [
+                                Icon(Icons.search,
+                                    color: isDark
+                                        ? Colors.white54
+                                        : Colors.orangeAccent),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '搜索知识...',
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? Colors.white54
+                                          : Colors.grey[600],
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+
+                      // Explore Button
+                      _CircleActionButton(
+                        icon: Icons.explore,
+                        color: Colors.black87,
+                        onTap: () => context.push('/explore'),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // Add Button (+)
+                      _CircleActionButton(
+                        icon: Icons.add,
+                        color: Colors.black87,
+                        isPrimary: true,
+                        onTap: () => _showCreateModuleDialog(context, ref),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -723,9 +434,29 @@ class HomeTab extends ConsumerWidget {
     return 'kita'; // Default fallback
   }
 
+  Widget _buildAvatar() {
+    return Builder(
+      builder: (context) {
+        final user = FirebaseAuth.instance.currentUser;
+        ImageProvider? imageProvider;
+        if (user?.photoURL != null && user!.photoURL!.startsWith('assets/')) {
+          imageProvider = AssetImage(user.photoURL!);
+        } else {
+          imageProvider =
+              const AssetImage('assets/images/avatars/avatar_1.png');
+        }
+        return CircleAvatar(
+          radius: 16,
+          backgroundColor: Colors.transparent,
+          backgroundImage: imageProvider,
+        );
+      },
+    );
+  }
+
   void _showCreateModuleDialog(BuildContext context, WidgetRef ref) {
     final titleController = TextEditingController();
-    final descController = TextEditingController(); // Simple controller
+    final descController = TextEditingController();
 
     showDialog(
       context: context,
@@ -811,138 +542,72 @@ class HomeTab extends ConsumerWidget {
   }
 }
 
-class _KnowledgeSpaceCard extends StatelessWidget {
-  final String moduleId; // Added moduleId
+class _ElegantMenuButton extends StatelessWidget {
   final String title;
-  final String description;
-  final int cardCount;
-  final int masteredCount;
-  final double progress; // 0.0 to 1.0
+  final IconData icon;
   final Color color;
-  final String badgeText;
-  final VoidCallback? onLoad;
+  final Color bgColor;
+  final VoidCallback onTap;
 
-  const _KnowledgeSpaceCard({
-    required this.moduleId,
+  const _ElegantMenuButton({
     required this.title,
-    required this.description,
-    required this.cardCount,
-    required this.masteredCount,
-    required this.progress,
+    required this.icon,
     required this.color,
-    required this.badgeText,
-    this.onLoad,
+    required this.bgColor,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Simplified compact card
     return GestureDetector(
-      onTap: () => context.push('/module/$moduleId'),
+      onTap: onTap,
       child: Container(
-        height: 140, // Fixed height for uniformity
-        padding: const EdgeInsets.all(16),
+        height: 56, // Fixed comfortable height
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
           color: isDark
-              ? Colors.white.withOpacity(0.08)
-              : Colors.white.withOpacity(0.85),
-          borderRadius: BorderRadius.circular(16),
+              ? Colors.white.withOpacity(0.05)
+              : Colors.white.withOpacity(0.8), // Glass-ish
+          borderRadius: BorderRadius.circular(30), // Pill shape
           border: Border.all(
-              color: isDark
-                  ? Colors.white.withOpacity(0.15)
-                  : Colors.grey.withOpacity(0.2)),
+            color: isDark ? Colors.white10 : Colors.white.withOpacity(0.6),
+            width: 1.5,
+          ),
           boxShadow: [
             BoxShadow(
-              color: isDark
-                  ? Colors.black.withOpacity(0.2)
-                  : Colors.grey.withOpacity(0.1),
-              blurRadius: 12,
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
               offset: const Offset(0, 4),
-            ),
+            )
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Row(
           children: [
-            // Title and badge
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black87,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      height: 1.2,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF8A65).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    badgeText,
-                    style: const TextStyle(
-                      color: Color(0xFFFF8A65),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+            // Icon Circle
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: bgColor,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 20),
             ),
-
-            // Stats
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$cardCount 张卡片',
-                  style: TextStyle(
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    fontSize: 12,
-                  ),
+            const SizedBox(width: 12),
+            // Text
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : const Color(0xFF333333),
+                  letterSpacing: 0.5,
                 ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          backgroundColor: isDark
-                              ? Colors.white.withOpacity(0.1)
-                              : Colors.grey[200],
-                          color: const Color(0xFFFF8A65),
-                          minHeight: 6,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${(progress * 100).toInt()}%',
-                      style: TextStyle(
-                        color: isDark ? Colors.white70 : Colors.black54,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -951,89 +616,232 @@ class _KnowledgeSpaceCard extends StatelessWidget {
   }
 }
 
-// Search Bar Widget with Button
-class _SearchBar extends StatefulWidget {
-  final bool isDark;
+class _FilterTabItem extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
 
-  const _SearchBar({required this.isDark});
-
-  @override
-  State<_SearchBar> createState() => _SearchBarState();
-}
-
-class _SearchBarState extends State<_SearchBar> {
-  final TextEditingController _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _performSearch() {
-    final query = _controller.text.trim();
-    if (query.isNotEmpty) {
-      context.push('/search?q=$query');
-    }
-  }
+  const _FilterTabItem(
+      {required this.label, required this.isSelected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFFFFCC80) : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.bold,
+                fontSize: 15,
+                color: isSelected
+                    ? const Color(0xFF3E2723)
+                    : (isDark ? Colors.grey : Colors.grey[400]),
+              ),
+            ),
+          ),
+          if (isSelected)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              width: 4,
+              height: 4,
+              decoration: const BoxDecoration(
+                color: Color(0xFFE65100),
+                shape: BoxShape.circle,
+              ),
+            )
         ],
       ),
-      child: TextField(
-        controller: _controller,
-        style: TextStyle(
-          color: widget.isDark ? Colors.white : Colors.black87,
+    );
+  }
+}
+
+class _CircleActionButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final bool isPrimary;
+  final VoidCallback onTap;
+
+  const _CircleActionButton({
+    required this.icon,
+    required this.color,
+    this.isPrimary = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: isPrimary
+              ? const Color(0xFF1A237E)
+              : (isDark ? Colors.white24 : Colors.white),
+          shape: BoxShape.circle,
+          boxShadow: [
+            if (!isPrimary)
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4)),
+          ],
         ),
-        decoration: InputDecoration(
-          hintText: '搜索知识...',
-          hintStyle: TextStyle(
-            color: widget.isDark ? Colors.grey[500] : Colors.grey[400],
-          ),
-          suffixIcon: IconButton(
-            onPressed: _performSearch,
-            icon: const Icon(
-              Icons.search,
-              color: Color(0xFFFF8A65),
-            ),
-            tooltip: '搜索',
-          ),
-          filled: true,
-          fillColor: widget.isDark ? const Color(0xFF1E1E1E) : Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(
-              color: widget.isDark
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.transparent,
-            ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(
-              color: Colors.orangeAccent,
-              width: 2,
-            ),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 12,
-          ),
+        child: Icon(
+          icon,
+          color: isPrimary
+              ? Colors.white
+              : (isDark ? Colors.white : const Color(0xFF1A237E)),
+          size: 24,
         ),
-        onSubmitted: (_) => _performSearch(),
+      ),
+    );
+  }
+}
+
+class _WideKnowledgeCard extends StatelessWidget {
+  final String title;
+  final String description;
+  final double progress;
+  final int cardCount;
+  final bool isHighlighted;
+  final VoidCallback onTap;
+
+  const _WideKnowledgeCard({
+    required this.title,
+    required this.description,
+    required this.progress,
+    required this.cardCount,
+    this.isHighlighted = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Highlight colors
+    final bg = isHighlighted
+        ? (isDark
+            ? const Color(0xFF3E2723)
+            : const Color(0xFFFFF3E0)) // Pale Yellow/Orange for highlight
+        : (isDark ? Colors.white10 : Colors.white);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 100, // Fixed height for consistency
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(24),
+          border: isHighlighted
+              ? null
+              : Border.all(color: Colors.grey.withOpacity(0.1)),
+          boxShadow: [
+            if (isHighlighted)
+              BoxShadow(
+                color: Colors.orange.withOpacity(0.1),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              )
+            else
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color:
+                              isDark ? Colors.white : const Color(0xFF2D2D2D),
+                        ),
+                      ),
+                      if (isHighlighted) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF8A65),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text('RECENT',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ]
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text(
+                        '$cardCount items',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color:
+                              isDark ? Colors.white54 : const Color(0xFF8D6E63),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '·',
+                        style: TextStyle(color: Colors.grey[400]),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 4,
+                            backgroundColor: isDark
+                                ? Colors.white12
+                                : const Color(0xFFEFEBE9),
+                            color: const Color(0xFFFF8A65),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Right Arrow or Icon
+            Icon(Icons.arrow_forward_ios,
+                size: 14, color: isDark ? Colors.white30 : Colors.grey[400]),
+          ],
+        ),
       ),
     );
   }

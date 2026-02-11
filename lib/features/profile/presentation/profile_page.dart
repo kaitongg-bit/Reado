@@ -9,6 +9,7 @@ import '../../feed/presentation/feed_provider.dart';
 import '../../../models/feed_item.dart';
 import '../../../core/providers/credit_provider.dart';
 import '../../../core/providers/adhd_provider.dart';
+import '../../onboarding/providers/onboarding_provider.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -343,6 +344,30 @@ class ProfilePage extends ConsumerWidget {
                   // Settings Section
                   _SectionHeader(title: '设置', isDark: isDark),
                   const SizedBox(height: 16),
+
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final onboardingState = ref.watch(onboardingProvider);
+                      return _GlassTile(
+                        icon: Icons.school_outlined,
+                        title: '新手引导',
+                        subtitle: onboardingState.isAlwaysShowTutorial
+                            ? '已开启 (每次都显示)'
+                            : '默认 (仅首次显示)',
+                        isDark: isDark,
+                        trailing: Switch(
+                          value: onboardingState.isAlwaysShowTutorial,
+                          activeColor: Colors.orangeAccent,
+                          onChanged: (val) {
+                            ref
+                                .read(onboardingProvider.notifier)
+                                .toggleAlwaysShowTutorial(val);
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
 
                   if (FirebaseAuth.instance.currentUser?.email ==
                       'kitatest@qq.com') ...[

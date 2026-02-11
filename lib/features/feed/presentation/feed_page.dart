@@ -255,7 +255,9 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     }
 
     // 🛡️ Guard: Check for stale data from previous module to avoid index resets
-    if (widget.moduleId != 'SEARCH' && feedItems.isNotEmpty) {
+    if (widget.moduleId != 'SEARCH' &&
+        widget.moduleId != 'ALL' &&
+        feedItems.isNotEmpty) {
       if (feedItems.first.moduleId != widget.moduleId) {
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -291,14 +293,6 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     if (feedItems.isEmpty) {
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        appBar: AppBar(
-          title: Text(title,
-              style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          iconTheme:
-              IconThemeData(color: isDark ? Colors.white : Colors.black87),
-        ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,

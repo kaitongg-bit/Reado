@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../../../core/providers/credit_provider.dart';
 import '../../../feed/presentation/feed_provider.dart';
 import '../../../../models/feed_item.dart';
 import '../../../../models/knowledge_module.dart';
@@ -233,31 +232,6 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                       ),
                       Row(
                         children: [
-                          Consumer(builder: (ctx, ref, _) {
-                            final credits =
-                                ref.watch(creditProvider).value?.credits ?? 0;
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(children: [
-                                Icon(Icons.stars,
-                                    size: 16,
-                                    color: isDark
-                                        ? Colors.amber
-                                        : const Color(0xFFE65100)),
-                                const SizedBox(width: 4),
-                                Text('$credits',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13)),
-                              ]),
-                            );
-                          }),
-                          const SizedBox(width: 12),
                           Consumer(builder: (context, ref, child) {
                             final highlight = ref
                                 .watch(onboardingProvider)
@@ -278,7 +252,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                 },
                                 child: Container(
                                   key: _taskCenterKey,
-                                  padding: const EdgeInsets.all(6),
+                                  padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
                                       color: Colors.white.withOpacity(0.3),
                                       shape: BoxShape.circle),
@@ -286,15 +260,15 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                       color: isDark
                                           ? Colors.white
                                           : const Color(0xFF3E2723),
-                                      size: 20),
+                                      size: 28),
                                 ),
                               ),
                             );
                           }),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 18),
                           GestureDetector(
                             onTap: () => context.push('/profile'),
-                            child: _buildAvatar(),
+                            child: _buildAvatar(radius: 24),
                           ),
                         ],
                       ),
@@ -470,7 +444,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     return 'kita'; // Default fallback
   }
 
-  Widget _buildAvatar() {
+  Widget _buildAvatar({double radius = 16}) {
     return Builder(
       builder: (context) {
         final user = FirebaseAuth.instance.currentUser;
@@ -482,7 +456,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
               const AssetImage('assets/images/avatars/avatar_1.png');
         }
         return CircleAvatar(
-          radius: 16,
+          radius: radius,
           backgroundColor: Colors.transparent,
           backgroundImage: imageProvider,
         );

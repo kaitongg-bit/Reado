@@ -8,24 +8,58 @@ import '../../../../models/feed_item.dart';
 import '../../../../models/knowledge_module.dart';
 import '../module_provider.dart';
 import '../../../lab/presentation/add_material_modal.dart';
-import '../../../lab/presentation/widgets/tutorial_pulse.dart'; // Import TutorialPulseding_provider.dart';
+import '../../../lab/presentation/widgets/tutorial_pulse.dart';
 import '../../../onboarding/providers/onboarding_provider.dart';
+import '../../../onboarding/presentation/widgets/tutorial_overlay.dart';
+import '../../../onboarding/presentation/widgets/onboarding_checklist.dart';
 
 // Helper provider for the filter tab state
 final _homeModuleFilterProvider = StateProvider.autoDispose<int>(
     (ref) => 0); // 0: Official, 1: Personal, 2: Recent
 
-class HomeTab extends ConsumerWidget {
+class HomeTab extends ConsumerStatefulWidget {
   final Function(String moduleId)? onLoadModule;
-
   final VoidCallback? onJumpToFeed;
 
   const HomeTab({super.key, this.onLoadModule, this.onJumpToFeed});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends ConsumerState<HomeTab> {
+  final GlobalKey _aiDeconstructKey = GlobalKey();
+  final GlobalKey _aiNotesKey = GlobalKey();
+  final GlobalKey _taskCenterKey = GlobalKey();
+  final GlobalKey _starModuleKey = GlobalKey();
+
+  String? _tutorialText;
+  GlobalKey? _tutorialTargetKey;
+
+  void _startTutorialStep(String type) {
+    setState(() {
+      if (type == 'text') {
+        _tutorialText = '点击 [AI 拆解] 按钮开启智能学习之旅';
+        _tutorialTargetKey = _aiDeconstructKey;
+      } else if (type == 'task_center') {
+        _tutorialText =
+            '可以在这里看到正在后台进行的任务。等待任务生成好后，可以回到你刚刚所在的知识库（例如：个人 > 默认知识库），点击进去即可学习。';
+        _tutorialTargetKey = _taskCenterKey;
+      } else if (type == 'multimodal') {
+        _tutorialText = '多模态解析也从这里开始，点击 [AI 拆解] 并切换标签页';
+        _tutorialTargetKey = _aiDeconstructKey;
+      } else if (type == 'all_cards') {
+        _tutorialText = '点击一个知识库，跳转到学习页面，点击右上角的【全部】按钮即可查看该知识库的全部知识卡片。';
+        _tutorialTargetKey = _starModuleKey;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final filterIndex = ref.watch(_homeModuleFilterProvider);
+    final onboardingState = ref.watch(onboardingProvider);
 
     // Data Sources
     final feedItems = ref.watch(allItemsProvider);
@@ -34,18 +68,11 @@ class HomeTab extends ConsumerWidget {
     // Filter Modules
     List<KnowledgeModule> displayedModules = [];
     if (filterIndex == 0) {
-      // Official (A & B) + any other official ones
-      // Use the 'isOfficial' flag if available, or fallback to defaults
       displayedModules = moduleState.officials;
     } else if (filterIndex == 1) {
-      // Personal
       displayedModules = moduleState.custom;
     } else {
-      // Recent - For now combine all
       displayedModules = [...moduleState.custom, ...moduleState.officials];
-      // In a real app, we would sort by 'lastAccessTime' or similar.
-      // For now, let's just reverse them to show something different or keep as is.
-      // displayedModules = displayedModules.reversed.toList();
     }
 
     // Theme Colors
@@ -57,8 +84,7 @@ class HomeTab extends ConsumerWidget {
         children: [
           // 1. Top Orange Background
           Container(
-            height:
-                MediaQuery.of(context).size.height * 0.55, // Increased height
+            height: MediaQuery.of(context).size.height * 0.55,
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFFFCC80),
             ),
@@ -66,7 +92,7 @@ class HomeTab extends ConsumerWidget {
 
           // 2. White Content Sheet
           Container(
-            margin: const EdgeInsets.only(top: 220), // Pushed down
+            margin: const EdgeInsets.only(top: 220),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF121212) : const Color(0xFFFAFAFA),
               borderRadius:
@@ -77,7 +103,7 @@ class HomeTab extends ConsumerWidget {
                   const BorderRadius.vertical(top: Radius.circular(36)),
               child: Column(
                 children: [
-                  // Tabs Area (The "Calendar" replacement)
+                  // Tabs Area
                   Container(
                     padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
                     child: Row(
@@ -115,28 +141,22 @@ class HomeTab extends ConsumerWidget {
                                 Icon(Icons.folder_open,
                                     size: 48, color: Colors.grey[400]),
                                 const SizedBox(height: 16),
-                                Text(
-                                  '这里空空如也',
-                                  style: TextStyle(color: Colors.grey[600]),
-                                ),
+                                Text('这里空空如也',
+                                    style: TextStyle(color: Colors.grey[600])),
                               ],
                             ),
                           )
                         : ListView.separated(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 24, vertical: 8),
-                            itemCount: displayedModules.length +
-                                1, // Add space at bottom
+                            itemCount: displayedModules.length + 1,
                             separatorBuilder: (_, __) =>
                                 const SizedBox(height: 16),
                             itemBuilder: (context, index) {
                               if (index == displayedModules.length) {
-                                return const SizedBox(
-                                    height: 80); // Bottom padding
+                                return const SizedBox(height: 80);
                               }
-
                               final module = displayedModules[index];
-                              // Calculate progress
                               final mItems = feedItems
                                   .where((i) => i.moduleId == module.id)
                                   .toList();
@@ -147,19 +167,28 @@ class HomeTab extends ConsumerWidget {
                                   .length;
                               final progress =
                                   count > 0 ? learned / count : 0.0;
-
-                              // Highlight logic: First item in list gets the "Yellow" style
                               final isHighlighted = index == 0;
 
+                              final isStarModule =
+                                  module.title.contains('STAR');
+
                               return _WideKnowledgeCard(
+                                key: isStarModule ? _starModuleKey : null,
                                 title: module.title,
                                 description: module.description,
                                 progress: progress,
                                 cardCount: count,
                                 isHighlighted: isHighlighted,
                                 onTap: () {
-                                  if (onLoadModule != null) {
-                                    onLoadModule!(module.id);
+                                  if (onboardingState.isTutorialActive &&
+                                      _tutorialTargetKey == _starModuleKey &&
+                                      isStarModule) {
+                                    ref
+                                        .read(onboardingProvider.notifier)
+                                        .completeStep('all_cards_p1');
+                                  }
+                                  if (widget.onLoadModule != null) {
+                                    widget.onLoadModule!(module.id);
                                   } else {
                                     context.push('/module/${module.id}');
                                   }
@@ -182,11 +211,9 @@ class HomeTab extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 10),
-                  // Top Bar: Greeting + Actions
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Greeting Column
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -204,11 +231,8 @@ class HomeTab extends ConsumerWidget {
                           _buildSimpleQuote(isDark, feedItems.length),
                         ],
                       ),
-
-                      // Right Actions
                       Row(
                         children: [
-                          // Credits
                           Consumer(builder: (ctx, ref, _) {
                             final credits =
                                 ref.watch(creditProvider).value?.credits ?? 0;
@@ -227,17 +251,13 @@ class HomeTab extends ConsumerWidget {
                                         : const Color(0xFFE65100)),
                                 const SizedBox(width: 4),
                                 Text('$credits',
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                        color: isDark
-                                            ? Colors.white
-                                            : const Color(0xFFE65100))),
+                                        fontSize: 13)),
                               ]),
                             );
                           }),
                           const SizedBox(width: 12),
-                          // Task Icon
                           Consumer(builder: (context, ref, child) {
                             final highlight = ref
                                 .watch(onboardingProvider)
@@ -246,18 +266,22 @@ class HomeTab extends ConsumerWidget {
                               isActive: highlight,
                               child: GestureDetector(
                                 onTap: () {
-                                  // Clear highlight when clicked
                                   ref
                                       .read(onboardingProvider.notifier)
                                       .setHighlightTaskCenter(false);
+                                  if (onboardingState.isTutorialActive) {
+                                    ref
+                                        .read(onboardingProvider.notifier)
+                                        .completeStep('task_center');
+                                  }
                                   context.push('/task-center');
                                 },
                                 child: Container(
+                                  key: _taskCenterKey,
                                   padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.3),
-                                    shape: BoxShape.circle,
-                                  ),
+                                      color: Colors.white.withOpacity(0.3),
+                                      shape: BoxShape.circle),
                                   child: Icon(Icons.task_alt,
                                       color: isDark
                                           ? Colors.white
@@ -268,7 +292,6 @@ class HomeTab extends ConsumerWidget {
                             );
                           }),
                           const SizedBox(width: 12),
-                          // Avatar
                           GestureDetector(
                             onTap: () => context.push('/profile'),
                             child: _buildAvatar(),
@@ -277,63 +300,73 @@ class HomeTab extends ConsumerWidget {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 24),
-
                   // Two Elegant Buttons
                   Row(
                     children: [
                       Expanded(
                         child: _ElegantMenuButton(
+                          key: _aiDeconstructKey,
                           title: 'AI 拆解',
                           icon: Icons.auto_awesome,
-                          color: const Color(0xFFFF5252), // Red Accent
-                          bgColor: const Color(0xFFFFEBEE), // Pink/Red Light
+                          color: const Color(0xFFFF5252),
+                          bgColor: const Color(0xFFFFEBEE),
                           onTap: () {
-                            final onboardingState =
-                                ref.read(onboardingProvider);
-                            final shouldShowTutorial = !onboardingState
-                                    .hasSeenDeconstructionTutorial ||
-                                onboardingState.isAlwaysShowTutorial;
-
                             showDialog(
                               context: context,
                               builder: (context) => AddMaterialModal(
-                                isTutorialMode: shouldShowTutorial,
+                                isTutorialMode:
+                                    onboardingState.isTutorialActive,
+                                tutorialStep: _tutorialTargetKey ==
+                                        _aiDeconstructKey
+                                    ? (_tutorialText?.contains('多模态') ?? false
+                                        ? 'multimodal'
+                                        : 'text')
+                                    : null,
                               ),
-                            );
+                            ).then((_) {
+                              if (mounted && _tutorialText != null) {
+                                setState(() {
+                                  _tutorialText = null;
+                                  _tutorialTargetKey = null;
+                                });
+                              }
+                            });
                           },
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: _ElegantMenuButton(
+                          key: _aiNotesKey,
                           title: 'AI 笔记',
                           icon: Icons.menu_book,
-                          color: const Color(0xFF1976D2), // Blue Accent
-                          bgColor: const Color(0xFFE3F2FD), // Blue Light
-                          onTap: () => onJumpToFeed?.call(),
+                          color: const Color(0xFF1976D2),
+                          bgColor: const Color(0xFFE3F2FD),
+                          onTap: () {
+                            if (onboardingState.isTutorialActive) {
+                              ref
+                                  .read(onboardingProvider.notifier)
+                                  .completeStep('all_cards');
+                            }
+                            widget.onJumpToFeed?.call();
+                          },
                         ),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 24),
-
-                  // Search Row
                   Row(
                     children: [
-                      // Search Bar
                       Expanded(
                         child: GestureDetector(
-                          // In a real app, this might navigate to a specific search page or focus a field
                           onTap: () => context.push('/search'),
                           child: Container(
                             height: 50,
                             decoration: BoxDecoration(
                               color: isDark
                                   ? Colors.white.withOpacity(0.1)
-                                  : const Color(0xFFFFF3E0), // Light beige
+                                  : const Color(0xFFFFF3E0),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -344,33 +377,21 @@ class HomeTab extends ConsumerWidget {
                                         ? Colors.white54
                                         : Colors.orangeAccent),
                                 const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '搜索知识...',
-                                    style: TextStyle(
-                                      color: isDark
-                                          ? Colors.white54
-                                          : Colors.grey[600],
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
+                                const Expanded(
+                                    child: Text('搜索知识...',
+                                        style: TextStyle(fontSize: 14))),
                               ],
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
-
-                      // Explore Button
                       _CircleActionButton(
                         icon: Icons.explore,
                         color: Colors.black87,
                         onTap: () => context.push('/explore'),
                       ),
                       const SizedBox(width: 8),
-
-                      // Add Button (+)
                       _CircleActionButton(
                         icon: Icons.add,
                         color: Colors.black87,
@@ -382,6 +403,21 @@ class HomeTab extends ConsumerWidget {
                 ],
               ),
             ),
+          ),
+          if (_tutorialText != null)
+            TutorialOverlay(
+              targetKey: _tutorialTargetKey,
+              text: _tutorialText!,
+              onDismiss: () => setState(() {
+                _tutorialText = null;
+                _tutorialTargetKey = null;
+              }),
+            ),
+          OnboardingChecklist(
+            onStartTextTutorial: () => _startTutorialStep('text'),
+            onStartTaskCenterTutorial: () => _startTutorialStep('task_center'),
+            onStartMultiTutorial: () => _startTutorialStep('multimodal'),
+            onStartAllCardsTutorial: () => _startTutorialStep('all_cards'),
           ),
         ],
       ),
@@ -550,6 +586,7 @@ class _ElegantMenuButton extends StatelessWidget {
   final VoidCallback onTap;
 
   const _ElegantMenuButton({
+    super.key,
     required this.title,
     required this.icon,
     required this.color,
@@ -719,6 +756,7 @@ class _WideKnowledgeCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const _WideKnowledgeCard({
+    super.key,
     required this.title,
     required this.description,
     required this.progress,

@@ -10,20 +10,21 @@ import '../providers/batch_import_provider.dart';
 import '../../../../core/providers/credit_provider.dart';
 import '../../../../core/providers/ai_settings_provider.dart';
 import '../../../../core/router/router_provider.dart';
-
 import '../../onboarding/providers/onboarding_provider.dart';
 import '../../home/presentation/module_provider.dart';
-import '../../../../models/knowledge_module.dart'; // Import KnowledgeModule
+import '../../../../models/knowledge_module.dart';
 import 'widgets/tutorial_pulse.dart';
 
 class AddMaterialModal extends ConsumerStatefulWidget {
   final String? targetModuleId;
-  final bool isTutorialMode; // New parameter
+  final bool isTutorialMode;
+  final String? tutorialStep; // New: 'text' or 'multimodal'
 
   const AddMaterialModal({
     super.key,
     this.targetModuleId,
     this.isTutorialMode = false,
+    this.tutorialStep,
   });
 
   @override
@@ -52,9 +53,6 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
   int? _totalCards; // 总卡片数
   int? _currentCardIndex; // 当前生成的卡片索引
 
-  // Tutorial State
-  bool _tutorialStep1Complete = false;
-
   // Knowledge Base Selection State
   String? _selectedModuleId;
 
@@ -74,6 +72,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_selectedModuleId == null) {
         _autoSelectDefaultModule();
+      }
+
+      // Pre-fill URL and switch tab if tutorial requires it
+      if (widget.tutorialStep == 'multimodal') {
+        _tabController.animateTo(1);
+        _urlController.text = 'https://zh.wikipedia.org/wiki/Flutter';
       }
     });
   }
@@ -296,40 +300,6 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
-    // --- TUTORIAL LOGIC FOR STEP 1 ---
-    if (widget.isTutorialMode && !_tutorialStep1Complete) {
-      if (mounted) {
-        // Show success feedback
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('🎉 文本拆解任务已提交！后台正在处理...'),
-          backgroundColor: Colors.green[700],
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ));
-
-        setState(() {
-          _tutorialStep1Complete = true; // Mark step 1 done
-        });
-
-        // Auto-switch to next tab after a short delay
-        Future.delayed(const Duration(milliseconds: 1500), () {
-          if (mounted) {
-            _tabController.animateTo(1);
-            // Pre-fill URL
-            _urlController.text =
-                'https://example.com/flutter-architecture-guide';
-            // Show hint dialog or toast
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('👇 下一步：试试解析这个链接 (消耗 0 积分)'),
-              backgroundColor: Colors.blueAccent,
-              duration: Duration(seconds: 4),
-              behavior: SnackBarBehavior.floating,
-            ));
-          }
-        });
-      }
-      return; // STOP HERE for tutorial
-    }
     // ---------------------------------
 
     final charCount = text.length;
@@ -369,9 +339,16 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
 
       ref.read(feedProvider.notifier).observeJob(jobId);
 
+      // CRITICAL: Complete tutorial step if active
+      if (widget.tutorialStep != null) {
+        ref.read(onboardingProvider.notifier).completeStep(
+            widget.tutorialStep == 'multimodal' ? 'multimodal' : 'text');
+      }
+
       if (mounted) {
+        // Read router BEFORE popping if we need it later, or just pop
         Navigator.of(context).pop();
-        _showTaskSubmittedSnackbar();
+        _showSuccessSnackbar();
       }
     } catch (e) {
       if (!mounted) return;
@@ -383,33 +360,16 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     }
   }
 
-  void _showTaskSubmittedSnackbar() {
-    // ... existing implementation ...
+  void _showSuccessSnackbar() {
     final messenger = rootScaffoldMessengerKey.currentState;
     if (messenger == null) return;
-    final router = ref.read(routerProvider);
     messenger.clearSnackBars();
     messenger.showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white, size: 20),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text('任务已提交！AI 正在后台生成，完成后自动保存'),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.green[800],
+      const SnackBar(
+        content: Text('✅ 任务已提交！AI 正在后台为您拆解知识。'),
+        backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
-        action: SnackBarAction(
-          label: '查看进度',
-          textColor: Colors.white,
-          onPressed: () {
-            router.push('/task-center');
-          },
-        ),
+        duration: Duration(seconds: 4),
       ),
     );
   }
@@ -447,27 +407,6 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
 
   /// 2. 统一解析入口 (URL 或 File)
   Future<void> _performParse() async {
-    // --- TUTORIAL MOCK PARSE ---
-    if (widget.isTutorialMode && _urlController.text.isNotEmpty) {
-      setState(() {
-        _isExtractingUrl = true;
-      });
-      await Future.delayed(const Duration(seconds: 2)); // Fake delay
-
-      if (mounted) {
-        setState(() {
-          _isExtractingUrl = false;
-          _extractionResult = ExtractionResult(
-            content:
-                'Flutter 架构指南\n\nFlutter 是一个跨平台的 UI 框架...\n(这是一段模拟的解析内容，仅供演示)',
-            title: 'Flutter 架构指南 (演示)',
-            sourceUrl: _urlController.text,
-            sourceType: SourceType.url,
-          );
-        });
-      }
-      return;
-    }
     // ---------------------------
 
     try {
@@ -734,47 +673,18 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
 
       ref.read(feedProvider.notifier).observeJob(jobId);
 
-      // Handle Tutorial Completion
-      if (widget.isTutorialMode) {
-        await ref.read(onboardingProvider.notifier).completeTutorial();
-        await ref
-            .read(onboardingProvider.notifier)
-            .setHighlightTaskCenter(true);
+      // CRITICAL: Complete tutorial step if active
+      if (widget.tutorialStep != null) {
+        ref.read(onboardingProvider.notifier).completeStep(
+            widget.tutorialStep == 'multimodal' ? 'multimodal' : 'text');
       } else if (widget.targetModuleId == null) {
-        // If regular home page flow, also highlight task center as a hint?
-        // Maybe checking task center is good practice.
-        // Let's enable highlight for regular flow too if from Home Page
-        await ref
-            .read(onboardingProvider.notifier)
-            .setHighlightTaskCenter(true);
+        // If regular home page flow, also highlight task center as a hint
+        ref.read(onboardingProvider.notifier).setHighlightTaskCenter(true);
       }
 
       if (mounted) {
         Navigator.of(context).pop();
-
-        // Show Success Feedback
-        if (widget.targetModuleId == null || widget.isTutorialMode) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('✅ 任务已提交！请前往任务中心查看进度'),
-              backgroundColor: Colors.green[700],
-              duration: const Duration(seconds: 4),
-              behavior: SnackBarBehavior.floating,
-              action: SnackBarAction(
-                label: '前往',
-                textColor: Colors.white,
-                onPressed: () {
-                  ref
-                      .read(onboardingProvider.notifier)
-                      .setHighlightTaskCenter(false);
-                  // Navigation handled by user clicking button
-                },
-              ),
-            ),
-          );
-        } else {
-          _showTaskSubmittedSnackbar();
-        }
+        _showSuccessSnackbar();
       }
     } catch (e) {
       print('Error in _startGeneration: $e');
@@ -906,11 +816,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                           Navigator.of(c).pop(); // Close alert
                           Navigator.of(context)
                               .pop(); // Close modal (Force quit)
-                          ref
-                              .read(onboardingProvider.notifier)
-                              .completeTutorial(); // Mark as seen anyway so they aren't stuck forever
                         },
-                        child: const Text('跳过教程',
+                        child: const Text('暂不完成',
                             style: TextStyle(color: Colors.grey)))
                   ],
                 ));
@@ -1353,7 +1260,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                               ? () {
                                   // Close modal
                                   Navigator.of(context).pop();
-                                  _showTaskSubmittedSnackbar();
+                                  _showSuccessSnackbar();
                                 }
                               : (queue.every(
                                       (i) => i.status == BatchStatus.completed)
@@ -1653,8 +1560,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                       ],
                       Expanded(
                         child: TutorialPulse(
-                          isActive:
-                              widget.isTutorialMode && !_tutorialStep1Complete,
+                          isActive: widget.tutorialStep == 'text',
                           child: ElevatedButton.icon(
                             onPressed: hasQueueItems
                                 ? () => _showQueueConflictMessage()
@@ -2322,9 +2228,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                   child: SizedBox(
                                     width: double.infinity,
                                     child: TutorialPulse(
-                                      isActive: widget.isTutorialMode &&
-                                          _tutorialStep1Complete &&
-                                          _extractionResult != null,
+                                      isActive:
+                                          widget.tutorialStep == 'multimodal' &&
+                                              _extractionResult != null,
                                       child: ElevatedButton(
                                         onPressed: _streamingStatus != null
                                             ? null

@@ -12,6 +12,8 @@ import '../../../models/feed_item.dart';
 
 import '../../home/presentation/module_provider.dart';
 import '../../lab/presentation/add_material_modal.dart';
+import '../../onboarding/providers/onboarding_provider.dart';
+import '../../onboarding/presentation/widgets/tutorial_overlay.dart';
 import 'feed_provider.dart';
 import 'widgets/feed_item_view.dart';
 
@@ -29,6 +31,7 @@ class FeedPage extends ConsumerStatefulWidget {
 
 class _FeedPageState extends ConsumerState<FeedPage> {
   late PageController _verticalController;
+  final GlobalKey _allCardsKey = GlobalKey();
 
   // View Mode: true = Single (Full Page), false = Grid (2 Columns)
   late bool _isSingleView;
@@ -177,6 +180,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   @override
   Widget build(BuildContext context) {
     final feedItems = ref.watch(feedProvider);
+    final onboardingState = ref.watch(onboardingProvider);
 
     // 🎧 Listen for Auto-Jump triggers (Progress Update)
     ref.listen<Map<String, int>>(feedProgressProvider, (previous, next) {
@@ -460,8 +464,17 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                           children: [
                             // Right: View All (back to detail page)
                             GestureDetector(
-                              onTap: () =>
-                                  context.push('/module/${widget.moduleId}'),
+                              key: _allCardsKey,
+                              onTap: () {
+                                if (onboardingState.isTutorialActive &&
+                                    !onboardingState.hasSeenAllCardsPhase2 &&
+                                    onboardingState.hasSeenAllCardsPhase1) {
+                                  ref
+                                      .read(onboardingProvider.notifier)
+                                      .completeStep('all_cards_p2');
+                                }
+                                context.push('/module/${widget.moduleId}');
+                              },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 14, vertical: 7),
@@ -598,6 +611,18 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                   ),
                 ),
               ),
+            ),
+          if (onboardingState.isTutorialActive &&
+              onboardingState.hasSeenAllCardsPhase1 &&
+              !onboardingState.hasSeenAllCardsPhase2)
+            TutorialOverlay(
+              targetKey: _allCardsKey,
+              text: '如果要查看全部知识卡或者切换知识卡，就需要点击“全部”。',
+              onDismiss: () {
+                ref
+                    .read(onboardingProvider.notifier)
+                    .completeStep('all_cards_p2');
+              },
             ),
         ],
       ),

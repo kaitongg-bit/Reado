@@ -269,6 +269,7 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     });
 
     // 4. 更新当前视图 state
+    if (!mounted) return;
     state = [..._allItems];
   }
 
@@ -313,15 +314,18 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     if (_allItems.isEmpty) {
       // Retry logic if called too early
       loadAllData().then((_) {
+        if (!mounted) return;
         state = _allItems.where((item) => item.module == moduleId).toList();
       });
     } else {
+      if (!mounted) return;
       state = _allItems.where((item) => item.module == moduleId).toList();
     }
   }
 
   /// 搜索逻辑
   void searchItems(String query) {
+    if (!mounted) return;
     if (query.isEmpty) {
       state = [];
       return;
@@ -356,6 +360,7 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
 
   /// 加载“所有”卡片 (Library Mode)，支持筛选
   void loadLibraryItems({FeedItemMastery? filter}) {
+    if (!mounted) return;
     state = _allItems
         .where((item) =>
             item.isFavorited && (filter == null || item.masteryLevel == filter))
@@ -458,6 +463,7 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
   }
 
   void updateItem(FeedItem newItem) {
+    if (!mounted) return;
     _allItems = [
       for (final item in _allItems)
         if (item.id == newItem.id) newItem else item
@@ -497,6 +503,7 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     if (currentUser == null) return;
 
     // Optimistic UI update
+    if (!mounted) return;
     _allItems = List.from(_allItems)..removeAt(index);
     state = List.from(state)..removeWhere((i) => i.id == itemId);
 
@@ -516,6 +523,7 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     if (currentUser == null) return;
 
     // Optimistic UI update
+    if (!mounted) return;
     _allItems = List.from(_allItems)..removeAt(index);
     state = List.from(state)..removeWhere((i) => i.id == itemId);
 

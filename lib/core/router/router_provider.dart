@@ -11,6 +11,7 @@ import '../../features/profile/presentation/profile_page.dart';
 import '../../features/home/presentation/module_detail_page.dart';
 import '../../features/feed/presentation/feed_provider.dart';
 import '../../features/onboarding/presentation/onboarding_page.dart';
+import '../../features/notes/presentation/ai_notes_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/credit_provider.dart';
 import '../../features/profile/presentation/hidden_content_page.dart';
@@ -55,6 +56,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const HomePage(),
       ),
       GoRoute(
+        path: '/ai-notes',
+        builder: (context, state) => const AiNotesPage(),
+      ),
+      GoRoute(
         path: '/explore',
         pageBuilder: (context, state) => const NoTransitionPage(
           child: ExplorePage(),
@@ -64,8 +69,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/feed/:moduleId',
         pageBuilder: (context, state) {
           final moduleId = state.pathParameters['moduleId']!;
+          final indexStr = state.uri.queryParameters['index'];
+          final initialIndex = indexStr != null ? int.tryParse(indexStr) : null;
+
           return NoTransitionPage(
-            child: FeedPage(moduleId: moduleId),
+            child: FeedPage(
+              moduleId: moduleId,
+              initialIndex: initialIndex,
+            ),
           );
         },
       ),

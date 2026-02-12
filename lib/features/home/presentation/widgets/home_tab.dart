@@ -19,8 +19,14 @@ final _homeModuleFilterProvider = StateProvider.autoDispose<int>(
 class HomeTab extends ConsumerStatefulWidget {
   final Function(String moduleId)? onLoadModule;
   final VoidCallback? onJumpToFeed;
+  final VoidCallback? onStartAiNotesTutorial;
 
-  const HomeTab({super.key, this.onLoadModule, this.onJumpToFeed});
+  const HomeTab({
+    super.key,
+    this.onLoadModule,
+    this.onJumpToFeed,
+    this.onStartAiNotesTutorial,
+  });
 
   @override
   ConsumerState<HomeTab> createState() => _HomeTabState();
@@ -50,6 +56,9 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       } else if (type == 'all_cards') {
         _tutorialText = '点击一个知识库，跳转到学习页面，点击右上角的【全部】按钮即可查看该知识库的全部知识卡片。';
         _tutorialTargetKey = _starModuleKey;
+      } else if (type == 'ai_notes') {
+        _tutorialText = '点击 [AI 笔记] 查看所有聚合笔记。';
+        _tutorialTargetKey = _aiNotesKey;
       }
     });
   }
@@ -95,11 +104,11 @@ class _HomeTabState extends ConsumerState<HomeTab> {
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF121212) : const Color(0xFFFAFAFA),
               borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(36)),
+                  const BorderRadius.vertical(top: Radius.circular(48)),
             ),
             child: ClipRRect(
               borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(36)),
+                  const BorderRadius.vertical(top: Radius.circular(48)),
               child: Column(
                 children: [
                   // Tabs Area
@@ -312,18 +321,23 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: _ElegantMenuButton(
-                          key: _aiNotesKey,
+                          key: _aiNotesKey, // Ensure _aiNotesKey is used here
                           title: 'AI 笔记',
                           icon: Icons.menu_book,
                           color: const Color(0xFF1976D2),
                           bgColor: const Color(0xFFE3F2FD),
                           onTap: () {
                             if (onboardingState.isTutorialActive) {
-                              ref
-                                  .read(onboardingProvider.notifier)
-                                  .completeStep('all_cards');
+                              if (_tutorialTargetKey == _aiNotesKey) {
+                                // Clear the tutorial overlay when they click to enter the notes page
+                                setState(() {
+                                  _tutorialText = null;
+                                  _tutorialTargetKey = null;
+                                });
+                              }
                             }
-                            widget.onJumpToFeed?.call();
+                            // Navigate to the NEW AI Notes list page
+                            context.push('/ai-notes');
                           },
                         ),
                       ),
@@ -333,28 +347,39 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                   Row(
                     children: [
                       Expanded(
-                        child: GestureDetector(
-                          onTap: () => context.push('/search'),
-                          child: Container(
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.white.withOpacity(0.1)
-                                  : const Color(0xFFFFF3E0),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Row(
-                              children: [
-                                Icon(Icons.search,
-                                    color: isDark
-                                        ? Colors.white54
-                                        : Colors.orangeAccent),
-                                const SizedBox(width: 8),
-                                const Expanded(
-                                    child: Text('搜索知识...',
-                                        style: TextStyle(fontSize: 14))),
-                              ],
+                        child: Container(
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white.withOpacity(0.1)
+                                : const Color(0xFFFFF3E0),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: TextField(
+                            onSubmitted: (value) {
+                              if (value.trim().isNotEmpty) {
+                                context.push(
+                                    '/search?q=${Uri.encodeComponent(value.trim())}');
+                              }
+                            },
+                            style: const TextStyle(fontSize: 14),
+                            decoration: InputDecoration(
+                              hintText: '搜索知识...',
+                              hintStyle: TextStyle(
+                                color:
+                                    isDark ? Colors.white54 : Colors.grey[600],
+                                fontSize: 14,
+                              ),
+                              border: InputBorder.none,
+                              prefixIcon: Icon(Icons.search,
+                                  color: isDark
+                                      ? Colors.white54
+                                      : Colors.orangeAccent),
+                              prefixIconConstraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
                             ),
                           ),
                         ),
@@ -392,6 +417,8 @@ class _HomeTabState extends ConsumerState<HomeTab> {
             onStartTaskCenterTutorial: () => _startTutorialStep('task_center'),
             onStartMultiTutorial: () => _startTutorialStep('multimodal'),
             onStartAllCardsTutorial: () => _startTutorialStep('all_cards'),
+            onStartAiNotesTutorial: () =>
+                _startTutorialStep('ai_notes'), // Added this line
           ),
         ],
       ),

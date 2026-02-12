@@ -8,12 +8,15 @@ class OnboardingChecklist extends ConsumerWidget {
   final VoidCallback? onStartMultiTutorial;
   final VoidCallback? onStartAllCardsTutorial;
 
+  final VoidCallback? onStartAiNotesTutorial;
+
   const OnboardingChecklist({
     super.key,
     this.onStartTextTutorial,
     this.onStartTaskCenterTutorial,
     this.onStartMultiTutorial,
     this.onStartAllCardsTutorial,
+    this.onStartAiNotesTutorial,
   });
 
   @override
@@ -44,6 +47,7 @@ class OnboardingChecklist extends ConsumerWidget {
       BuildContext context, WidgetRef ref, OnboardingState state) {
     return Container(
       width: 280,
+      constraints: const BoxConstraints(maxHeight: 450),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -81,40 +85,55 @@ class OnboardingChecklist extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           LinearProgressIndicator(
-            value: state.completedStepsCount / 4,
+            value: state.completedStepsCount / 5,
             backgroundColor: Colors.grey[200],
             valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
             borderRadius: BorderRadius.circular(4),
           ),
-          const SizedBox(height: 16),
-          _ChecklistItem(
-            title: '1. AI 文本拆解',
-            isDone: state.hasSeenTextDeconstruction,
-            onTap: onStartTextTutorial,
-          ),
-          _ChecklistItem(
-            title: '2. 查看后台任务',
-            isDone: state.hasSeenTaskCenter,
-            onTap: onStartTaskCenterTutorial,
-          ),
-          _ChecklistItem(
-            title: '3. 多模态链接解析',
-            isDone: state.hasSeenMultimodalDeconstruction,
-            onTap: onStartMultiTutorial,
-          ),
-          _ChecklistItem(
-            title: '4. 查看全部知识卡',
-            isDone: state.hasSeenAllCards,
-            onTap: onStartAllCardsTutorial,
+          const SizedBox(height: 8),
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _ChecklistItem(
+                    title: '1. AI 文本拆解',
+                    isDone: state.hasSeenTextDeconstruction,
+                    onTap: onStartTextTutorial,
+                  ),
+                  _ChecklistItem(
+                    title: '2. 查看后台任务',
+                    isDone: state.hasSeenTaskCenter,
+                    onTap: onStartTaskCenterTutorial,
+                  ),
+                  _ChecklistItem(
+                    title: '3. 多模态链接解析',
+                    isDone: state.hasSeenMultimodalDeconstruction,
+                    onTap: onStartMultiTutorial,
+                  ),
+                  _ChecklistItem(
+                    title: '4. 查看全部知识卡',
+                    isDone: state.hasSeenAllCards,
+                    onTap: onStartAllCardsTutorial,
+                  ),
+                  _ChecklistItem(
+                    title: '5. 查看 AI 笔记',
+                    isDone: state.hasSeenAiNotesTutorial,
+                    onTap: onStartAiNotesTutorial,
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           if (state.isAllCompleted)
             const Text(
               '🎉 太棒了！你已掌握核心功能',
               style: TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12),
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
             ),
           const Divider(height: 24),
           Center(

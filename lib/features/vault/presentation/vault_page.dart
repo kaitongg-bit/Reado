@@ -84,110 +84,101 @@ class _VaultPageState extends ConsumerState<VaultPage> {
               children: [
                 // Glassy Search & Filter Container
                 Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withOpacity(0.05)
+                          : Colors.white.withOpacity(0.8),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
                           color: isDark
-                              ? Colors.white.withOpacity(0.05)
-                              : Colors.white.withOpacity(0.4),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: isDark
-                                  ? Colors.white.withOpacity(0.1)
-                                  : Colors.white.withOpacity(0.4)),
-                        ),
-                        child: Column(
-                          children: [
-                            // Search Bar
-                            TextField(
-                              controller: _searchController,
-                              style: TextStyle(
-                                  color:
-                                      isDark ? Colors.white : Colors.black87),
-                              decoration: InputDecoration(
-                                hintText:
-                                    '搜索收藏的卡片...', // Changed from "Search cards..."
-                                hintStyle: TextStyle(
-                                    color: isDark
-                                        ? Colors.grey[500]
-                                        : Colors.grey[500]),
-                                suffixIcon: IconButton(
-                                  icon: const Icon(
-                                    Icons.search,
-                                    color: Color(0xFFFF8A65),
-                                  ),
-                                  onPressed: () {
-                                    // Search is already reactive via onChanged
-                                    // This button can trigger focus loss or just be visual
-                                    FocusScope.of(context).unfocus();
-                                  },
-                                ),
-                                filled: true,
-                                fillColor: isDark
-                                    ? Colors.black.withOpacity(0.2)
-                                    : Colors.white.withOpacity(0.5),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide.none,
-                                ),
-                                contentPadding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                              ),
-                              onChanged: (value) {
-                                setState(() {
-                                  _searchQuery = value;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            // Filter Chips
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  _FilterChip(
-                                      label: '全部',
-                                      isSelected: _libraryFilter == null,
-                                      isDark: isDark,
-                                      onTap: () => _updateLibraryFilter(null)),
-                                  const SizedBox(width: 8),
-                                  _FilterChip(
-                                      label: '生疏',
-                                      isSelected: _libraryFilter ==
-                                          FeedItemMastery.hard,
-                                      color: Colors.redAccent,
-                                      isDark: isDark,
-                                      onTap: () => _updateLibraryFilter(
-                                          FeedItemMastery.hard)),
-                                  const SizedBox(width: 8),
-                                  _FilterChip(
-                                      label: '一般',
-                                      isSelected: _libraryFilter ==
-                                          FeedItemMastery.medium,
-                                      color: Colors.orangeAccent,
-                                      isDark: isDark,
-                                      onTap: () => _updateLibraryFilter(
-                                          FeedItemMastery.medium)),
-                                  const SizedBox(width: 8),
-                                  _FilterChip(
-                                      label: '熟练',
-                                      isSelected: _libraryFilter ==
-                                          FeedItemMastery.easy,
-                                      color: Colors.green,
-                                      isDark: isDark,
-                                      onTap: () => _updateLibraryFilter(
-                                          FeedItemMastery.easy)),
-                                ],
+                              ? Colors.white10
+                              : Colors.white.withOpacity(0.6),
+                          width: 1.5),
+                    ),
+                    child: Column(
+                      children: [
+                        // Search Bar
+                        TextField(
+                          controller: _searchController,
+                          style: TextStyle(
+                              color: isDark ? Colors.white : Colors.black87),
+                          decoration: InputDecoration(
+                            hintText: '搜索收藏的卡片...',
+                            hintStyle: TextStyle(
+                                color: isDark
+                                    ? Colors.grey[600]
+                                    : Colors.grey[400],
+                                fontSize: 14),
+                            suffixIcon: Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: Icon(
+                                Icons.search,
+                                color: const Color(0xFFFF8A65),
                               ),
                             ),
-                          ],
+                            filled: true,
+                            fillColor: isDark
+                                ? Colors.black.withOpacity(0.2)
+                                : Colors.white.withOpacity(0.5),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          onChanged: (value) {
+                            setState(() {
+                              _searchQuery = value;
+                            });
+                          },
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        // Filter Chips
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _FilterChip(
+                                  label: '全部',
+                                  isSelected: _libraryFilter == null,
+                                  isDark: isDark,
+                                  onTap: () => _updateLibraryFilter(null)),
+                              const SizedBox(width: 8),
+                              _FilterChip(
+                                  label: '生疏',
+                                  isSelected:
+                                      _libraryFilter == FeedItemMastery.hard,
+                                  color: Colors.redAccent,
+                                  isDark: isDark,
+                                  onTap: () => _updateLibraryFilter(
+                                      FeedItemMastery.hard)),
+                              const SizedBox(width: 8),
+                              _FilterChip(
+                                  label: '一般',
+                                  isSelected:
+                                      _libraryFilter == FeedItemMastery.medium,
+                                  color: Colors.orangeAccent,
+                                  isDark: isDark,
+                                  onTap: () => _updateLibraryFilter(
+                                      FeedItemMastery.medium)),
+                              const SizedBox(width: 8),
+                              _FilterChip(
+                                  label: '熟练',
+                                  isSelected:
+                                      _libraryFilter == FeedItemMastery.easy,
+                                  color: Colors.green,
+                                  isDark: isDark,
+                                  onTap: () => _updateLibraryFilter(
+                                      FeedItemMastery.easy)),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -260,13 +251,11 @@ class _ReviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Glassmorphism Card Style
-    final backgroundColor = isDark
-        ? Colors.white.withOpacity(0.05)
-        : Colors.white.withOpacity(0.65);
+    final backgroundColor =
+        isDark ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.9);
 
     final borderColor =
-        isDark ? Colors.white.withOpacity(0.1) : Colors.white.withOpacity(0.5);
+        isDark ? Colors.white.withOpacity(0.1) : Colors.white.withOpacity(0.4);
 
     return GestureDetector(
       onTap: () {
@@ -280,72 +269,78 @@ class _ReviewCard extends StatelessWidget {
         );
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: borderColor, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Icon / Type Indicator
+            Container(
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
-                color: backgroundColor,
+                color: _getModuleColor(item.moduleId).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: isDark
-                        ? Colors.black.withOpacity(0.2)
-                        : Colors.grey.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
-              child: Row(
+              child: Icon(_getModuleIcon(item.moduleId),
+                  color: _getModuleColor(item.moduleId), size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Icon / Type Indicator
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: _getModuleColor(item.moduleId).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : const Color(0xFF1E293B),
                     ),
-                    child: Icon(_getModuleIcon(item.moduleId),
-                        color: _getModuleColor(item.moduleId)),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.title,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color:
-                                isDark ? Colors.white : const Color(0xFF1E293B),
-                          ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      if (item.masteryLevel != FeedItemMastery.unknown)
+                        _MasteryBadge(level: item.masteryLevel),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Next: ${() {
+                          if (item.nextReviewTime == null) return 'Not set';
+                          final diff =
+                              item.nextReviewTime!.difference(DateTime.now());
+                          if (diff.inDays > 0) return '${diff.inDays}d';
+                          if (diff.inHours > 0) return '${diff.inHours}h';
+                          return 'Now';
+                        }()}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? Colors.white54 : Colors.grey[600],
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            if (item.masteryLevel != FeedItemMastery.unknown)
-                              _MasteryBadge(level: item.masteryLevel),
-                          ],
-                        )
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.chevron_right,
-                      color: isDark
-                          ? Colors.white.withOpacity(0.2)
-                          : Colors.grey.withOpacity(0.4)),
+                      ),
+                    ],
+                  )
                 ],
               ),
             ),
-          ),
+            Icon(Icons.chevron_right,
+                color: isDark
+                    ? Colors.white.withOpacity(0.2)
+                    : Colors.grey.withOpacity(0.4)),
+          ],
         ),
       ),
     );

@@ -190,19 +190,19 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
     IconData masteryIcon;
     switch (item.masteryLevel) {
       case FeedItemMastery.easy:
-        masteryColor = Colors.green;
-        masteryIcon = Icons.check_circle;
+        masteryColor = const Color(0xFF4CAF50); // Premium Green
+        masteryIcon = Icons.check_circle_outline;
         break;
       case FeedItemMastery.medium:
-        masteryColor = Colors.blue;
-        masteryIcon = Icons.circle;
+        masteryColor = const Color(0xFF2196F3); // Premium Blue
+        masteryIcon = Icons.radio_button_checked;
         break;
       case FeedItemMastery.hard:
-        masteryColor = Colors.orange;
-        masteryIcon = Icons.warning_amber_rounded;
+        masteryColor = const Color(0xFFFFB300); // Warm Amber
+        masteryIcon = Icons.bolt_rounded; // Less alarming than warning
         break;
       default:
-        masteryColor = Colors.grey;
+        masteryColor = isDark ? Colors.white24 : Colors.grey[300]!;
         masteryIcon = Icons.circle_outlined;
     }
 

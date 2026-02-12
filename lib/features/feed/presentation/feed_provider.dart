@@ -315,10 +315,22 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
       // Retry logic if called too early
       loadAllData().then((_) {
         if (!mounted) return;
-        state = _allItems.where((item) => item.module == moduleId).toList();
+        _applyModuleFilter(moduleId);
       });
     } else {
       if (!mounted) return;
+      _applyModuleFilter(moduleId);
+    }
+  }
+
+  void _applyModuleFilter(String moduleId) {
+    if (moduleId == 'AI_NOTES') {
+      state = _allItems.where((item) {
+        return item.id == 'b002' || item.pages.any((p) => p is UserNotePage);
+      }).toList();
+    } else if (moduleId == 'ALL') {
+      state = [..._allItems];
+    } else {
       state = _allItems.where((item) => item.module == moduleId).toList();
     }
   }

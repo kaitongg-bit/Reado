@@ -65,6 +65,12 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     _focusedItemIndex = savedIndex;
     _verticalController = PageController(initialPage: savedIndex);
 
+    // If we have an explicit starting index, mark position as "restored"
+    // to prevent the progress provider from overriding it during build
+    if (widget.initialIndex != null || intent != null) {
+      _initialPositionRestored = true;
+    }
+
     // Default: Search -> Grid, Normal -> Single
     _isSingleView = !isSearch;
 
@@ -257,6 +263,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     // 🛡️ Guard: Check for stale data from previous module to avoid index resets
     if (widget.moduleId != 'SEARCH' &&
         widget.moduleId != 'ALL' &&
+        widget.moduleId != 'AI_NOTES' &&
         feedItems.isNotEmpty) {
       if (feedItems.first.moduleId != widget.moduleId) {
         return Scaffold(
@@ -285,10 +292,6 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     final moduleState = ref.watch(moduleProvider);
     final currentModule =
         moduleState.all.where((m) => m.id == widget.moduleId).firstOrNull;
-
-    final title = widget.moduleId == 'SEARCH'
-        ? '搜索结果'
-        : (currentModule?.title ?? 'Module ${widget.moduleId}');
 
     if (feedItems.isEmpty) {
       return Scaffold(
@@ -347,10 +350,17 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                 ),
               ),
               title: Text(
-                title,
+                widget.moduleId == 'ALL'
+                    ? '全部知识'
+                    : widget.moduleId == 'AI_NOTES'
+                        ? 'AI 笔记'
+                        : widget.moduleId == 'SEARCH'
+                            ? '搜索结果'
+                            : '知识模块',
                 style: TextStyle(
                   color: isDark ? Colors.white : Colors.black87,
                   fontWeight: FontWeight.bold,
+                  fontSize: 18,
                 ),
               ),
               iconTheme:
@@ -637,10 +647,19 @@ class _FeedPageState extends ConsumerState<FeedPage> {
           // Reset lock when changing items (failsafe, though view should reset it)
           _isVerticalNavLocked = false;
         });
+
         // 💾 Persist reading position per module
         ref
             .read(feedProgressProvider.notifier)
             .setProgress(widget.moduleId, index);
+
+        // 🎓 Tutorial: Complete AI Notes step if they see b002
+        final onboarding = ref.read(onboardingProvider);
+        if (onboarding.isTutorialActive &&
+            !onboarding.hasSeenAiNotesTutorial &&
+            items[index].id == 'b002') {
+          ref.read(onboardingProvider.notifier).completeStep('ai_notes');
+        }
       },
       itemBuilder: (context, index) {
         final item = items[index];

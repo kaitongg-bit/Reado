@@ -605,9 +605,14 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.push_pin, color: Colors.amber, size: 14),
+                        Icon(
+                            widget.feedItem.id == 'b002'
+                                ? Icons.verified_outlined
+                                : Icons.push_pin,
+                            color: Colors.amber,
+                            size: 14),
                         const SizedBox(width: 6),
-                        Text('笔记',
+                        Text(widget.feedItem.id == 'b002' ? 'AI 官方指南' : 'AI 笔记',
                             style: TextStyle(
                                 color: Colors.amber[700],
                                 fontWeight: FontWeight.w600,

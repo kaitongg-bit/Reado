@@ -58,6 +58,19 @@ class _HomePageState extends ConsumerState<HomePage> {
         ref.read(homeTabControlProvider.notifier).state = widget.initialTab!;
       });
     }
+
+    // If initialModule changes (e.g. navigating from AI Notes to specific Feed)
+    if (widget.initialModule != null &&
+        widget.initialModule != oldWidget.initialModule) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Switch to Feed tab
+        ref.read(homeTabControlProvider.notifier).state = 1;
+        // Update active module
+        ref
+            .read(lastActiveModuleProvider.notifier)
+            .setActiveModule(widget.initialModule!);
+      });
+    }
   }
 
   void _loadModule(String moduleId) {
@@ -84,6 +97,10 @@ class _HomePageState extends ConsumerState<HomePage> {
         onLoadModule: _loadModule,
         onJumpToFeed: () {
           ref.read(homeTabControlProvider.notifier).state = 1;
+        },
+        onStartAiNotesTutorial: () {
+          // HomeTab state handles internal tutorial, we just ensure we are on Home tab
+          ref.read(homeTabControlProvider.notifier).state = 0;
         },
       ),
       FeedPage(key: ValueKey(currentModuleId), moduleId: currentModuleId),

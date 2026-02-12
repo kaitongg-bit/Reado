@@ -9,6 +9,7 @@ class OnboardingState {
   final bool hasSeenAllCardsPhase1;
   final bool hasSeenAllCardsPhase2;
   final bool hasSeenAiNotesTutorial;
+  final bool hasSharedForPoints;
   final bool isChecklistVisible;
   final bool isAlwaysShowTutorial;
   final bool highlightTaskCenter;
@@ -21,6 +22,7 @@ class OnboardingState {
     required this.hasSeenAllCardsPhase1,
     required this.hasSeenAllCardsPhase2,
     required this.hasSeenAiNotesTutorial,
+    required this.hasSharedForPoints,
     required this.isChecklistVisible,
     required this.isAlwaysShowTutorial,
     this.highlightTaskCenter = false,
@@ -31,7 +33,8 @@ class OnboardingState {
       hasSeenTaskCenter &&
       hasSeenMultimodalDeconstruction &&
       hasSeenAllCardsPhase2 &&
-      hasSeenAiNotesTutorial;
+      hasSeenAiNotesTutorial &&
+      hasSharedForPoints;
 
   bool get hasSeenAllCards => hasSeenAllCardsPhase2;
 
@@ -42,6 +45,7 @@ class OnboardingState {
     if (hasSeenMultimodalDeconstruction) count++;
     if (hasSeenAllCardsPhase2) count++;
     if (hasSeenAiNotesTutorial) count++;
+    if (hasSharedForPoints) count++;
     return count;
   }
 
@@ -53,6 +57,7 @@ class OnboardingState {
     bool? hasSeenAllCardsPhase1,
     bool? hasSeenAllCardsPhase2,
     bool? hasSeenAiNotesTutorial,
+    bool? hasSharedForPoints,
     bool? isChecklistVisible,
     bool? isAlwaysShowTutorial,
     bool? highlightTaskCenter,
@@ -70,6 +75,7 @@ class OnboardingState {
           hasSeenAllCardsPhase2 ?? this.hasSeenAllCardsPhase2,
       hasSeenAiNotesTutorial:
           hasSeenAiNotesTutorial ?? this.hasSeenAiNotesTutorial,
+      hasSharedForPoints: hasSharedForPoints ?? this.hasSharedForPoints,
       isChecklistVisible: isChecklistVisible ?? this.isChecklistVisible,
       isAlwaysShowTutorial: isAlwaysShowTutorial ?? this.isAlwaysShowTutorial,
       highlightTaskCenter: highlightTaskCenter ?? this.highlightTaskCenter,
@@ -87,6 +93,7 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
           hasSeenAllCardsPhase1: false,
           hasSeenAllCardsPhase2: false,
           hasSeenAiNotesTutorial: false,
+          hasSharedForPoints: false,
           isChecklistVisible: false,
           isAlwaysShowTutorial: false,
           highlightTaskCenter: false,
@@ -109,6 +116,7 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
     final hasSeenAllP1 = prefs.getBool('hasSeenAllCardsPhase1') ?? false;
     final hasSeenAllP2 = prefs.getBool('hasSeenAllCardsPhase2') ?? false;
     final hasSeenNotes = prefs.getBool('hasSeenAiNotesTutorial') ?? false;
+    final hasShared = prefs.getBool('hasSharedForPoints') ?? false;
     final alwaysShow = prefs.getBool('isAlwaysShowTutorial') ?? false;
     final highlight = prefs.getBool('highlightTaskCenter') ?? false;
 
@@ -120,6 +128,7 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
       hasSeenAllCardsPhase1: hasSeenAllP1,
       hasSeenAllCardsPhase2: hasSeenAllP2,
       hasSeenAiNotesTutorial: hasSeenNotes,
+      hasSharedForPoints: hasShared,
       isChecklistVisible: false,
       isAlwaysShowTutorial: alwaysShow,
       highlightTaskCenter: highlight,
@@ -146,6 +155,48 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
     } else if (stepId == 'ai_notes') {
       await prefs.setBool('hasSeenAiNotesTutorial', true);
       state = state.copyWith(hasSeenAiNotesTutorial: true);
+    } else if (stepId == 'share_points') {
+      await prefs.setBool('hasSharedForPoints', true);
+      state = state.copyWith(hasSharedForPoints: true);
+    }
+
+    if (state.isAllCompleted) {
+      await prefs.setBool('hasSeenDeconstructionTutorial', true);
+    }
+  }
+
+  Future<void> toggleStep(String stepId) async {
+    final prefs = await SharedPreferences.getInstance();
+    bool newValue = false;
+
+    if (stepId == 'text') {
+      newValue = !state.hasSeenTextDeconstruction;
+      await prefs.setBool('hasSeenTextDeconstruction', newValue);
+      state = state.copyWith(hasSeenTextDeconstruction: newValue);
+    } else if (stepId == 'task_center') {
+      newValue = !state.hasSeenTaskCenter;
+      await prefs.setBool('hasSeenTaskCenter', newValue);
+      state = state.copyWith(hasSeenTaskCenter: newValue);
+    } else if (stepId == 'multimodal') {
+      newValue = !state.hasSeenMultimodalDeconstruction;
+      await prefs.setBool('hasSeenMultimodalDeconstruction', newValue);
+      state = state.copyWith(hasSeenMultimodalDeconstruction: newValue);
+    } else if (stepId == 'all_cards_p1') {
+      newValue = !state.hasSeenAllCardsPhase1;
+      await prefs.setBool('hasSeenAllCardsPhase1', newValue);
+      state = state.copyWith(hasSeenAllCardsPhase1: newValue);
+    } else if (stepId == 'all_cards_p2') {
+      newValue = !state.hasSeenAllCardsPhase2;
+      await prefs.setBool('hasSeenAllCardsPhase2', newValue);
+      state = state.copyWith(hasSeenAllCardsPhase2: newValue);
+    } else if (stepId == 'ai_notes') {
+      newValue = !state.hasSeenAiNotesTutorial;
+      await prefs.setBool('hasSeenAiNotesTutorial', newValue);
+      state = state.copyWith(hasSeenAiNotesTutorial: newValue);
+    } else if (stepId == 'share_points') {
+      newValue = !state.hasSharedForPoints;
+      await prefs.setBool('hasSharedForPoints', newValue);
+      state = state.copyWith(hasSharedForPoints: newValue);
     }
 
     if (state.isAllCompleted) {
@@ -172,6 +223,7 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
     await prefs.setBool('hasSeenAllCardsPhase1', true);
     await prefs.setBool('hasSeenAllCardsPhase2', true);
     await prefs.setBool('hasSeenAiNotesTutorial', true);
+    await prefs.setBool('hasSharedForPoints', true);
     await prefs.setBool('hasSeenDeconstructionTutorial', true);
 
     state = state.copyWith(
@@ -182,6 +234,7 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
       hasSeenAllCardsPhase1: true,
       hasSeenAllCardsPhase2: true,
       hasSeenAiNotesTutorial: true,
+      hasSharedForPoints: true,
     );
   }
 
@@ -194,6 +247,7 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
     await prefs.remove('hasSeenAllCardsPhase1');
     await prefs.remove('hasSeenAllCardsPhase2');
     await prefs.remove('hasSeenAiNotesTutorial');
+    await prefs.remove('hasSharedForPoints');
     await prefs.remove('hasSeenDeconstructionTutorial');
 
     state = OnboardingState(
@@ -204,6 +258,7 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
       hasSeenAllCardsPhase1: false,
       hasSeenAllCardsPhase2: false,
       hasSeenAiNotesTutorial: false,
+      hasSharedForPoints: false,
       isChecklistVisible: false,
       isAlwaysShowTutorial: state.isAlwaysShowTutorial,
       highlightTaskCenter: false,

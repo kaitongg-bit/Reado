@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/services.dart';
+import 'dart:html' as html; // Assuming Web target as per ProfilePage usage
+
+import '../../../../core/providers/credit_provider.dart';
 
 /// 任务状态
 enum TaskStatus { pending, processing, completed, failed }
@@ -130,6 +134,50 @@ class TaskCenterPage extends ConsumerStatefulWidget {
 class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
   String? _expandedTaskId;
 
+  // 处理分享逻辑
+  void _handleShare() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // 1. 生成专属链接
+    final String baseUrl = html.window.location.origin;
+    final String shareUrl = "$baseUrl/#/onboarding?ref=${user.uid}";
+
+    // 2. 复制到剪贴板
+    Clipboard.setData(
+        ClipboardData(text: '嘿！我正在使用 Reado 学习，这个 AI 工具太强了，快来看看：\n$shareUrl'));
+
+    // 3. 奖励积分 (动作奖励)
+    ref.read(creditProvider.notifier).rewardShare(amount: 10);
+
+    // 4. 显示提示
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.stars, color: Color(0xFFFFB300)),
+                SizedBox(width: 8),
+                Text('分享成功！获得 10 积分动作奖励 🎁'),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text('当好友通过您的链接加入时，您将再获得 50 积分！',
+                style: TextStyle(fontSize: 12, color: Colors.white)),
+            const SizedBox(height: 4),
+            Text('专属链接已复制: $shareUrl',
+                style: const TextStyle(fontSize: 10, color: Colors.white70)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF2E7D32),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tasksAsync = ref.watch(taskCenterProvider);
@@ -147,69 +195,153 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
           ),
         ],
       ),
-      body: tasksAsync.when(
-        data: (tasks) {
-          if (tasks.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.inbox_outlined,
-                    size: 80,
-                    color: isDark ? Colors.white24 : Colors.black12,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '暂无任务',
-                    style: TextStyle(
-                      color: isDark ? Colors.white54 : Colors.black54,
-                      fontSize: 16,
+      body: Column(
+        children: [
+          _buildCreditsCard(context, ref, isDark),
+          Expanded(
+            child: tasksAsync.when(
+              data: (tasks) {
+                if (tasks.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.inbox_outlined,
+                          size: 80,
+                          color: isDark ? Colors.white24 : Colors.black12,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          '暂无任务',
+                          style: TextStyle(
+                            color: isDark ? Colors.white54 : Colors.black54,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '使用 AI 生成知识卡片后，任务会显示在这里',
+                          style: TextStyle(
+                            color: isDark ? Colors.white38 : Colors.black38,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '使用 AI 生成知识卡片后，任务会显示在这里',
-                    style: TextStyle(
-                      color: isDark ? Colors.white38 : Colors.black38,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: tasks.length,
+                  itemBuilder: (context, index) {
+                    final task = tasks[index];
+                    final isExpanded = _expandedTaskId == task.id;
+
+                    return _TaskCard(
+                      task: task,
+                      isExpanded: isExpanded,
+                      onTap: () {
+                        setState(() {
+                          _expandedTaskId = isExpanded ? null : task.id;
+                        });
+                      },
+                    );
+                  },
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        size: 48, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text('加载失败: $e'),
+                  ],
+                ),
               ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: tasks.length,
-            itemBuilder: (context, index) {
-              final task = tasks[index];
-              final isExpanded = _expandedTaskId == task.id;
-
-              return _TaskCard(
-                task: task,
-                isExpanded: isExpanded,
-                onTap: () {
-                  setState(() {
-                    _expandedTaskId = isExpanded ? null : task.id;
-                  });
-                },
-              );
-            },
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 16),
-              Text('加载失败: $e'),
-            ],
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCreditsCard(BuildContext context, WidgetRef ref, bool isDark) {
+    final statsAsync = ref.watch(creditProvider);
+    final stats = statsAsync.value;
+    final credits = stats?.credits ?? 0;
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? [const Color(0xFF2C3E50), const Color(0xFF4CA1AF)]
+              : [const Color(0xFFFFF3E0), const Color(0xFFFFCC80)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.stars, color: Colors.white, size: 32),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '我的积分',
+                  style: TextStyle(
+                    color: isDark ? Colors.white70 : Colors.brown[700],
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  '$credits',
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.brown[900],
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: _handleShare, // Use the proper handler
+            icon: const Icon(Icons.share, size: 18),
+            label: const Text('分享赚积分'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.orange[800],
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

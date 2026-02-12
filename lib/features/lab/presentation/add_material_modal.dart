@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../models/feed_item.dart';
 import '../../../../data/services/content_extraction_service.dart';
 import '../../feed/presentation/feed_provider.dart';
@@ -106,9 +107,14 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
   void _initTutorialStats() {
     // 1. Select a random interesting topic
     final examples = [
-      '# 美颜滤镜是如何工作的？\n\n美颜相机的核心技术其实是计算机视觉（Computer Vision）。\n\n1. 人脸检测：首先，算法需要在图像中找到人脸的位置（Face Detection）。通常使用基于深度学习的模型，如 MTCNN 或 RetinaFace，能快速定位五官的 68 个或 106 个关键点。\n\n2. 磨皮（Skin Smoothing）：定位到皮肤区域后，使用“双边滤波”（Bilateral Filter）或“导向滤波”算法。这些算法能模糊皮肤的细节（如痘印、毛孔），但同时保留边缘信息（如五官轮廓），避免整张脸变得模糊不清。\n\n3. 瘦脸大眼：利用三角剖分（Delaunay Triangulation）将人脸网格化，然后对特定的网格顶点进行位移（Warping）。例如，将眼睛周围的网格向外拉伸实现“大眼”，将下巴两侧的网格向内收缩实现“瘦脸”。',
-      '# 为什么抖音知道你喜欢看什么？\n\n这背后的核心是“推荐系统”（Recommendation System）。\n\n1. 用户画像（User Profiling）：系统会记录你的每一个行为——停留时长、点赞、评论、转发，甚至是你哪怕快速划过的动作。这些数据被贴上成千上万个标签：喜欢猫咪、并在深夜活跃、偏好快节奏剪辑等。\n\n2. 协同过滤（Collaborative Filtering）：\n- 基于用户：既然你和隔壁老王都喜欢看“科技评测”，那老王刚点赞的“AI 教程”大概率你也喜欢。\n- 基于物品：既然喜欢看“Python入门”，那你可能对“数据分析”也感兴趣。\n\n3. 探索与利用（E&E）：系统不会只给你推你喜欢的（利用），偶尔会塞一些新领域的视频（探索），以免你陷入“信息茧房”感到无聊。',
-      '# 什么是“第一性原理”？\n\n第一性原理（First Principles）是一种思维方式，最早由亚里士多德提出，后来被伊隆·马斯克带火。\n\n它的核心是：\n不要用“类比”去思考（“别人怎么做，我也怎么做”），而是要回归到事物最基本的条件（“本质是什么”），然后从头开始推演。\n\n举个例子：\n大家都觉得电动车电池太贵，大概 600 美元/千瓦时。类比思维会说：“电池一直都这么贵，没法降。”\n\n但第一性原理会问：\n1. 电池是由什么组成的？（钴、镍、铝、碳、聚合物...）\n2. 这些材料在伦敦金属交易所买可以多便宜？（大概 80 美元/千瓦时）\n\n结论：电池之所以贵，不是材料贵，而是组合方式（制造技术）太落后。只要改进制造流程，成本就能大幅下降。'
+      '美颜滤镜是如何工作的？机器学习发挥作用了吗？人脸识别技术吗？',
+      '为什么抖音知道你喜欢看什么？',
+      '支持向量机是啥，咋叫这个名字？我是个普通人，我想了解更多'
+          '深度学习和机器学习的区别？',
+      '女性第二性这个词啥意思？'
+          '王阳明心学是什么？',
+      'LLM大模型是什么？普通人如何入门vibe coding？ prompt engineering 是啥？',
+      '抖音和小红书单双列布局为啥不同？产品经理如何回答？'
     ];
     // Simple random pick based on time to vary it slightly
     final index = DateTime.now().millisecondsSinceEpoch % examples.length;
@@ -825,24 +831,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
       }
 
       if (_isGenerating) {
-        final shouldClose = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('正在生成中'),
-            content: const Text('生成任务正在进行，退出将中断生成。确定要退出吗？'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('继续生成'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('狠心退出', style: TextStyle(color: Colors.red)),
-              ),
-            ],
-          ),
-        );
-        return shouldClose ?? false;
+        // --- 核心优化：允许生成时直接退出，不显示中断弹窗 ---
+        // 任务已经在后台提交并由 FeedProvider 监听，所以点击退出并不会真的中断。
+        return true;
       }
       return true;
     }, child: LayoutBuilder(builder: (context, constraints) {
@@ -1640,9 +1631,19 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                     ],
                   ),
                 ),
-                if (!_isGenerating)
+                if (_isGenerating)
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.exit_to_app, size: 18),
+                    label: const Text('暂且离开'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: accentColor,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                  )
+                else
                   IconButton(
-                    icon: Icon(Icons.refresh, color: secondaryTextColor),
+                    icon: const Icon(Icons.refresh, color: Colors.grey),
                     onPressed: () {
                       setState(() {
                         _generatedItems = null;
@@ -2500,9 +2501,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
           ),
           FilledButton(
             onPressed: () {
-              Navigator.of(context).pop();
+              Navigator.of(context).pop(); // Close dialog
               Navigator.of(context).pop(); // Close modal
-              // User will likely go to module detail or home to share
+              context.push('/task-center'); // Go to tasks/credits
             },
             child: const Text('去分享奖励'),
           ),

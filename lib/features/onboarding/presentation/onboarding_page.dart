@@ -4,15 +4,16 @@ import 'package:flutter/material.dart';
 import '../../../../core/widgets/app_background.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/services/auth_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class OnboardingPage extends StatefulWidget {
+class OnboardingPage extends ConsumerStatefulWidget {
   const OnboardingPage({super.key});
 
   @override
-  State<OnboardingPage> createState() => _OnboardingPageState();
+  ConsumerState<OnboardingPage> createState() => _OnboardingPageState();
 }
 
-class _OnboardingPageState extends State<OnboardingPage>
+class _OnboardingPageState extends ConsumerState<OnboardingPage>
     with SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
   final TextEditingController _usernameController = TextEditingController();

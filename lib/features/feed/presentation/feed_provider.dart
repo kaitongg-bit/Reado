@@ -177,6 +177,10 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
   final DataService _dataService;
   final Ref _ref;
 
+  // Track active filter state
+  String? _currentModuleId;
+  String? _currentSearchQuery;
+
   // Source of Truth
   List<FeedItem> _allItems = [];
 
@@ -232,9 +236,9 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
 
       print('📊 总计: ${_allItems.length} 个知识点 (已按时间正序排序)');
 
-      // 5. 更新 State
+      // 5. 更新 State (Respect active filter)
       if (mounted) {
-        state = [..._allItems];
+        _refreshState();
       }
     } catch (e) {
       print('❌ Basic load failed: $e');
@@ -268,9 +272,9 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
       return dateA.compareTo(dateB); // ASC
     });
 
-    // 4. 更新当前视图 state
+    // 4. 更新当前视图 state (Respect active filter)
     if (!mounted) return;
-    state = [..._allItems];
+    _refreshState();
   }
 
   /// 监听特定的后台任务，并将生成的卡片实时同步到 Feed
@@ -311,40 +315,53 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
 
   /// 加载指定模块的数据 (Feed Logic)
   void loadModule(String moduleId) {
+    _currentModuleId = moduleId;
+    _currentSearchQuery = null; // Clear search on module switch
+
     if (_allItems.isEmpty) {
       // Retry logic if called too early
       loadAllData().then((_) {
         if (!mounted) return;
-        _applyModuleFilter(moduleId);
+        _refreshState();
       });
     } else {
       if (!mounted) return;
-      _applyModuleFilter(moduleId);
+      _refreshState();
     }
   }
 
-  void _applyModuleFilter(String moduleId) {
-    if (moduleId == 'AI_NOTES') {
-      state = _allItems.where((item) {
-        return item.id == 'b002' || item.pages.any((p) => p is UserNotePage);
+  /// Apply current filters to _allItems and update state
+  void _refreshState() {
+    List<FeedItem> filtered = _allItems;
+
+    // 1. Apply Search
+    if (_currentSearchQuery != null && _currentSearchQuery!.isNotEmpty) {
+      filtered = filtered.where((item) {
+        return item.title
+            .toLowerCase()
+            .contains(_currentSearchQuery!.toLowerCase());
       }).toList();
-    } else if (moduleId == 'ALL') {
-      state = [..._allItems];
-    } else {
-      state = _allItems.where((item) => item.module == moduleId).toList();
     }
+    // 2. Apply Module Filter
+    else if (_currentModuleId != null) {
+      if (_currentModuleId == 'AI_NOTES') {
+        filtered = filtered.where((item) {
+          return item.id == 'b002' || item.pages.any((p) => p is UserNotePage);
+        }).toList();
+      } else if (_currentModuleId != 'ALL') {
+        filtered =
+            filtered.where((item) => item.module == _currentModuleId).toList();
+      }
+    }
+
+    state = filtered;
   }
 
   /// 搜索逻辑
   void searchItems(String query) {
     if (!mounted) return;
-    if (query.isEmpty) {
-      state = [];
-      return;
-    }
-    state = _allItems.where((item) {
-      return item.title.toLowerCase().contains(query.toLowerCase());
-    }).toList();
+    _currentSearchQuery = query;
+    _refreshState();
   }
 
   int _dailyLimit = 10;

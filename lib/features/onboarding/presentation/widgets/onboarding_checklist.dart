@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/onboarding_provider.dart';
+import '../../../../core/providers/credit_provider.dart';
+import 'package:flutter/services.dart';
+import 'dart:html' as html;
+import 'package:firebase_auth/firebase_auth.dart';
 
 class OnboardingChecklist extends ConsumerWidget {
   final VoidCallback? onStartTextTutorial;
@@ -40,6 +44,52 @@ class OnboardingChecklist extends ConsumerWidget {
       backgroundColor: const Color(0xFF1A237E),
       label: const Text('入门指南', style: TextStyle(color: Colors.white)),
       icon: const Icon(Icons.list_alt, color: Colors.white),
+    );
+  }
+
+  void _handleShare(BuildContext context, WidgetRef ref) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // 1. 生成专属链接
+    final String baseUrl = html.window.location.origin;
+    final String shareUrl = "$baseUrl/#/onboarding?ref=${user.uid}";
+
+    // 2. 复制到剪贴板
+    Clipboard.setData(
+        ClipboardData(text: '嘿！我正在使用 Reado 学习，这个 AI 工具太强了，快来看看：\n$shareUrl'));
+
+    // 3. 奖励积分 (动作奖励)
+    ref.read(creditProvider.notifier).rewardShare(amount: 10);
+
+    // 4. 更新教程进度
+    ref.read(onboardingProvider.notifier).completeStep('share_points');
+
+    // 5. 显示提示
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.stars, color: Color(0xFFFFB300)),
+                SizedBox(width: 8),
+                Text('分享成功！获得 10 积分动作奖励 🎁'),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text('当好友通过您的链接加入时，您将再获得 50 积分！',
+                style: TextStyle(fontSize: 12, color: Colors.white)),
+            const SizedBox(height: 4),
+            Text('专属链接已复制: $shareUrl',
+                style: const TextStyle(fontSize: 10, color: Colors.white70)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF2E7D32),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -85,7 +135,7 @@ class OnboardingChecklist extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           LinearProgressIndicator(
-            value: state.completedStepsCount / 5,
+            value: state.completedStepsCount / 6,
             backgroundColor: Colors.grey[200],
             valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
             borderRadius: BorderRadius.circular(4),
@@ -99,42 +149,89 @@ class OnboardingChecklist extends ConsumerWidget {
                   _ChecklistItem(
                     title: '1. AI 文本拆解',
                     isDone: state.hasSeenTextDeconstruction,
-                    onTap: onStartTextTutorial,
+                    onTap: () {
+                      ref
+                          .read(onboardingProvider.notifier)
+                          .completeStep('text');
+                      onStartTextTutorial?.call();
+                    },
+                    onToggle: () => ref
+                        .read(onboardingProvider.notifier)
+                        .toggleStep('text'),
                   ),
                   _ChecklistItem(
                     title: '2. 查看后台任务',
                     isDone: state.hasSeenTaskCenter,
-                    onTap: onStartTaskCenterTutorial,
+                    onTap: () {
+                      ref
+                          .read(onboardingProvider.notifier)
+                          .completeStep('task_center');
+                      onStartTaskCenterTutorial?.call();
+                    },
+                    onToggle: () => ref
+                        .read(onboardingProvider.notifier)
+                        .toggleStep('task_center'),
                   ),
                   _ChecklistItem(
                     title: '3. 多模态链接解析',
                     isDone: state.hasSeenMultimodalDeconstruction,
-                    onTap: onStartMultiTutorial,
+                    onTap: () {
+                      ref
+                          .read(onboardingProvider.notifier)
+                          .completeStep('multimodal');
+                      onStartMultiTutorial?.call();
+                    },
+                    onToggle: () => ref
+                        .read(onboardingProvider.notifier)
+                        .toggleStep('multimodal'),
                   ),
                   _ChecklistItem(
                     title: '4. 查看全部知识卡',
                     isDone: state.hasSeenAllCards,
-                    onTap: onStartAllCardsTutorial,
+                    onTap: () {
+                      ref
+                          .read(onboardingProvider.notifier)
+                          .completeStep('all_cards_p2');
+                      onStartAllCardsTutorial?.call();
+                    },
+                    onToggle: () => ref
+                        .read(onboardingProvider.notifier)
+                        .toggleStep('all_cards_p2'),
                   ),
                   _ChecklistItem(
                     title: '5. 查看 AI 笔记',
                     isDone: state.hasSeenAiNotesTutorial,
-                    onTap: onStartAiNotesTutorial,
+                    onTap: () {
+                      ref
+                          .read(onboardingProvider.notifier)
+                          .completeStep('ai_notes');
+                      onStartAiNotesTutorial?.call();
+                    },
+                    onToggle: () => ref
+                        .read(onboardingProvider.notifier)
+                        .toggleStep('ai_notes'),
+                  ),
+                  _ChecklistItem(
+                    title: '6. 分享以获得积分',
+                    isDone: state.hasSharedForPoints,
+                    onTap: () => _handleShare(context, ref),
+                    onToggle: () => ref
+                        .read(onboardingProvider.notifier)
+                        .toggleStep('share_points'),
                   ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 12),
-          if (state.isAllCompleted)
-            const Text(
-              '🎉 太棒了！你已掌握核心功能',
-              style: TextStyle(
-                color: Colors.green,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
+          const Text(
+            '🎉 太棒了！你已顺利上手 Reado',
+            style: TextStyle(
+              color: Color(0xFFFF8A65),
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
             ),
+          ),
           const Divider(height: 24),
           Center(
             child: TextButton(
@@ -160,8 +257,8 @@ class OnboardingChecklist extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('结束新手教程？'),
-        content: const Text('如果您已经掌握了基本操作，可以选择结束教程。任务清单将不再显示。'),
+        title: const Text('暂时关闭入门指南？'),
+        content: const Text('如果您已经掌握了基本操作，可以关闭此清单。您之后可以随时在“个人中心 - 设置”中重新开启。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -188,11 +285,13 @@ class _ChecklistItem extends StatelessWidget {
   final String title;
   final bool isDone;
   final VoidCallback? onTap;
+  final VoidCallback? onToggle;
 
   const _ChecklistItem({
     required this.title,
     required this.isDone,
     this.onTap,
+    this.onToggle,
   });
 
   @override
@@ -204,10 +303,13 @@ class _ChecklistItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         child: Row(
           children: [
-            Icon(
-              isDone ? Icons.check_circle : Icons.circle_outlined,
-              color: isDone ? Colors.green : Colors.grey[400],
-              size: 20,
+            GestureDetector(
+              onTap: onToggle,
+              child: Icon(
+                isDone ? Icons.check_circle : Icons.circle_outlined,
+                color: isDone ? Colors.green : Colors.grey[400],
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(

@@ -38,6 +38,7 @@ abstract class DataService {
   Future<void> logShareClick(String referrerId); // 记录分享点击
   Future<int> fetchUserCredits(String userId); // [Deprecated] 获取用户积分
   Future<void> updateUserCredits(String userId, int amount); // 更新积分（增量更新）
+  Future<void> ensureUserDocument(User user); // 确保用户文档存在（含基础资料）
 
   // Deletion & Hiding
   Future<void> deleteModule(String userId, String moduleId);
@@ -807,11 +808,11 @@ class FirestoreService implements DataService {
   @override
   Future<void> updateUserCredits(String userId, int amount) async {
     try {
-      // 使用 FieldValue.increment 保证原子性，非常适合积分场景
-      await _usersRef.doc(userId).update({
+      // ⚠️ 使用 set(merge: true) 确保文档不存在时也能创建并初始化
+      await _usersRef.doc(userId).set({
         'credits': FieldValue.increment(amount),
-      });
-      print('💰 Credits updated for $userId: $amount');
+      }, SetOptions(merge: true));
+      print('💰 Credits updated (set/merge) for $userId: $amount');
     } catch (e) {
       print('Error updating credits: $e');
     }
@@ -819,15 +820,47 @@ class FirestoreService implements DataService {
 
   Future<void> logShareClick(String referrerId) async {
     try {
-      // 增加点击次并奖励 50 积分
-      await _usersRef.doc(referrerId).update({
+      // ⚠️ 同理，使用 set(merge: true) 确保分享数据持久化
+      await _usersRef.doc(referrerId).set({
         'shareClicks': FieldValue.increment(1),
         'credits': FieldValue.increment(50),
         'lastShareClickAt': FieldValue.serverTimestamp(),
-      });
-      print('📈 Share click tracked and rewarded for $referrerId');
+      }, SetOptions(merge: true));
+      print('📈 Share click tracked and rewarded (set/merge) for $referrerId');
     } catch (e) {
       print('Error logging share click: $e');
+    }
+  }
+
+  @override
+  Future<void> ensureUserDocument(User user) async {
+    try {
+      // 1. 先检查文档是否存在
+      final doc = await _usersRef.doc(user.uid).get();
+      final bool exists = doc.exists;
+
+      // 2. 准备更新数据
+      final Map<String, dynamic> updateData = {
+        'email': user.email,
+        'displayName': user.displayName,
+        'photoURL': user.photoURL,
+        'lastSeenAt': FieldValue.serverTimestamp(),
+      };
+
+      // 3. 如果是新用户，初始化核心数值
+      if (!exists) {
+        updateData.addAll({
+          'credits': 200,
+          'shareClicks': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      await _usersRef.doc(user.uid).set(updateData, SetOptions(merge: true));
+      print(
+          '👤 User document ensured for ${user.uid} (${user.email}). New: ${!exists}');
+    } catch (e) {
+      print('Error ensuring user document: $e');
     }
   }
 

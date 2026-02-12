@@ -49,7 +49,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/onboarding',
-        builder: (context, state) => const OnboardingPage(),
+        builder: (context, state) {
+          // --- 追踪分享点击 ---
+          final referrerId = state.uri.queryParameters['ref'];
+          if (referrerId != null) {
+            Future.microtask(() async {
+              final dataService = ref.read(dataServiceProvider);
+              await dataService.logShareClick(referrerId);
+
+              // 如果分享者就是当前用户，立即刷新本地状态
+              final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+              if (currentUserId == referrerId) {
+                ref.read(creditProvider.notifier).refresh();
+              }
+            });
+          }
+          // ------------------
+          return const OnboardingPage();
+        },
       ),
       GoRoute(
         path: '/',

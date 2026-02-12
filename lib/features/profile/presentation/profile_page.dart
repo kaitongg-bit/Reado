@@ -10,6 +10,8 @@ import '../../../models/feed_item.dart';
 import '../../../core/providers/credit_provider.dart';
 import '../../../core/providers/adhd_provider.dart';
 import '../../onboarding/providers/onboarding_provider.dart';
+import 'package:flutter/services.dart';
+import 'dart:html' as html;
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -331,6 +333,8 @@ class ProfilePage extends ConsumerWidget {
                                   loading: () => '',
                                   error: (_, __) => '',
                                 ),
+                                onShare: () =>
+                                    _handleProfileShare(context, ref),
                                 onTap: () => _showCreditRules(context),
                               );
                             },
@@ -640,6 +644,50 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
+  void _handleProfileShare(BuildContext context, WidgetRef ref) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // 1. 生成专属链接
+    // 对于个人页分享，我们默认跳转到 onboarding
+    final String baseUrl = html.window.location.origin;
+    final String shareUrl = "$baseUrl/#/onboarding?ref=${user.uid}";
+
+    // 2. 复制到剪贴板
+    Clipboard.setData(
+        ClipboardData(text: '嘿！我正在使用 Reado 学习，这个 AI 工具太强了，快来看看：\n$shareUrl'));
+
+    // 3. 奖励积分 (动作奖励)
+    ref.read(creditProvider.notifier).rewardShare(amount: 10);
+
+    // 4. 显示提示
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.stars, color: Color(0xFFFFB300)),
+                SizedBox(width: 8),
+                Text('分享成功！获得 10 积分动作奖励 🎁'),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text('当好友通过您的链接加入时，您将再获得 50 积分！',
+                style: TextStyle(fontSize: 12, color: Colors.white)),
+            const SizedBox(height: 4),
+            Text('专属链接已复制: $shareUrl',
+                style: const TextStyle(fontSize: 10, color: Colors.white70)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF2E7D32),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Widget _buildAvatarImage(String? url, String uid) {
     // Only accept local asset paths
     if (url != null && url.startsWith('assets/')) {
@@ -667,6 +715,7 @@ class _StatCard extends StatelessWidget {
   final Color color;
   final bool isDark;
   final VoidCallback? onTap;
+  final VoidCallback? onShare;
 
   const _StatCard(
       {required this.label,
@@ -675,7 +724,8 @@ class _StatCard extends StatelessWidget {
       required this.icon,
       required this.color,
       required this.isDark,
-      this.onTap});
+      this.onTap,
+      this.onShare});
 
   @override
   Widget build(BuildContext context) {
@@ -705,10 +755,24 @@ class _StatCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Icon(icon, color: color, size: 28),
-                    if (onTap != null)
-                      Icon(Icons.info_outline,
-                          size: 16,
-                          color: isDark ? Colors.white38 : Colors.black26),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (onShare != null)
+                          IconButton(
+                            icon: const Icon(Icons.share_outlined, size: 18),
+                            onPressed: onShare,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            color: isDark ? Colors.white70 : Colors.black54,
+                          ),
+                        if (onShare != null) const SizedBox(width: 8),
+                        if (onTap != null)
+                          Icon(Icons.info_outline,
+                              size: 16,
+                              color: isDark ? Colors.white38 : Colors.black26),
+                      ],
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),

@@ -15,12 +15,12 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage>
     with SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
   bool _isSignUpMode = false;
-  bool _showEmailFields = false;
   bool _isAuthView = false;
   bool _obscurePassword = true;
 
@@ -59,6 +59,7 @@ class _OnboardingPageState extends State<OnboardingPage>
   void dispose() {
     _authSub?.cancel();
     _controller.dispose();
+    _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -97,10 +98,19 @@ class _OnboardingPageState extends State<OnboardingPage>
       return;
     }
 
+    if (_isSignUpMode && _usernameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请填写用户名')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       if (_isSignUpMode) {
-        await _authService.signUpWithEmail(email, password);
+        final username = _usernameController.text.trim();
+        await _authService.signUpWithEmail(email, password,
+            displayName: username);
       } else {
         await _authService.signInWithEmail(email, password);
       }
@@ -255,7 +265,9 @@ class _OnboardingPageState extends State<OnboardingPage>
               width: double.infinity,
               height: 64,
               child: ElevatedButton(
-                onPressed: () => setState(() => _isAuthView = true),
+                onPressed: () => setState(() {
+                  _isAuthView = true;
+                }),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFF8A65),
                   foregroundColor: Colors.white,
@@ -320,6 +332,8 @@ class _OnboardingPageState extends State<OnboardingPage>
   }
 
   Widget _buildAuthView(bool isDark, Color textColor, Color? subTextColor) {
+    // Standard Orange for both modes
+    final modeColor = const Color(0xFFFF8A65);
     return SingleChildScrollView(
       key: const ValueKey('AuthView'),
       child: Container(
@@ -371,13 +385,13 @@ class _OnboardingPageState extends State<OnboardingPage>
             ),
             const SizedBox(height: 48),
 
-            if (_showEmailFields) ...[
+            // Fields
+            if (_isSignUpMode) ...[
               TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
+                controller: _usernameController,
                 decoration: InputDecoration(
-                  hintText: '电子邮箱',
-                  prefixIcon: const Icon(Icons.email_outlined),
+                  hintText: '用户名',
+                  prefixIcon: Icon(Icons.person_outline, color: modeColor),
                   filled: true,
                   fillColor: isDark
                       ? Colors.white.withOpacity(0.05)
@@ -389,92 +403,111 @@ class _OnboardingPageState extends State<OnboardingPage>
                 ),
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  hintText: '密码',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                  ),
-                  filled: true,
-                  fillColor: isDark
-                      ? Colors.white.withOpacity(0.05)
-                      : Colors.black.withOpacity(0.03),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _handleEmailAuth,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF8A65),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(
-                          _isSignUpMode ? '立即注册' : '登录',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () {
-                  setState(() => _isSignUpMode = !_isSignUpMode);
-                },
-                child: Text(
-                  _isSignUpMode ? '已有账号？点击登录' : '没有账号？点击注册',
-                  style: TextStyle(color: subTextColor),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  const Expanded(child: Divider()),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('或者',
-                        style:
-                            TextStyle(color: subTextColor?.withOpacity(0.5))),
-                  ),
-                  const Expanded(child: Divider()),
-                ],
-              ),
-              const SizedBox(height: 24),
             ],
+            TextField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                hintText: '电子邮箱',
+                prefixIcon: Icon(Icons.email_outlined, color: modeColor),
+                filled: true,
+                fillColor: isDark
+                    ? Colors.white.withOpacity(0.05)
+                    : Colors.black.withOpacity(0.03),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              decoration: InputDecoration(
+                hintText: '密码',
+                prefixIcon: Icon(Icons.lock_outline, color: modeColor),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
+                ),
+                filled: true,
+                fillColor: isDark
+                    ? Colors.white.withOpacity(0.05)
+                    : Colors.black.withOpacity(0.03),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _handleEmailAuth,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: modeColor,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        _isSignUpMode ? '立即注册' : '登录',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () {
+                setState(() => _isSignUpMode = !_isSignUpMode);
+              },
+              child: Text(
+                _isSignUpMode ? '已有账号？点击登录' : '没有账号？点击注册',
+                style: TextStyle(
+                  color: modeColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                const Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('或者',
+                      style: TextStyle(color: subTextColor?.withOpacity(0.5))),
+                ),
+                const Expanded(child: Divider()),
+              ],
+            ),
+            const SizedBox(height: 32),
 
             // Google Login
             Container(
@@ -528,17 +561,6 @@ class _OnboardingPageState extends State<OnboardingPage>
                 ),
               ),
             ),
-
-            if (!_showEmailFields) ...[
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => setState(() => _showEmailFields = true),
-                child: Text(
-                  '使用邮箱密码登录',
-                  style: TextStyle(color: subTextColor),
-                ),
-              ),
-            ],
 
             const SizedBox(height: 48),
             Text(

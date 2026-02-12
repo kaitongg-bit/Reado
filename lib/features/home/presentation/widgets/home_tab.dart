@@ -40,6 +40,13 @@ class _HomeTabState extends ConsumerState<HomeTab> {
 
   String? _tutorialText;
   GlobalKey? _tutorialTargetKey;
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _startTutorialStep(String type) {
     setState(() {
@@ -357,6 +364,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: TextField(
+                            controller: _searchController,
                             onSubmitted: (value) {
                               if (value.trim().isNotEmpty) {
                                 context.push(
@@ -372,13 +380,18 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                 fontSize: 14,
                               ),
                               border: InputBorder.none,
-                              prefixIcon: Icon(Icons.search,
-                                  color: isDark
-                                      ? Colors.white54
-                                      : Colors.orangeAccent),
-                              prefixIconConstraints: const BoxConstraints(
-                                minWidth: 32,
-                                minHeight: 32,
+                              prefixIcon: IconButton(
+                                icon: Icon(Icons.search,
+                                    color: isDark
+                                        ? Colors.white54
+                                        : Colors.orangeAccent),
+                                onPressed: () {
+                                  final value = _searchController.text.trim();
+                                  if (value.isNotEmpty) {
+                                    context.push(
+                                        '/search?q=${Uri.encodeComponent(value)}');
+                                  }
+                                },
                               ),
                             ),
                           ),

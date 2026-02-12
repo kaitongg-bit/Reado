@@ -53,13 +53,19 @@ class AuthService {
   }
 
   /// 邮箱密码注册
-  Future<UserCredential?> signUpWithEmail(String email, String password) async {
+  Future<UserCredential?> signUpWithEmail(String email, String password,
+      {String? displayName}) async {
     try {
       debugPrint('📝 尝试邮箱密码注册: $email');
       final credential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+
+      if (displayName != null) {
+        await credential.user?.updateDisplayName(displayName);
+      }
+
       debugPrint('✅ 注册成功: ${credential.user?.email}');
       return credential;
     } on FirebaseAuthException catch (e) {

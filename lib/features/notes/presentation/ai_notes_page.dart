@@ -102,9 +102,14 @@ class _AiNotesPageState extends ConsumerState<AiNotesPage> {
                             fontSize: 14),
                         suffixIcon: Padding(
                           padding: const EdgeInsets.only(right: 8.0),
-                          child: Icon(
-                            Icons.search,
-                            color: const Color(0xFFFF8A65),
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.search,
+                              color: Color(0xFFFF8A65),
+                            ),
+                            onPressed: () {
+                              FocusScope.of(context).unfocus();
+                            },
                           ),
                         ),
                         filled: true,

@@ -97,7 +97,7 @@ class OnboardingChecklist extends ConsumerWidget {
       BuildContext context, WidgetRef ref, OnboardingState state) {
     return Container(
       width: 280,
-      constraints: const BoxConstraints(maxHeight: 450),
+      constraints: const BoxConstraints(maxHeight: 320),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,

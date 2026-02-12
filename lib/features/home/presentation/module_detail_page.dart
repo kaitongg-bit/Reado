@@ -23,21 +23,62 @@ class ModuleDetailPage extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final moduleState = ref.watch(moduleProvider);
     final feedItems = ref.watch(allItemsProvider);
+    print('🔍 ModuleDetailPage build: moduleId=$moduleId'); // DEBUG LOG
 
     // Find the module
-    final module = [...moduleState.officials, ...moduleState.custom]
-        .firstWhere((m) => m.id == moduleId,
-            orElse: () => KnowledgeModule(
-                  id: moduleId,
-                  title: '未知知识库',
-                  description: '',
-                  ownerId: 'unknown',
-                  isOfficial: false,
-                ));
+    // Show loader if initializing
+    if (moduleState.isLoading &&
+        moduleState.officials.isEmpty &&
+        moduleState.custom.isEmpty) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Find the module
+    KnowledgeModule module;
+    if (moduleId == 'ALL') {
+      module = KnowledgeModule(
+        id: 'ALL',
+        title: '全部知识',
+        description: '您所有的知识卡片都在这里',
+        ownerId: 'official',
+        isOfficial: true,
+        // cardCount will be calculated below
+      );
+    } else {
+      module = [...moduleState.officials, ...moduleState.custom].firstWhere(
+        (m) => m.id == moduleId,
+        orElse: () {
+          print('⚠️ ModuleDetailPage: Module $moduleId not found in state!');
+          // Fallback: Check static official modules directly
+          return KnowledgeModule.officials.firstWhere(
+            (m) => m.id == moduleId,
+            orElse: () {
+              print(
+                  '❌ ModuleDetailPage: Module $moduleId not found in STATIC officials either!');
+              return KnowledgeModule(
+                id: moduleId,
+                title: '未知知识库 ($moduleId)', // Show ID to debug
+                description: '无法找到该知识库信息',
+                ownerId: 'unknown',
+                isOfficial: false,
+              );
+            },
+          );
+        },
+      );
+    }
 
     // Get module items
-    final moduleItems =
-        feedItems.where((item) => item.moduleId == moduleId).toList();
+    final List<FeedItem> moduleItems;
+    if (moduleId == 'ALL') {
+      moduleItems = feedItems;
+    } else {
+      moduleItems =
+          feedItems.where((item) => item.moduleId == moduleId).toList();
+    }
     final cardCount = moduleItems.length;
     final learned = moduleItems
         .where((i) => i.masteryLevel != FeedItemMastery.unknown)

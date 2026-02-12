@@ -268,7 +268,19 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
   Future<void> toggleAlwaysShowTutorial(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isAlwaysShowTutorial', value);
-    state = state.copyWith(isAlwaysShowTutorial: value);
+
+    // If turning ON, also reactivate the tutorial and show checklist
+    // This allows users to "bring back" the tutorial from settings
+    if (value) {
+      await prefs.setBool('isTutorialActive', true);
+      state = state.copyWith(
+        isAlwaysShowTutorial: value,
+        isTutorialActive: true,
+        isChecklistVisible: true,
+      );
+    } else {
+      state = state.copyWith(isAlwaysShowTutorial: value);
+    }
   }
 }
 

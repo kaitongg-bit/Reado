@@ -107,7 +107,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
 
           // 2. White Content Sheet
           Container(
-            margin: const EdgeInsets.only(top: 220),
+            margin: const EdgeInsets.only(top: 320),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF121212) : const Color(0xFFFAFAFA),
               borderRadius:
@@ -225,73 +225,76 @@ class _HomeTabState extends ConsumerState<HomeTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 40), // Reduced top spacing by 10px
+                  StreamBuilder<User?>(
+                    stream: FirebaseAuth.instance.userChanges(),
+                    builder: (context, snapshot) {
+                      final user = snapshot.data;
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Text(
-                            "${_getGreeting()}, ${_getUserName()}",
-                            style: TextStyle(
-                              color: isDark
-                                  ? Colors.white70
-                                  : const Color(0xFF5D4037),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _getGreeting(),
+                                  style: TextStyle(
+                                    color: isDark
+                                        ? Colors.white70
+                                        : const Color(0xFF5D4037)
+                                            .withOpacity(0.8),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.normal,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _getUserName(user),
+                                  style: TextStyle(
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF3E2723),
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily:
+                                        'JinghuaSong', // Use custom serif font
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                _buildSimpleQuote(isDark, feedItems.length),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          _buildSimpleQuote(isDark, feedItems.length),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          Consumer(builder: (context, ref, child) {
-                            final highlight = ref
-                                .watch(onboardingProvider)
-                                .highlightTaskCenter;
-                            return TutorialPulse(
-                              isActive: highlight,
-                              child: GestureDetector(
-                                onTap: () {
-                                  ref
-                                      .read(onboardingProvider.notifier)
-                                      .setHighlightTaskCenter(false);
-                                  if (onboardingState.isTutorialActive) {
-                                    ref
-                                        .read(onboardingProvider.notifier)
-                                        .completeStep('task_center');
-                                  }
-                                  context.push('/task-center');
-                                },
-                                child: Container(
-                                  key: _taskCenterKey,
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.3),
-                                      shape: BoxShape.circle),
-                                  child: Icon(Icons.task_alt,
-                                      color: isDark
-                                          ? Colors.white
-                                          : const Color(0xFF3E2723),
-                                      size: 28),
+                          const SizedBox(width: 20), // Wider gap
+                          Hero(
+                            tag: 'home_avatar',
+                            child: GestureDetector(
+                              onTap: () => context.push('/profile'),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white.withOpacity(0.3),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.5),
+                                    width: 1,
+                                  ),
                                 ),
+                                child: _buildAvatar(user: user, radius: 36),
                               ),
-                            );
-                          }),
-                          const SizedBox(width: 18),
-                          GestureDetector(
-                            onTap: () => context.push('/profile'),
-                            child: _buildAvatar(radius: 24),
+                            ),
                           ),
                         ],
-                      ),
-                    ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 24),
                   // Two Elegant Buttons
+                  // Three Capsule Buttons Row
                   Row(
                     children: [
                       Expanded(
@@ -325,10 +328,10 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                           },
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 20), // Wider gap
                       Expanded(
                         child: _ElegantMenuButton(
-                          key: _aiNotesKey, // Ensure _aiNotesKey is used here
+                          key: _aiNotesKey,
                           title: 'AI 笔记',
                           icon: Icons.menu_book,
                           color: const Color(0xFF1976D2),
@@ -336,17 +339,43 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                           onTap: () {
                             if (onboardingState.isTutorialActive) {
                               if (_tutorialTargetKey == _aiNotesKey) {
-                                // Clear the tutorial overlay when they click to enter the notes page
                                 setState(() {
                                   _tutorialText = null;
                                   _tutorialTargetKey = null;
                                 });
                               }
                             }
-                            // Navigate to the NEW AI Notes list page
                             context.push('/ai-notes');
                           },
                         ),
+                      ),
+                      const SizedBox(width: 20), // Wider gap
+                      Expanded(
+                        child: Consumer(builder: (context, ref, child) {
+                          final highlight =
+                              ref.watch(onboardingProvider).highlightTaskCenter;
+                          return TutorialPulse(
+                            isActive: highlight,
+                            child: _ElegantMenuButton(
+                              key: _taskCenterKey,
+                              title: '任务中心',
+                              icon: Icons.task_alt,
+                              color: const Color(0xFF009688),
+                              bgColor: const Color(0xFFE0F2F1),
+                              onTap: () {
+                                ref
+                                    .read(onboardingProvider.notifier)
+                                    .setHighlightTaskCenter(false);
+                                if (onboardingState.isTutorialActive) {
+                                  ref
+                                      .read(onboardingProvider.notifier)
+                                      .completeStep('task_center');
+                                }
+                                context.push('/task-center');
+                              },
+                            ),
+                          );
+                        }),
                       ),
                     ],
                   ),
@@ -363,25 +392,35 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                             borderRadius: BorderRadius.circular(16),
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
+                          alignment: Alignment.centerLeft,
                           child: TextField(
                             controller: _searchController,
+                            textAlignVertical: TextAlignVertical.center,
                             onSubmitted: (value) {
                               if (value.trim().isNotEmpty) {
                                 context.push(
                                     '/search?q=${Uri.encodeComponent(value.trim())}');
                               }
                             },
-                            style: const TextStyle(fontSize: 14),
+                            style: const TextStyle(fontSize: 14, height: 1.0),
                             decoration: InputDecoration(
                               hintText: '搜索知识...',
                               hintStyle: TextStyle(
                                 color:
                                     isDark ? Colors.white54 : Colors.grey[600],
                                 fontSize: 14,
+                                height: 1.0,
                               ),
                               border: InputBorder.none,
-                              prefixIcon: IconButton(
+                              contentPadding: EdgeInsets
+                                  .zero, // Crucial for center alignment
+                              isDense: true,
+                              suffixIconConstraints: const BoxConstraints(
+                                  minWidth: 48,
+                                  minHeight: 48), // Ensure touch target
+                              suffixIcon: IconButton(
                                 icon: Icon(Icons.search,
+                                    size: 24,
                                     color: isDark
                                         ? Colors.white54
                                         : Colors.orangeAccent),
@@ -397,7 +436,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 20), // Wider gap
                       _CircleActionButton(
                         icon: Icons.explore,
                         color: Colors.black87,
@@ -474,23 +513,24 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     }
   }
 
-  String _getUserName() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null &&
-        user.displayName != null &&
-        user.displayName!.isNotEmpty) {
-      return user.displayName!;
+  String _getUserName([User? user]) {
+    final currentUser = user ?? FirebaseAuth.instance.currentUser;
+    if (currentUser != null &&
+        currentUser.displayName != null &&
+        currentUser.displayName!.isNotEmpty) {
+      return currentUser.displayName!;
     }
     return 'kita'; // Default fallback
   }
 
-  Widget _buildAvatar({double radius = 16}) {
+  Widget _buildAvatar({User? user, double radius = 16}) {
     return Builder(
       builder: (context) {
-        final user = FirebaseAuth.instance.currentUser;
+        final currentUser = user ?? FirebaseAuth.instance.currentUser;
         ImageProvider? imageProvider;
-        if (user?.photoURL != null && user!.photoURL!.startsWith('assets/')) {
-          imageProvider = AssetImage(user.photoURL!);
+        if (currentUser?.photoURL != null &&
+            currentUser!.photoURL!.startsWith('assets/')) {
+          imageProvider = AssetImage(currentUser.photoURL!);
         } else {
           imageProvider =
               const AssetImage('assets/images/avatars/avatar_1.png');
@@ -615,13 +655,13 @@ class _ElegantMenuButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 56, // Fixed comfortable height
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        height: 44, // Reduced height for 3-up layout
+        padding: const EdgeInsets.symmetric(horizontal: 4), // Tighter padding
         decoration: BoxDecoration(
           color: isDark
               ? Colors.white.withOpacity(0.05)
               : Colors.white.withOpacity(0.8), // Glass-ish
-          borderRadius: BorderRadius.circular(30), // Pill shape
+          borderRadius: BorderRadius.circular(22), // Pill shape
           border: Border.all(
             color: isDark ? Colors.white10 : Colors.white.withOpacity(0.6),
             width: 1.5,
@@ -635,29 +675,27 @@ class _ElegantMenuButton extends StatelessWidget {
           ],
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Icon Circle
             Container(
-              width: 40,
-              height: 40,
+              width: 32, // Smaller icon circle
+              height: 32,
               decoration: BoxDecoration(
                 color: bgColor,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: color, size: 20),
+              child: Icon(icon, color: color, size: 18),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             // Text
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : const Color(0xFF333333),
-                  letterSpacing: 0.5,
-                ),
-                overflow: TextOverflow.ellipsis,
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 13, // Smaller text
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : const Color(0xFF333333),
+                letterSpacing: 0.3,
               ),
             ),
           ],

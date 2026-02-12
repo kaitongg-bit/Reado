@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:async'; // Add async import for StreamSubscription
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../feed/presentation/feed_provider.dart';
 import '../../../../models/feed_item.dart';
@@ -40,11 +41,28 @@ class _HomeTabState extends ConsumerState<HomeTab> {
 
   String? _tutorialText;
   GlobalKey? _tutorialTargetKey;
+  User? _currentUser;
+  StreamSubscription<User?>? _userSubscription;
+
   final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _currentUser = FirebaseAuth.instance.currentUser;
+    _userSubscription = FirebaseAuth.instance.userChanges().listen((user) {
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _userSubscription?.cancel();
     super.dispose();
   }
 
@@ -226,71 +244,64 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 40), // Reduced top spacing by 10px
-                  StreamBuilder<User?>(
-                    stream: FirebaseAuth.instance.userChanges(),
-                    builder: (context, snapshot) {
-                      final user = snapshot.data;
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _getGreeting(),
-                                  style: TextStyle(
-                                    color: isDark
-                                        ? Colors.white70
-                                        : const Color(0xFF5D4037)
-                                            .withOpacity(0.8),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.normal,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _getUserName(user),
-                                  style: TextStyle(
-                                    color: isDark
-                                        ? Colors.white
-                                        : const Color(0xFF3E2723),
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                    fontFamily:
-                                        'JinghuaSong', // Use custom serif font
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                _buildSimpleQuote(isDark, feedItems.length),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 20), // Wider gap
-                          Hero(
-                            tag: 'home_avatar',
-                            child: GestureDetector(
-                              onTap: () => context.push('/profile'),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white.withOpacity(0.3),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.5),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: _buildAvatar(user: user, radius: 36),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _getGreeting(),
+                              style: TextStyle(
+                                color: isDark
+                                    ? Colors.white70
+                                    : const Color(0xFF5D4037).withOpacity(0.8),
+                                fontSize: 16,
+                                fontWeight: FontWeight.normal,
+                                letterSpacing: 0.5,
                               ),
                             ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _getUserName(_currentUser),
+                              style: TextStyle(
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF3E2723),
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                fontFamily:
+                                    'JinghuaSong', // Use custom serif font
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildSimpleQuote(isDark, feedItems.length),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 20), // Wider gap
+                      Hero(
+                        tag: 'home_avatar',
+                        child: GestureDetector(
+                          onTap: () => context.push('/profile'),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withOpacity(0.3),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.5),
+                                width: 1,
+                              ),
+                            ),
+                            child: _buildAvatar(user: _currentUser, radius: 36),
                           ),
-                        ],
-                      );
-                    },
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
                   // Two Elegant Buttons
@@ -485,7 +496,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       '现在的努力，是为了以后能理直气壮地摸鱼 🐟',
       '碎片时间也是时间，哪怕入脑一个点也是赚到 ✨',
       '知识入脑带来的多巴胺，比短视频香多了 🧠',
-      if (totalItems < 5) '💡 还没开始？点击下方导入官方卡片开启旅程吧',
+      '先去电脑端批量拆解，再躺在床上刷知识 🛏️',
     ];
     final index = DateTime.now().minute % quotes.length;
 

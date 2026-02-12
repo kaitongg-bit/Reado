@@ -900,33 +900,38 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Text(
-                    isDesktop ? '添加学习资料 (批量)' : '添加学习资料',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
-                      fontFamily: 'Plus Jakarta Sans',
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        isDesktop ? '添加学习资料 (批量)' : '添加学习资料',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: textColor,
+                          fontFamily: 'Plus Jakarta Sans',
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                  if (widget.isTutorialMode)
-                    Container(
-                      margin: const EdgeInsets.only(left: 12),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                          color: Colors.orangeAccent.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.orangeAccent)),
-                      child: const Text('新手引导模式',
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.orangeAccent,
-                              fontWeight: FontWeight.bold)),
-                    )
-                ],
+                    if (widget.isTutorialMode)
+                      Container(
+                        margin: const EdgeInsets.only(left: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                            color: Colors.orangeAccent.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orangeAccent)),
+                        child: const Text('新手引导模式',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.orangeAccent,
+                                fontWeight: FontWeight.bold)),
+                      )
+                  ],
+                ),
               ),
               IconButton(
                 icon: Icon(Icons.close, color: subTextColor),
@@ -1256,9 +1261,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                               : (queue.every(
                                       (i) => i.status == BatchStatus.completed)
                                   ? null
-                                  : () {
-                                      notifier.startProcessing(
-                                          widget.targetModuleId ?? 'custom');
+                                  : () async {
+                                      final targetId =
+                                          await _ensureTargetModuleId();
+                                      if (targetId != null) {
+                                        notifier.startProcessing(targetId);
+                                      }
                                     }),
                           icon: batchState.isProcessing
                               ? const Icon(Icons.exit_to_app)
@@ -1459,11 +1467,16 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                     label: const Text('直接导入'),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 20),
-                      foregroundColor: secondaryTextColor,
+                      foregroundColor: hasQueueItems
+                          ? (isDark ? Colors.grey[700] : Colors.grey[400])
+                          : secondaryTextColor, // Gray out if blocked
                       backgroundColor: cardBg,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: borderColor),
+                        side: BorderSide(
+                            color: hasQueueItems
+                                ? Colors.transparent
+                                : borderColor),
                       ),
                     ),
                   ),
@@ -1566,13 +1579,21 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                             label:
                                 Text(_isGenerating ? 'AI 智能解析中...' : 'AI 智能拆解'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: accentColor,
-                              foregroundColor: Colors.white,
+                              backgroundColor: hasQueueItems
+                                  ? (isDark
+                                      ? Colors.grey[800]
+                                      : Colors.grey[300])
+                                  : accentColor, // Gray background if blocked
+                              foregroundColor: hasQueueItems
+                                  ? Colors.grey[500]
+                                  : Colors.white,
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 20),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16)),
-                              shadowColor: accentColor.withOpacity(0.4),
+                              shadowColor: hasQueueItems
+                                  ? Colors.transparent
+                                  : accentColor.withOpacity(0.4),
                             ),
                           ),
                         ),
@@ -2182,16 +2203,22 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                     ? null
                                     : _performParse),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: isDark
-                                  ? const Color(0xFF2d3233)
-                                  : const Color(0xFFF1F5F9),
-                              foregroundColor: isDark
-                                  ? accentColor
-                                  : const Color(0xFF1E293B),
+                              backgroundColor: hasQueueItems
+                                  ? (isDark
+                                      ? Colors.grey[800]
+                                      : Colors.grey[300])
+                                  : (isDark
+                                      ? const Color(0xFF2d3233)
+                                      : const Color(0xFFF1F5F9)),
+                              foregroundColor: hasQueueItems
+                                  ? Colors.grey[500]
+                                  : (isDark
+                                      ? accentColor
+                                      : const Color(0xFF1E293B)),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  side: isDark
+                                  side: (isDark && !hasQueueItems)
                                       ? BorderSide(color: borderColor)
                                       : BorderSide.none),
                               padding: EdgeInsets.zero,
@@ -2242,10 +2269,17 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                                     ? _startGeneration
                                                     : null)),
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: isDark
-                                              ? accentColor
-                                              : const Color(0xFF1E293B),
-                                          foregroundColor: Colors.white,
+                                          backgroundColor: hasQueueItems
+                                              ? (isDark
+                                                  ? Colors.grey[800]
+                                                  : Colors
+                                                      .grey[300]) // Gray out
+                                              : (isDark
+                                                  ? accentColor
+                                                  : const Color(0xFF1E293B)),
+                                          foregroundColor: hasQueueItems
+                                              ? Colors.grey[500]
+                                              : Colors.white,
                                           disabledBackgroundColor: isDark
                                               ? Colors.grey.withOpacity(0.1)
                                               : const Color(0xFFE2E8F0),

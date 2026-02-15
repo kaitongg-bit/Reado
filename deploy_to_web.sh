@@ -22,14 +22,23 @@ if [ -n "$CURRENT_PROXY" ]; then
   echo "📡 使用代理服务器: $CURRENT_PROXY"
 fi
 
-# 2. 清理并编译
+# 2. 自动递增构建号（解决浏览器缓存问题，确保用户获取最新版本）
+CURRENT_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//')
+BASE_VERSION=$(echo "$CURRENT_VERSION" | cut -d'+' -f1)
+BUILD_NUM=$(echo "$CURRENT_VERSION" | cut -d'+' -f2)
+NEW_BUILD_NUM=$((BUILD_NUM + 1))
+NEW_VERSION="${BASE_VERSION}+${NEW_BUILD_NUM}"
+sed "s/^version:.*/version: $NEW_VERSION/" pubspec.yaml > pubspec.yaml.tmp && mv pubspec.yaml.tmp pubspec.yaml
+echo "📌 版本已更新: $CURRENT_VERSION -> $NEW_VERSION"
+
+# 3. 清理并编译
 echo "📦 正在执行 Flutter Web 编译 (安全生产模式)..."
 flutter clean
 flutter pub get
 flutter build web --release \
   --dart-define=GEMINI_PROXY_URL=$CURRENT_PROXY
 
-# 3. 发布到 Firebase
+# 4. 发布到 Firebase
 if [ -f "firebase.json" ]; then
   echo "🚀 正在发布到 Firebase Hosting..."
   firebase deploy --only hosting

@@ -164,7 +164,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                     ),
                   ),
 
-                  // Module List
+                  // Module List (responsive: ListView on narrow, Grid on wide)
                   Expanded(
                     child: displayedModules.isEmpty
                         ? Center(
@@ -179,52 +179,56 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                               ],
                             ),
                           )
-                        : ListView.separated(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 8),
-                            itemCount: displayedModules.length + 1,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 16),
-                            itemBuilder: (context, index) {
-                              if (index == displayedModules.length) {
-                                return const SizedBox(height: 80);
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              final width =
+                                  MediaQuery.of(context).size.width;
+                              final crossAxisCount = width >= 900
+                                  ? 3
+                                  : (width >= 600 ? 2 : 1);
+
+                              if (crossAxisCount == 1) {
+                                return ListView.separated(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24, vertical: 8),
+                                  itemCount: displayedModules.length + 1,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(height: 16),
+                                  itemBuilder: (context, index) {
+                                    if (index ==
+                                        displayedModules.length) {
+                                      return const SizedBox(height: 80);
+                                    }
+                                    return _buildModuleCard(
+                                      context,
+                                      displayedModules[index],
+                                      feedItems,
+                                      index == 0,
+                                      onboardingState,
+                                    );
+                                  },
+                                );
                               }
-                              final module = displayedModules[index];
-                              final mItems = feedItems
-                                  .where((i) => i.moduleId == module.id)
-                                  .toList();
-                              final count = mItems.length;
-                              final learned = mItems
-                                  .where((i) =>
-                                      i.masteryLevel != FeedItemMastery.unknown)
-                                  .length;
-                              final progress =
-                                  count > 0 ? learned / count : 0.0;
-                              final isHighlighted = index == 0;
 
-                              final isStarModule =
-                                  module.title.contains('STAR');
-
-                              return _WideKnowledgeCard(
-                                key: isStarModule ? _starModuleKey : null,
-                                title: module.title,
-                                description: module.description,
-                                progress: progress,
-                                cardCount: count,
-                                isHighlighted: isHighlighted,
-                                onTap: () {
-                                  if (onboardingState.isTutorialActive &&
-                                      _tutorialTargetKey == _starModuleKey &&
-                                      isStarModule) {
-                                    ref
-                                        .read(onboardingProvider.notifier)
-                                        .completeStep('all_cards_p1');
-                                  }
-                                  if (widget.onLoadModule != null) {
-                                    widget.onLoadModule!(module.id);
-                                  } else {
-                                    context.push('/module/${module.id}');
-                                  }
+                              return GridView.builder(
+                                padding: const EdgeInsets.fromLTRB(
+                                    24, 8, 24, 80),
+                                gridDelegate:
+                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  mainAxisExtent: 116,
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                ),
+                                itemCount: displayedModules.length,
+                                itemBuilder: (context, index) {
+                                  return _buildModuleCard(
+                                    context,
+                                    displayedModules[index],
+                                    feedItems,
+                                    index == 0,
+                                    onboardingState,
+                                  );
                                 },
                               );
                             },
@@ -485,6 +489,45 @@ class _HomeTabState extends ConsumerState<HomeTab> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildModuleCard(
+    BuildContext context,
+    KnowledgeModule module,
+    List<FeedItem> feedItems,
+    bool isHighlighted,
+    OnboardingState onboardingState,
+  ) {
+    final mItems =
+        feedItems.where((i) => i.moduleId == module.id).toList();
+    final count = mItems.length;
+    final learned = mItems
+        .where(
+            (i) => i.masteryLevel != FeedItemMastery.unknown)
+        .length;
+    final progress = count > 0 ? learned / count : 0.0;
+    final isStarModule = module.title.contains('STAR');
+
+    return _WideKnowledgeCard(
+      key: isStarModule ? _starModuleKey : null,
+      title: module.title,
+      description: module.description,
+      progress: progress,
+      cardCount: count,
+      isHighlighted: isHighlighted,
+      onTap: () {
+        if (onboardingState.isTutorialActive &&
+            _tutorialTargetKey == _starModuleKey &&
+            isStarModule) {
+          ref.read(onboardingProvider.notifier).completeStep('all_cards_p1');
+        }
+        if (widget.onLoadModule != null) {
+          widget.onLoadModule!(module.id);
+        } else {
+          context.push('/module/${module.id}');
+        }
+      },
     );
   }
 

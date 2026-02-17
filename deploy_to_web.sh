@@ -1,7 +1,16 @@
 #!/bin/bash
 
 # QuickPM 生产环境一键部署脚本
-# 用途：将应用编译并发布到 Firebase Hosting，自动注入 API Key
+# 用途：将应用编译并发布到 Firebase Hosting，自动注入代理地址并递增版本号。
+#
+# 运行方式（在项目根目录打开终端执行）：
+#   ./deploy_to_web.sh
+# 若无执行权限，先执行：
+#   chmod +x deploy_to_web.sh
+# 再运行 ./deploy_to_web.sh
+#
+# 说明：本脚本仅部署「前端 + Hosting」。若修改了 functions/ 下的云函数，
+#       需单独执行：firebase deploy --only functions
 
 echo "🌐 准备部署到生产环境..."
 

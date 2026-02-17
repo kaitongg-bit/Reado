@@ -1,4 +1,5 @@
-const functions = require("firebase-functions");
+const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const axios = require("axios");
 const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
@@ -6,84 +7,91 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 admin.initializeApp();
 
+// Secret Manager：敏感配置迁移（替代旧版 functions.config / 环境配置）
+const geminiApiKey = defineSecret("GEMINI_API_KEY");
+
 /**
  * Gemini API Proxy Cloud Function
- * 
+ *
  * 强制最宽 CORS 策略，解决 Web 端 Preflight 失败。
+ * 使用 Secret Manager 存储 GEMINI_API_KEY。
  */
-exports.geminiProxy = functions.https.onRequest(async (req, res) => {
-    // 1. 无论请求是什么，先给跨域许可！
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Headers', '*');
-    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.set('Access-Control-Max-Age', '3600');
+exports.geminiProxy = onRequest(
+    { secrets: [geminiApiKey] },
+    async (req, res) => {
+        // 1. 无论请求是什么，先给跨域许可！
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Headers', '*');
+        res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.set('Access-Control-Max-Age', '3600');
 
-    // 2. 立即响应 OPTIONS 请求
-    if (req.method === 'OPTIONS') {
-        res.status(204).send('');
-        return;
-    }
-
-    try {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-            console.error("Critical: GEMINI_API_KEY missing");
-            res.status(500).send({ error: "API Key missing" });
+        // 2. 立即响应 OPTIONS 请求
+        if (req.method === 'OPTIONS') {
+            res.status(204).send('');
             return;
         }
 
-        // 解析并清理路径
-        let path = req.path || req.url.split('?')[0];
-        // 防止路径污染
-        path = path.replace('//', '/');
+        try {
+            const apiKey = geminiApiKey.value();
+            if (!apiKey) {
+                console.error("Critical: GEMINI_API_KEY missing");
+                res.status(500).send({ error: "API Key missing" });
+                return;
+            }
 
-        const targetUrl = `https://generativelanguage.googleapis.com${path}`;
+            // 解析并清理路径
+            let path = req.path || req.url.split('?')[0];
+            path = path.replace('//', '/');
 
-        console.log(`📡 Forwarding to: ${targetUrl}`);
+            const targetUrl = `https://generativelanguage.googleapis.com${path}`;
+            console.log(`📡 Forwarding to: ${targetUrl}`);
 
-        // 3. 构造转发请求
-        const response = await axios({
-            method: req.method,
-            url: targetUrl,
-            params: { ...req.query, key: apiKey },
-            data: req.body,
-            headers: {
-                'Content-Type': 'application/json',
-                // 只透传客户端版本号主要信息
-                'x-goog-api-client': req.headers['x-goog-api-client'] || 'revert-to-1.5',
-            },
-            timeout: 60000,
-            validateStatus: () => true
-        });
+            // 3. 构造转发请求
+            const response = await axios({
+                method: req.method,
+                url: targetUrl,
+                params: { ...req.query, key: apiKey },
+                data: req.body,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-client': req.headers['x-goog-api-client'] || 'revert-to-1.5',
+                },
+                timeout: 60000,
+                validateStatus: () => true
+            });
 
-        // 4. 返回结果
-        res.set('Content-Type', response.headers['content-type'] || 'application/json');
-        res.status(response.status).send(response.data);
-
-    } catch (error) {
-        console.error("Proxy Error:", error.message);
-        // 即使炸了也要给 JSON
-        res.status(500).send({ error: "Proxy Exception", details: error.message });
+            // 4. 返回结果
+            res.set('Content-Type', response.headers['content-type'] || 'application/json');
+            res.status(response.status).send(response.data);
+        } catch (error) {
+            console.error("Proxy Error:", error.message);
+            res.status(500).send({ error: "Proxy Exception", details: error.message });
+        }
     }
-});
+);
 
 /**
  * 完全后台 AI 提取任务
+ * 使用 Secret Manager 存储 GEMINI_API_KEY。
  */
-exports.processExtractionJob = functions
-    .runWith({
-        timeoutSeconds: 540,  // 9分钟超时
+exports.processExtractionJob = onCall(
+    {
+        secrets: [geminiApiKey],
+        timeoutSeconds: 540,
         memory: '1GB'
-    })
-    .https.onCall(async (data, context) => {
+    },
+    async (request) => {
+        const data = request.data;
+        const context = { auth: request.auth };
+
         // 验证用户登录
         if (!context.auth) {
-            throw new functions.https.HttpsError('unauthenticated', '用户未登录');
+            throw new HttpsError('unauthenticated', '用户未登录');
         }
 
         const jobId = data.jobId;
         if (!jobId) {
-            throw new functions.https.HttpsError('invalid-argument', '缺少 jobId');
+            throw new HttpsError('invalid-argument', '缺少 jobId');
         }
 
         const userId = context.auth.uid;
@@ -96,12 +104,12 @@ exports.processExtractionJob = functions
             // 1. 读取任务
             const jobDoc = await jobRef.get();
             if (!jobDoc.exists) {
-                throw new functions.https.HttpsError('not-found', '任务不存在');
+                throw new HttpsError('not-found', '任务不存在');
             }
 
             const jobData = jobDoc.data();
             if (jobData.userId !== userId) {
-                throw new functions.https.HttpsError('permission-denied', '无权访问此任务');
+                throw new HttpsError('permission-denied', '无权访问此任务');
             }
 
             const content = jobData.content;
@@ -111,7 +119,7 @@ exports.processExtractionJob = functions
 
             if (!content || content.length === 0) {
                 await jobRef.update({ status: 'failed', error: '内容为空' });
-                throw new functions.https.HttpsError('invalid-argument', '内容为空');
+                throw new HttpsError('invalid-argument', '内容为空');
             }
 
             // 2. 更新状态为处理中
@@ -122,7 +130,7 @@ exports.processExtractionJob = functions
                 startedAt: admin.firestore.FieldValue.serverTimestamp()
             });
 
-            const apiKey = process.env.GEMINI_API_KEY;
+            const apiKey = geminiApiKey.value();
             const genAI = new GoogleGenerativeAI(apiKey);
             const model = genAI.getGenerativeModel({
                 model: "gemini-2.5-flash",
@@ -308,6 +316,7 @@ ${content.substring(0, 30000)}
                 error: error.message,
                 completedAt: admin.firestore.FieldValue.serverTimestamp()
             });
-            throw new functions.https.HttpsError('internal', error.message);
+            throw new HttpsError('internal', error.message);
         }
-    });
+    }
+);

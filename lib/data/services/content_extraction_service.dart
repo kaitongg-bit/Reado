@@ -488,6 +488,12 @@ $modeInstructions
         modeOutlineInstructions = "采用“智障博士生”风格：极简大白话，禁止多余空格，逻辑严密，直接提取逻辑支柱。";
       }
 
+      // 长文分段时每段内容多，应生成更多知识点，与积分（多段=多扣费）对应
+      final bool isMultiChunk = chunks.length > 1;
+      final String topicCountInstruction = isMultiChunk
+          ? '2. 本段为长文档的第 ${chunkIndex + 1}/${chunks.length} 段，内容较多，请充分拆解并识别出 6-15 个独立的核心知识点'
+          : '2. 识别出 2-8 个独立的核心知识点';
+
       final outlinePrompt = '''
 你是一位资深的教育内容专家。请快速分析用户提供的学习资料，识别出其中的核心知识点。
 
@@ -495,7 +501,7 @@ $modeOutlineInstructions
 
 ## 任务
 1. 阅读用户的学习资料
-2. 识别出 2-8 个独立的核心知识点
+$topicCountInstruction
 3. 每个知识点用一个简洁的标题概括（10-20字）
 
 ## 输出格式

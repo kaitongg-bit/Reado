@@ -11,6 +11,32 @@ import '../feed_provider.dart';
 import '../../../../core/providers/adhd_provider.dart';
 import '../../../../core/providers/adhd_text_transformer.dart';
 
+/// 解析「原味保存」的对话记录："我: ...\n\n囤囤鼠: ..." -> [{isUser, text}, ...]
+List<({bool isUser, String text})> _parseConversationNote(String raw) {
+  final list = <({bool isUser, String text})>[];
+  final segments = raw.split(RegExp(r'\n\n+'));
+  for (final s in segments) {
+    final trimmed = s.trim();
+    if (trimmed.isEmpty) continue;
+    if (trimmed.startsWith('我:')) {
+      list.add((isUser: true, text: trimmed.replaceFirst(RegExp(r'^我:\s*'), '').trim()));
+    } else if (trimmed.startsWith('囤囤鼠:')) {
+      list.add((isUser: false, text: trimmed.replaceFirst(RegExp(r'^囤囤鼠:\s*'), '').trim()));
+    } else if (list.isNotEmpty) {
+      // 续行接到上一条
+      final last = list.removeLast();
+      list.add((isUser: last.isUser, text: '${last.text}\n\n$trimmed'));
+    }
+  }
+  return list;
+}
+
+bool _isConversationNote(UserNotePage content) {
+  return content.question == '对话记录' ||
+      content.answer.contains('囤囤鼠:') ||
+      content.answer.contains('我:');
+}
+
 class FeedItemView extends ConsumerStatefulWidget {
   final FeedItem feedItem;
   final bool isReviewMode;
@@ -357,6 +383,85 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     );
   }
 
+  /// 原味保存的对话记录渲染为左右气泡（我右 / 囤囤鼠左）
+  List<Widget> _buildConversationBubbles(
+      BuildContext context, String answer, bool isDark) {
+    final items = _parseConversationNote(answer);
+    if (items.isEmpty) {
+      return [
+        SelectableText(
+          answer,
+          style: TextStyle(
+            fontSize: 16,
+            height: 1.6,
+            color: isDark
+                ? Theme.of(context).colorScheme.onSurface
+                : Colors.black87,
+          ),
+        ),
+      ];
+    }
+    final textColorUser = Colors.white;
+    final textColorAi = isDark
+        ? Colors.white.withOpacity(0.9)
+        : Colors.black87;
+    final bubbleColorUser = isDark ? const Color(0xFF9333EA) : Colors.black;
+    final bubbleColorAi =
+        isDark ? Colors.white.withOpacity(0.1) : Colors.grey[100]!;
+    return items.map<Widget>((e) {
+      final isUser = e.isUser;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Row(
+          mainAxisAlignment:
+              isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            if (!isUser) const SizedBox(width: 40),
+            Flexible(
+              child: Container(
+                margin: EdgeInsets.only(
+                    left: isUser ? 40 : 0, right: isUser ? 16 : 40),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isUser ? bubbleColorUser : bubbleColorAi,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(20),
+                    topRight: const Radius.circular(20),
+                    bottomLeft: Radius.circular(isUser ? 20 : 4),
+                    bottomRight: Radius.circular(isUser ? 4 : 20),
+                  ),
+                ),
+                child: isUser
+                    ? SelectableText(
+                        e.text,
+                        style: TextStyle(
+                            color: textColorUser, height: 1.5),
+                      )
+                    : MarkdownBody(
+                        data: e.text,
+                        selectable: true,
+                        styleSheet: MarkdownStyleSheet.fromTheme(
+                                Theme.of(context))
+                            .copyWith(
+                          p: TextStyle(
+                              color: textColorAi,
+                              height: 1.5,
+                              fontFamily: 'JinghuaSong'),
+                          strong: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'JinghuaSong'),
+                        ),
+                      ),
+              ),
+            ),
+            if (isUser) const SizedBox(width: 40),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
   Widget _buildPageContent(CardPageContent content) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final adhdSettings = ref.watch(adhdSettingsProvider);
@@ -680,60 +785,64 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
-                      MarkdownBody(
-                        data: content.answer,
-                        styleSheet:
-                            MarkdownStyleSheet.fromTheme(Theme.of(context))
-                                .copyWith(
-                          p: TextStyle(
-                            fontSize: 18, // Slightly larger for reading
-                            height: 1.8,
-                            fontFamily: 'JinghuaSong',
-                            color: isDark
-                                ? Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withOpacity(0.9)
-                                : Colors.black87.withOpacity(0.85),
-                          ),
-                          h1: const TextStyle(
-                              fontFamily: 'JinghuaSong',
-                              fontWeight: FontWeight.bold),
-                          h2: const TextStyle(
-                              fontFamily: 'JinghuaSong',
-                              fontWeight: FontWeight.bold),
-                          h3: const TextStyle(
-                              fontFamily: 'JinghuaSong',
-                              fontWeight: FontWeight.bold),
-                          listBullet: TextStyle(
+                      if (_isConversationNote(content)) ...[
+                        ..._buildConversationBubbles(
+                            context, content.answer, isDark),
+                      ] else
+                        MarkdownBody(
+                          data: content.answer,
+                          styleSheet:
+                              MarkdownStyleSheet.fromTheme(Theme.of(context))
+                                  .copyWith(
+                            p: TextStyle(
+                              fontSize: 18,
+                              height: 1.8,
                               fontFamily: 'JinghuaSong',
                               color: isDark
                                   ? Theme.of(context)
                                       .colorScheme
                                       .onSurface
-                                      .withOpacity(0.7)
-                                  : Colors.black87),
-                          strong: const TextStyle(
-                              fontFamily: 'JinghuaSong',
-                              fontWeight: FontWeight.bold),
-                          em: const TextStyle(
-                              fontFamily: 'JinghuaSong',
-                              fontStyle: FontStyle.italic),
+                                      .withOpacity(0.9)
+                                  : Colors.black87.withOpacity(0.85),
+                            ),
+                            h1: const TextStyle(
+                                fontFamily: 'JinghuaSong',
+                                fontWeight: FontWeight.bold),
+                            h2: const TextStyle(
+                                fontFamily: 'JinghuaSong',
+                                fontWeight: FontWeight.bold),
+                            h3: const TextStyle(
+                                fontFamily: 'JinghuaSong',
+                                fontWeight: FontWeight.bold),
+                            listBullet: TextStyle(
+                                fontFamily: 'JinghuaSong',
+                                color: isDark
+                                    ? Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withOpacity(0.7)
+                                    : Colors.black87),
+                            strong: const TextStyle(
+                                fontFamily: 'JinghuaSong',
+                                fontWeight: FontWeight.bold),
+                            em: const TextStyle(
+                                fontFamily: 'JinghuaSong',
+                                fontStyle: FontStyle.italic),
+                          ),
+                          builders: adhdSettings.isEnabled
+                              ? {
+                                  'p': AdhdMarkdownParagraphBuilder(
+                                    adhdSettings: adhdSettings,
+                                  ),
+                                  'li': AdhdMarkdownParagraphBuilder(
+                                    adhdSettings: adhdSettings,
+                                  ),
+                                  'blockquote': AdhdMarkdownParagraphBuilder(
+                                    adhdSettings: adhdSettings,
+                                  ),
+                                }
+                              : {},
                         ),
-                        builders: adhdSettings.isEnabled
-                            ? {
-                                'p': AdhdMarkdownParagraphBuilder(
-                                  adhdSettings: adhdSettings,
-                                ),
-                                'li': AdhdMarkdownParagraphBuilder(
-                                  adhdSettings: adhdSettings,
-                                ),
-                                'blockquote': AdhdMarkdownParagraphBuilder(
-                                  adhdSettings: adhdSettings,
-                                ),
-                              }
-                            : {},
-                      ),
                       const SizedBox(height: 48),
                       // "Swipe Left to Return" Hint
                       Row(
@@ -848,9 +957,10 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
   final ScrollController _scrollController = ScrollController();
   final List<_ChatMessage> _messages = [];
 
-  // 多选逻辑
+  // 多选逻辑：点击顶部 Pin 进入多选模式，再点消息/勾选框选择
+  bool _isPinMode = false;
   final Set<int> _selectedMessageIndices = {};
-  bool get _isSelectionMode => _selectedMessageIndices.isNotEmpty;
+  bool get _isSelectionMode => _isPinMode;
 
   // 已 Pin 标记
   final Set<int> _pinnedMessageIndices = {};
@@ -1081,6 +1191,7 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
     setState(() {
       _pinnedMessageIndices.addAll(_selectedMessageIndices);
       _selectedMessageIndices.clear();
+      _isPinMode = false;
     });
   }
 
@@ -1125,6 +1236,7 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
       setState(() {
         _pinnedMessageIndices.addAll(_selectedMessageIndices);
         _selectedMessageIndices.clear();
+        _isPinMode = false;
         _isSummarizing = false;
       });
     } catch (e) {
@@ -1156,7 +1268,7 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
           ),
           child: Column(
             children: [
-              // Header
+              // Header：囤囤鼠标题 + 顶部 Pin 按钮（点击进入多选）
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -1169,22 +1281,55 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                               style: TextStyle(
                                   fontSize: 16, fontWeight: FontWeight.bold)),
                           if (_isSelectionMode)
-                            Text('已选 ${_selectedMessageIndices.length} 条',
+                            Text(
+                                _selectedMessageIndices.isEmpty
+                                    ? '选择要保存的对话'
+                                    : '已选 ${_selectedMessageIndices.length} 条',
                                 style: const TextStyle(
                                     fontSize: 10, color: Colors.grey))
                           else
-                            const Text('点击右侧 Pin 选择要保存的对话',
+                            const Text('点击 Pin 多选对话再保存',
                                 style: TextStyle(
                                     fontSize: 10, color: Colors.grey)),
                         ],
                       ),
+                      const SizedBox(width: 12),
+                      IconButton(
+                        tooltip: '多选对话并保存',
+                        icon: Icon(
+                          _isSelectionMode
+                              ? Icons.push_pin
+                              : Icons.push_pin_outlined,
+                          size: 22,
+                          color: _isSelectionMode ? Colors.amber : Colors.grey,
+                        ),
+                        onPressed: () {
+                          if (!_isSelectionMode) {
+                            setState(() => _isPinMode = true);
+                          }
+                        },
+                      ),
                     ],
                   ),
                   if (_isSelectionMode)
-                    TextButton(
-                      onPressed: () =>
-                          setState(() => _selectedMessageIndices.clear()),
-                      child: const Text('取消'),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton(
+                          onPressed: () => setState(() {
+                            _selectedMessageIndices.addAll(
+                                List.generate(_messages.length, (i) => i));
+                          }),
+                          child: const Text('全选'),
+                        ),
+                        TextButton(
+                          onPressed: () => setState(() {
+                            _isPinMode = false;
+                            _selectedMessageIndices.clear();
+                          }),
+                          child: const Text('取消'),
+                        ),
+                      ],
                     )
                   else
                     IconButton(
@@ -1193,8 +1338,6 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                     ),
                 ],
               ),
-              Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
-
               Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
 
               // Message List
@@ -1351,29 +1494,28 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
             ? Colors.white
             : (isDark ? Colors.white.withOpacity(0.9) : Colors.black87));
 
-    return GestureDetector(
-      onTap: () {
-        if (_isSelectionMode) {
-          _toggleSelection(index);
-        }
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        child: Row(
-          mainAxisAlignment:
-              msg.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-          children: [
-            if (_isSelectionMode) ...[
-              Checkbox(
-                value: isSelected,
-                onChanged: (v) => _toggleSelection(index),
-                shape: const CircleBorder(),
-                activeColor: Colors.amber,
-              ),
-            ] else
-              const SizedBox(width: 16),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        mainAxisAlignment:
+            msg.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: [
+          if (_isSelectionMode) ...[
+            Checkbox(
+              value: isSelected,
+              onChanged: (v) => _toggleSelection(index),
+              shape: const CircleBorder(),
+              activeColor: Colors.amber,
+            ),
+          ] else
+            const SizedBox(width: 16),
 
-            Flexible(
+          Flexible(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                if (_isSelectionMode) _toggleSelection(index);
+              },
               child: Stack(
                 children: [
                   Container(
@@ -1436,24 +1578,24 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                 ],
               ),
             ),
+          ),
 
-            // Pin 按钮：仅用于选择/取消选择该条对话，不直接保存
-            if (!msg.isUser) ...[
-              const SizedBox(width: 8),
-              IconButton(
-                icon: Icon(
-                  isPinned
-                      ? Icons.push_pin
-                      : (isSelected ? Icons.push_pin : Icons.push_pin_outlined),
-                  size: 20,
-                  color: isPinned ? Colors.amber : (isSelected ? Colors.amber : Colors.grey),
-                ),
-                onPressed: () => _toggleSelection(index),
+          // 多选模式下才显示每条 AI 消息旁的 Pin，用于勾选/取消
+          if (_isSelectionMode && !msg.isUser) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(
+                isPinned
+                    ? Icons.push_pin
+                    : (isSelected ? Icons.push_pin : Icons.push_pin_outlined),
+                size: 20,
+                color: isPinned ? Colors.amber : (isSelected ? Colors.amber : Colors.grey),
               ),
-              const SizedBox(width: 8),
-            ],
+              onPressed: () => _toggleSelection(index),
+            ),
+            const SizedBox(width: 8),
           ],
-        ),
+        ],
       ),
     );
   }

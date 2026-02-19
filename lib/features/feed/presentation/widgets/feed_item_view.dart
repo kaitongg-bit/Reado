@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:ui';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -855,6 +857,82 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
 
   bool _isLoading = false;
   bool _isSummarizing = false;
+  bool _isLoadingHistory = true;
+
+  // 等待期间轮换的占位提示（按时间切换，减轻前端负担）
+  Timer? _placeholderTimer;
+  int _placeholderIndex = 0;
+  static const _placeholderInterval = Duration(seconds: 5);
+  static const _loadingPlaceholders = [
+    '正在思考中...',
+    '马上生成好...',
+    '快好了...',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadChatHistory();
+  }
+
+  @override
+  void dispose() {
+    _placeholderTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadChatHistory() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() => _isLoadingHistory = false);
+      return;
+    }
+    try {
+      final dataService = ref.read(dataServiceProvider);
+      final stored =
+          await dataService.fetchAiChatHistory(user.uid, widget.feedItem.id);
+      if (!mounted) return;
+      final loaded = <_ChatMessage>[];
+      for (final m in stored) {
+        final role = m['role'] as String? ?? 'user';
+        final content = m['content'] as String? ?? '';
+        final tsStr = m['timestamp'] as String?;
+        final ts = tsStr != null
+            ? (DateTime.tryParse(tsStr) ?? DateTime.now())
+            : DateTime.now();
+        loaded.add(_ChatMessage(
+          content: content,
+          isUser: role == 'user',
+          timestamp: ts,
+        ));
+      }
+      setState(() {
+        _messages.addAll(loaded);
+        _isLoadingHistory = false;
+      });
+      if (loaded.isNotEmpty) _scrollToBottom();
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingHistory = false);
+    }
+  }
+
+  Future<void> _saveChatHistory() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final dataService = ref.read(dataServiceProvider);
+      final payload = _messages
+          .map((m) => {
+                'role': m.isUser ? 'user' : 'model',
+                'content': m.content,
+                'timestamp': m.timestamp.toIso8601String(),
+              })
+          .toList();
+      await dataService.saveAiChatHistory(user.uid, widget.feedItem.id, payload);
+    } catch (e) {
+      // 静默失败，不打扰用户
+    }
+  }
 
   String _getContextContent() {
     return widget.feedItem.pages
@@ -879,6 +957,9 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    _placeholderTimer?.cancel();
+    _placeholderTimer = null;
+
     setState(() {
       _messages.add(_ChatMessage(
         content: text,
@@ -889,43 +970,90 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
       _controller.clear();
     });
     _scrollToBottom();
+    _saveChatHistory(); // 立即保存用户消息
+
+    final aiTimestamp = DateTime.now();
+    _placeholderIndex = 0;
+    final initialPlaceholder = _loadingPlaceholders[0];
+
+    setState(() {
+      _messages.add(_ChatMessage(
+        content: initialPlaceholder,
+        isUser: false,
+        timestamp: aiTimestamp,
+      ));
+    });
+    _scrollToBottom();
+
+    void switchPlaceholder() {
+      if (!mounted || !_isLoading) return;
+      _placeholderIndex =
+          (_placeholderIndex + 1) % _loadingPlaceholders.length;
+      final next = _loadingPlaceholders[_placeholderIndex];
+      setState(() {
+        if (_messages.isNotEmpty) {
+          _messages[_messages.length - 1] = _ChatMessage(
+            content: next,
+            isUser: false,
+            timestamp: aiTimestamp,
+          );
+        }
+      });
+    }
+
+    _placeholderTimer = Timer.periodic(_placeholderInterval, (_) => switchPlaceholder());
 
     try {
-      final history = _messages
+      // 请求时排除当前占位消息，避免把「正在思考中」当作已发送的回复
+      final listForHistory = _isLoading && _messages.length > 1
+          ? _messages.sublist(0, _messages.length - 1)
+          : _messages;
+      final history = listForHistory
           .map((m) => {
                 'role': m.isUser ? 'user' : 'model',
                 'content': m.content,
               })
           .toList();
 
-      final aiResponse =
-          await ref.read(contentGeneratorProvider).chatWithContent(
-                _getContextContent(),
-                history,
-              );
+      final stream = ref
+          .read(contentGeneratorProvider)
+          .chatWithContentStream(_getContextContent(), history);
+
+      final buffer = StringBuffer();
+      await for (final chunk in stream) {
+        if (!mounted) return;
+        buffer.write(chunk);
+      }
 
       if (!mounted) return;
-
+      _placeholderTimer?.cancel();
+      _placeholderTimer = null;
+      final fullResponse = buffer.toString();
       setState(() {
         _isLoading = false;
-        _messages.add(_ChatMessage(
-          content: aiResponse,
+        _messages[_messages.length - 1] = _ChatMessage(
+          content: fullResponse.isEmpty ? '（暂无回复）' : fullResponse,
           isUser: false,
-          timestamp: DateTime.now(),
-        ));
+          timestamp: aiTimestamp,
+        );
       });
+      _saveChatHistory();
+      _scrollToBottom();
     } catch (e) {
       if (!mounted) return;
+      _placeholderTimer?.cancel();
+      _placeholderTimer = null;
       setState(() {
         _isLoading = false;
-        _messages.add(_ChatMessage(
-          content: "Sorry, I encountered an error: $e",
+        _messages[_messages.length - 1] = _ChatMessage(
+          content: 'Sorry, I encountered an error: $e',
           isUser: false,
-          timestamp: DateTime.now(),
-        ));
+          timestamp: aiTimestamp,
+        );
       });
+      _saveChatHistory();
+      _scrollToBottom();
     }
-    _scrollToBottom();
   }
 
   void _toggleSelection(int index) {
@@ -938,6 +1066,25 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
     });
   }
 
+  /// 原味保存：选中内容原封不动存为笔记，不走 AI
+  void _handleSaveAsIs() {
+    if (_selectedMessageIndices.isEmpty) return;
+
+    final sortedIndices = _selectedMessageIndices.toList()..sort();
+    final rawContent = sortedIndices
+        .map((i) =>
+            "${_messages[i].isUser ? '我' : '囤囤鼠'}: ${_messages[i].content}")
+        .join("\n\n");
+
+    widget.onPin("对话记录", rawContent);
+
+    setState(() {
+      _pinnedMessageIndices.addAll(_selectedMessageIndices);
+      _selectedMessageIndices.clear();
+    });
+  }
+
+  /// AI 整理并存：选中内容经 AI 整理后再存为笔记
   void _handlePinAction() async {
     if (_selectedMessageIndices.isEmpty) return;
 
@@ -946,14 +1093,12 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
     });
 
     try {
-      // 1. 获取选中内容
       final sortedIndices = _selectedMessageIndices.toList()..sort();
       final selectedContent = sortedIndices
           .map((i) =>
               "${_messages[i].isUser ? 'User' : 'AI Mentor'}: ${_messages[i].content}")
           .join("\n\n");
 
-      // 2. Call AI Helper
       final summary = await ref
           .read(contentGeneratorProvider)
           .summarizeForPin(_getContextContent(), selectedContent);
@@ -975,10 +1120,8 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
 
       if (!mounted) return;
 
-      // 3. 执行 Pin
       widget.onPin(finalQuestion, finalAnswer);
 
-      // 4. 更新标记并退出选择模式
       setState(() {
         _pinnedMessageIndices.addAll(_selectedMessageIndices);
         _selectedMessageIndices.clear();
@@ -987,7 +1130,7 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to pin: $e')),
+        SnackBar(content: Text('AI 整理失败: $e')),
       );
       setState(() {
         _isSummarizing = false;
@@ -1026,11 +1169,11 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                               style: TextStyle(
                                   fontSize: 16, fontWeight: FontWeight.bold)),
                           if (_isSelectionMode)
-                            Text('已选 ${_selectedMessageIndices.length}',
+                            Text('已选 ${_selectedMessageIndices.length} 条',
                                 style: const TextStyle(
                                     fontSize: 10, color: Colors.grey))
                           else
-                            const Text('长按气泡多选',
+                            const Text('点击右侧 Pin 选择要保存的对话',
                                 style: TextStyle(
                                     fontSize: 10, color: Colors.grey)),
                         ],
@@ -1056,23 +1199,27 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
 
               // Message List
               Expanded(
-                child: _messages.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.chat_bubble_outline,
-                                size: 48, color: Colors.grey[300]),
-                            const SizedBox(height: 16),
-                            Text(
-                              '关于卡片内容，尽管问我',
-                              style:
-                                  TextStyle(color: Theme.of(context).hintColor),
-                            ),
-                          ],
-                        ),
+                child: _isLoadingHistory
+                    ? const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : ListView.builder(
+                    : _messages.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.chat_bubble_outline,
+                                    size: 48, color: Colors.grey[300]),
+                                const SizedBox(height: 16),
+                                Text(
+                                  '关于卡片内容，尽管问我',
+                                  style: TextStyle(
+                                      color: Theme.of(context).hintColor),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
                         controller: _scrollController,
                         itemCount: _messages.length,
                         padding: const EdgeInsets.only(top: 16),
@@ -1088,33 +1235,54 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                       ),
               ),
 
-              // Bottom Area: Input OR Action Button
+              // Bottom Area: Input OR 原味保存 / AI 整理并存
               const SizedBox(height: 16),
               if (_isSelectionMode)
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton.icon(
-                    onPressed: _isSummarizing ? null : _handlePinAction,
-                    icon: _isSummarizing
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
-                        : const Icon(Icons.push_pin),
-                    label: Text(_isSummarizing
-                        ? 'AI 正在整理...'
-                        : (_selectedMessageIndices.length > 1
-                            ? 'AI 整理并 Pin (${_selectedMessageIndices.length})'
-                            : 'Pin to Note')),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF9333EA),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _isSummarizing ? null : _handleSaveAsIs,
+                        icon: const Icon(Icons.content_copy, size: 18),
+                        label: const Text('原味保存'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : Colors.black87,
+                          side: BorderSide(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white38
+                                  : Colors.grey),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _isSummarizing ? null : _handlePinAction,
+                        icon: _isSummarizing
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.auto_awesome, size: 18),
+                        label: Text(_isSummarizing
+                            ? '整理中...'
+                            : 'AI 整理并存'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF9333EA),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
                 )
               else
                 Row(
@@ -1184,7 +1352,6 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
             : (isDark ? Colors.white.withOpacity(0.9) : Colors.black87));
 
     return GestureDetector(
-      onLongPress: () => _toggleSelection(index),
       onTap: () {
         if (_isSelectionMode) {
           _toggleSelection(index);
@@ -1196,7 +1363,7 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
           mainAxisAlignment:
               msg.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
-            if (!msg.isUser && _isSelectionMode) ...[
+            if (_isSelectionMode) ...[
               Checkbox(
                 value: isSelected,
                 onChanged: (v) => _toggleSelection(index),
@@ -1270,20 +1437,18 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
               ),
             ),
 
-            // Single Action Button (Only show for AI when not in selection mode)
-            if (!msg.isUser && !_isSelectionMode) ...[
+            // Pin 按钮：仅用于选择/取消选择该条对话，不直接保存
+            if (!msg.isUser) ...[
               const SizedBox(width: 8),
               IconButton(
-                icon: Icon(isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                    size: 20, color: isPinned ? Colors.amber : Colors.grey),
-                onPressed: () {
-                  // Quick single pin
-                  setState(() {
-                    _selectedMessageIndices.clear();
-                    _selectedMessageIndices.add(index);
-                  });
-                  _handlePinAction();
-                },
+                icon: Icon(
+                  isPinned
+                      ? Icons.push_pin
+                      : (isSelected ? Icons.push_pin : Icons.push_pin_outlined),
+                  size: 20,
+                  color: isPinned ? Colors.amber : (isSelected ? Colors.amber : Colors.grey),
+                ),
+                onPressed: () => _toggleSelection(index),
               ),
               const SizedBox(width: 8),
             ],

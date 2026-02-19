@@ -49,6 +49,14 @@ abstract class DataService {
   Future<Set<String>> fetchHiddenModuleIds(String userId);
   Future<List<FeedItem>> fetchHiddenFeedItems(String userId);
   Future<void> submitFeedback(String type, String content, String? contact);
+
+  /// 获取某知识点的 AI 囤囤鼠聊天记录
+  Future<List<Map<String, dynamic>>> fetchAiChatHistory(
+      String userId, String itemId);
+
+  /// 保存某知识点的 AI 囤囤鼠聊天记录
+  Future<void> saveAiChatHistory(
+      String userId, String itemId, List<Map<String, dynamic>> messages);
 }
 
 class FirestoreService implements DataService {
@@ -994,6 +1002,49 @@ class FirestoreService implements DataService {
       print('✅ Feedback submitted successfully');
     } catch (e) {
       print('❌ Error submitting feedback: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchAiChatHistory(
+      String userId, String itemId) async {
+    try {
+      final doc = await _usersRef
+          .doc(userId)
+          .collection('ai_chats')
+          .doc(itemId)
+          .get();
+
+      if (!doc.exists) return [];
+
+      final data = doc.data();
+      if (data == null || data['messages'] == null) return [];
+
+      final raw = data['messages'] as List<dynamic>;
+      return raw
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    } catch (e) {
+      if (kDebugMode) print('Error fetching AI chat for $itemId: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<void> saveAiChatHistory(
+      String userId, String itemId, List<Map<String, dynamic>> messages) async {
+    try {
+      await _usersRef
+          .doc(userId)
+          .collection('ai_chats')
+          .doc(itemId)
+          .set({
+        'messages': messages,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      if (kDebugMode) print('Error saving AI chat for $itemId: $e');
       rethrow;
     }
   }

@@ -225,9 +225,20 @@ class ContentGeneratorService {
     }
   }
 
-  /// 与卡片内容进行对话
+  /// 与卡片内容进行对话（一次性返回，兼容旧逻辑）
   Future<String> chatWithContent(
       String contextContent, List<Map<String, String>> history) async {
+    final buffer = StringBuffer();
+    await for (final chunk
+        in chatWithContentStream(contextContent, history)) {
+      buffer.write(chunk);
+    }
+    return buffer.toString();
+  }
+
+  /// 与卡片内容进行对话（流式返回，用于打字机效果）
+  Stream<String> chatWithContentStream(
+      String contextContent, List<Map<String, String>> history) async* {
     final historyText = history.map((msg) {
       final role = msg['role'] == 'user' ? '用户' : 'AI Mentor';
       return '$role: ${msg['content']}';
@@ -237,7 +248,7 @@ class ContentGeneratorService {
         (element) => element['role'] == 'user',
         orElse: () => {'content': ''})['content'];
 
-    if (lastUserMessage!.isEmpty) return '';
+    if (lastUserMessage!.isEmpty) return;
 
     final prompt = '''
 你是一位资深的教育导师。用户正在学习以下内容。你需要基于这些内容回答用户的问题。
@@ -262,8 +273,11 @@ $historyText
     final content = [Content.text(prompt)];
 
     try {
-      final response = await _textModel.generateContent(content);
-      return response.text ?? 'AI 暂时无法回答，请稍后再试。';
+      final stream = _textModel.generateContentStream(content);
+      await for (final response in stream) {
+        final text = response.text;
+        if (text != null && text.isNotEmpty) yield text;
+      }
     } catch (e) {
       debugPrint('❌ Chat API Error: $e');
       throw Exception('无法连接 AI Mentor');

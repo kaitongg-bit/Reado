@@ -59,7 +59,7 @@ class AboutPage extends ConsumerWidget {
                 ),
                 _buildSubItem(
                   '笔记整理',
-                  '您可以长按多选，批量选中与 AI 聊天的内容，一键将其整理成知识点笔记。',
+                  '点击 AI 回复右侧的 Pin 按钮选择要保存的对话，可「原味保存」或「AI 整理并存」为知识点笔记。',
                 ),
               ],
             ),

@@ -7,19 +7,19 @@ enum ThemeMode { light, dark, system }
 
 /// 主题状态管理
 class ThemeNotifier extends StateNotifier<ThemeMode> {
-  ThemeNotifier() : super(ThemeMode.light) {
+  ThemeNotifier() : super(ThemeMode.dark) {
     _loadTheme();
   }
 
   Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
-    final themeName = prefs.getString('theme_mode') ?? 'light';
+    final themeName = prefs.getString('theme_mode') ?? 'dark';
 
     state = switch (themeName) {
       'light' => ThemeMode.light,
       'dark' => ThemeMode.dark,
       'system' => ThemeMode.system,
-      _ => ThemeMode.light,
+      _ => ThemeMode.dark,
     };
   }
 

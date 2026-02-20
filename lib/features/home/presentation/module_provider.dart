@@ -114,6 +114,34 @@ class ModuleNotifier extends StateNotifier<ModuleState> {
     }
   }
 
+  Future<void> updateModule(
+      String moduleId, String? title, String? description) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    if (title == null && description == null) return;
+
+    try {
+      await _dataService.updateModule(user.uid, moduleId,
+          title: title, description: description);
+      final updated = state.custom.map((m) {
+        if (m.id != moduleId) return m;
+        return KnowledgeModule(
+          id: m.id,
+          title: title ?? m.title,
+          description: description ?? m.description,
+          ownerId: m.ownerId,
+          isOfficial: m.isOfficial,
+          cardCount: m.cardCount,
+          masteredCount: m.masteredCount,
+        );
+      }).toList();
+      state = state.copyWith(custom: updated);
+    } catch (e) {
+      print('Failed to update module: $e');
+      rethrow;
+    }
+  }
+
   Future<void> deleteModule(String moduleId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;

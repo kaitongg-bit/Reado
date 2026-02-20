@@ -512,9 +512,81 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                       isDark ? Colors.white70 : Colors.black54),
                               padding: EdgeInsets.zero,
                               onSelected: (value) async {
+                                final item = feedItems[_focusedItemIndex];
+                                if (value == 'move') {
+                                  final modules = ref
+                                      .read(moduleProvider)
+                                      .custom
+                                      .where((m) => m.id != widget.moduleId)
+                                      .toList();
+                                  if (modules.isEmpty) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(const SnackBar(
+                                              content: Text(
+                                                  '请先创建其他知识库后再移动')));
+                                    }
+                                    return;
+                                  }
+                                  final target = await showDialog<String>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('移动到知识库'),
+                                      content: SingleChildScrollView(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: modules
+                                              .map((m) => ListTile(
+                                                    title: Text(m.title),
+                                                    subtitle: m.description
+                                                        .isNotEmpty
+                                                        ? Text(m.description,
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis)
+                                                        : null,
+                                                    onTap: () =>
+                                                        Navigator.pop(ctx, m.id),
+                                                  ))
+                                              .toList(),
+                                        ),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx),
+                                            child: const Text('取消')),
+                                      ],
+                                    ),
+                                  );
+                                  if (target != null && mounted) {
+                                    await ref
+                                        .read(feedProvider.notifier)
+                                        .moveFeedItem(item.id, target);
+                                    final bool isLast = _focusedItemIndex ==
+                                        feedItems.length - 1;
+                                    if (mounted && _isSingleView) {
+                                      if (isLast && _focusedItemIndex > 0) {
+                                        setState(() => _focusedItemIndex--);
+                                        _verticalController
+                                            .jumpToPage(_focusedItemIndex);
+                                      } else {
+                                        ref
+                                            .read(feedProgressProvider.notifier)
+                                            .setProgress(
+                                                widget.moduleId,
+                                                _focusedItemIndex);
+                                      }
+                                    }
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                            content: Text('已移动到目标知识库')));
+                                  }
+                                  return;
+                                }
                                 if (value == 'delete' || value == 'hide') {
                                   final isHide = value == 'hide';
-                                  final item = feedItems[_focusedItemIndex];
                                   final confirmed = await showDialog<bool>(
                                     context: context,
                                     builder: (context) => AlertDialog(
@@ -557,14 +629,10 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                     // 🚀 CRITICAL: Handle auto-scroll / refresh UI immediately
                                     if (mounted && _isSingleView) {
                                       if (isLast && _focusedItemIndex > 0) {
-                                        // If deleted the last one, jump to the previous one
                                         setState(() => _focusedItemIndex--);
                                         _verticalController
                                             .jumpToPage(_focusedItemIndex);
                                       } else {
-                                        // If deleted a middle one, PageView stays at same index
-                                        // which now contains the next item. No jump needed,
-                                        // but we must refresh progress tracking for the "new" current item.
                                         ref
                                             .read(feedProgressProvider.notifier)
                                             .setProgress(widget.moduleId,
@@ -580,33 +648,54 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                   }
                                 }
                               },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: 'hide',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.visibility_off_outlined,
-                                          color: Colors.orange, size: 20),
-                                      SizedBox(width: 8),
-                                      Text('隐藏',
-                                          style:
-                                              TextStyle(color: Colors.orange)),
-                                    ],
+                              itemBuilder: (context) {
+                                final isCustom = feedItems.isNotEmpty &&
+                                    _focusedItemIndex < feedItems.length &&
+                                    feedItems[_focusedItemIndex].isCustom;
+                                final list = <PopupMenuItem<String>>[
+                                  if (isCustom)
+                                    const PopupMenuItem(
+                                      value: 'move',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                              Icons.drive_file_move_outline,
+                                              color: Colors.blue,
+                                              size: 20),
+                                          SizedBox(width: 8),
+                                          Text('移动',
+                                              style: TextStyle(color: Colors.blue)),
+                                        ],
+                                      ),
+                                    ),
+                                  const PopupMenuItem(
+                                    value: 'hide',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.visibility_off_outlined,
+                                            color: Colors.orange, size: 20),
+                                        SizedBox(width: 8),
+                                        Text('隐藏',
+                                            style:
+                                                TextStyle(color: Colors.orange)),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.delete_outline,
-                                          color: Colors.red, size: 20),
-                                      SizedBox(width: 8),
-                                      Text('永久删除',
-                                          style: TextStyle(color: Colors.red)),
-                                    ],
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.delete_outline,
+                                            color: Colors.red, size: 20),
+                                        SizedBox(width: 8),
+                                        Text('永久删除',
+                                            style: TextStyle(color: Colors.red)),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ];
+                                return list;
+                              },
                             ),
                           ],
                         ),

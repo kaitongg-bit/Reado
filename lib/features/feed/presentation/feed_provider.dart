@@ -565,6 +565,31 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     await _dataService.hideOfficialFeedItem(currentUser.uid, itemId);
   }
 
+  /// 将自定义知识卡移动到另一个知识库（仅支持 isCustom 的卡片）
+  /// 本地更新 item.moduleId，使移出方和移入方的数量都立即生效，无需刷新
+  Future<void> moveFeedItem(String itemId, String targetModuleId) async {
+    final index = _allItems.indexWhere((i) => i.id == itemId);
+    if (index == -1) return;
+
+    final item = _allItems[index];
+    if (!item.isCustom) return;
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    await _dataService.moveCustomFeedItem(
+        currentUser.uid, itemId, targetModuleId);
+
+    if (!mounted) return;
+    // 不删除项，只改所属知识库，这样移出方列表立即少一张、移入方数量立即多一张
+    final updated = item.copyWith(moduleId: targetModuleId);
+    _allItems = [
+      for (var i = 0; i < _allItems.length; i++)
+        i == index ? updated : _allItems[i],
+    ];
+    _refreshState();
+  }
+
   void deleteUserNote(String itemId, UserNotePage note) {
     final index = _allItems.indexWhere((i) => i.id == itemId);
     if (index == -1) return;

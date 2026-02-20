@@ -429,6 +429,81 @@ class ModuleDetailPage extends ConsumerWidget {
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert),
                     onSelected: (value) async {
+                      if (value == 'rename' && !module.isOfficial) {
+                        final controller = TextEditingController(text: module.title);
+                        final newTitle = await showDialog<String>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('重命名知识库'),
+                            content: TextField(
+                              controller: controller,
+                              decoration: const InputDecoration(
+                                labelText: '名称',
+                                hintText: '输入知识库名称',
+                              ),
+                              autofocus: true,
+                              onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+                            ),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('取消')),
+                              TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(ctx, controller.text.trim()),
+                                  child: const Text('确定')),
+                            ],
+                          ),
+                        );
+                        if (newTitle != null && newTitle.isNotEmpty && newTitle != module.title) {
+                          await ref
+                              .read(moduleProvider.notifier)
+                              .updateModule(moduleId, newTitle, null);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('已更新名称')));
+                          }
+                        }
+                        return;
+                      }
+                      if (value == 'edit_details' && !module.isOfficial) {
+                        final controller = TextEditingController(text: module.description);
+                        final newDesc = await showDialog<String>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('编辑详情'),
+                            content: TextField(
+                              controller: controller,
+                              decoration: const InputDecoration(
+                                labelText: '简介',
+                                hintText: '输入知识库简介',
+                                alignLabelWithHint: true,
+                              ),
+                              maxLines: 4,
+                              autofocus: true,
+                            ),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('取消')),
+                              TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(ctx, controller.text.trim()),
+                                  child: const Text('确定')),
+                            ],
+                          ),
+                        );
+                        if (newDesc != null && newDesc != module.description) {
+                          await ref
+                              .read(moduleProvider.notifier)
+                              .updateModule(moduleId, null, newDesc);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('已更新详情')));
+                          }
+                        }
+                        return;
+                      }
                       if (value == 'delete' || value == 'hide') {
                         final isHide = value == 'hide';
                         final confirmed = await showDialog<bool>(
@@ -454,7 +529,6 @@ class ModuleDetailPage extends ConsumerWidget {
 
                         if (confirmed == true) {
                           if (isHide) {
-                            // Logic to hide (even if custom)
                             final user = FirebaseAuth.instance.currentUser;
                             if (user != null) {
                               await ref
@@ -477,30 +551,58 @@ class ModuleDetailPage extends ConsumerWidget {
                         }
                       }
                     },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'hide',
-                        child: Row(
-                          children: [
-                            Icon(Icons.visibility_off_outlined,
-                                color: Colors.orange, size: 20),
-                            SizedBox(width: 8),
-                            Text('隐藏', style: TextStyle(color: Colors.orange)),
-                          ],
+                    itemBuilder: (context) {
+                      final items = <PopupMenuItem<String>>[];
+                      if (!module.isOfficial) {
+                        items.addAll([
+                          const PopupMenuItem(
+                            value: 'rename',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit_outlined, size: 20),
+                                SizedBox(width: 8),
+                                Text('重命名'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'edit_details',
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline, size: 20),
+                                SizedBox(width: 8),
+                                Text('编辑详情'),
+                              ],
+                            ),
+                          ),
+                        ]);
+                      }
+                      items.addAll([
+                        const PopupMenuItem(
+                          value: 'hide',
+                          child: Row(
+                            children: [
+                              Icon(Icons.visibility_off_outlined,
+                                  color: Colors.orange, size: 20),
+                              SizedBox(width: 8),
+                              Text('隐藏', style: TextStyle(color: Colors.orange)),
+                            ],
+                          ),
                         ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline,
-                                color: Colors.red, size: 20),
-                            SizedBox(width: 8),
-                            Text('永久删除', style: TextStyle(color: Colors.red)),
-                          ],
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline,
+                                  color: Colors.red, size: 20),
+                              SizedBox(width: 8),
+                              Text('永久删除', style: TextStyle(color: Colors.red)),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ]);
+                      return items;
+                    },
                   ),
                 ],
               ),
@@ -811,6 +913,59 @@ class ModuleDetailPage extends ConsumerWidget {
                 ),
                 padding: EdgeInsets.zero,
                 onSelected: (value) async {
+                  if (value == 'move' && item.isCustom && !isGuestShared) {
+                    final modules = ref
+                        .read(moduleProvider)
+                        .custom
+                        .where((m) => m.id != item.moduleId)
+                        .toList();
+                    if (modules.isEmpty) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('请先创建其他知识库后再移动')));
+                      }
+                      return;
+                    }
+                    final target = await showDialog<String>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('移动到知识库'),
+                        content: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: modules
+                                .map((m) => ListTile(
+                                      title: Text(m.title),
+                                      subtitle: m.description.isNotEmpty
+                                          ? Text(m.description,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis)
+                                          : null,
+                                      onTap: () =>
+                                          Navigator.pop(ctx, m.id),
+                                    ))
+                                .toList(),
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('取消')),
+                        ],
+                      ),
+                    );
+                    if (target != null && context.mounted) {
+                      await ref
+                          .read(feedProvider.notifier)
+                          .moveFeedItem(item.id, target);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('已移动到目标知识库')));
+                      }
+                    }
+                    return;
+                  }
                   if (value == 'delete' || value == 'hide') {
                     final isHide = value == 'hide';
                     final confirmed = await showDialog<bool>(
@@ -849,20 +1004,32 @@ class ModuleDetailPage extends ConsumerWidget {
                     }
                   }
                 },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'hide',
-                    height: 32,
-                    child: Text('隐藏',
-                        style: TextStyle(fontSize: 13, color: Colors.orange)),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    height: 32,
-                    child: Text('永久删除',
-                        style: TextStyle(fontSize: 13, color: Colors.red)),
-                  ),
-                ],
+                itemBuilder: (context) {
+                  final list = <PopupMenuItem<String>>[];
+                  if (item.isCustom && !isGuestShared) {
+                    list.add(const PopupMenuItem(
+                      value: 'move',
+                      height: 32,
+                      child: Text('移动',
+                          style: TextStyle(fontSize: 13, color: Colors.blue)),
+                    ));
+                  }
+                  list.addAll([
+                    const PopupMenuItem(
+                      value: 'hide',
+                      height: 32,
+                      child: Text('隐藏',
+                          style: TextStyle(fontSize: 13, color: Colors.orange)),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      height: 32,
+                      child: Text('永久删除',
+                          style: TextStyle(fontSize: 13, color: Colors.red)),
+                    ),
+                  ]);
+                  return list;
+                },
               )
             else
               Icon(

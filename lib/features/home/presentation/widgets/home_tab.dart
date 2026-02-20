@@ -587,7 +587,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
           imageProvider = AssetImage(currentUser.photoURL!);
         } else {
           imageProvider =
-              const AssetImage('assets/images/avatars/avatar_1.png');
+              const AssetImage('assets/images/reado_ip_1_reader.png');
         }
         return CircleAvatar(
           radius: radius,

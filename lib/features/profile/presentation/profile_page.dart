@@ -732,7 +732,7 @@ class ProfilePage extends ConsumerWidget {
 
     // Default for everyone (including Google users)
     return Image.asset(
-      'assets/images/avatars/avatar_1.png',
+      'assets/images/reado_ip_1_reader.png',
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) => const Icon(Icons.person),
     );
@@ -958,18 +958,14 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   bool _isSaving = false;
 
   final List<String> _officialAvatars = [
-    'assets/images/avatars/avatar_1.png',
-    'assets/images/avatars/avatar_2.png',
-    'assets/images/avatars/avatar_3.png',
-    'assets/images/avatars/avatar_4.png',
-    'assets/images/avatars/avatar_5.png',
-    'assets/images/avatars/avatar_6.png',
-    'assets/images/avatars/avatar_7.png',
-    'assets/images/avatars/avatar_8.png',
-    'assets/images/avatars/avatar_9.png',
-    'assets/images/avatars/avatar_10.png',
-    'assets/images/avatars/avatar_11.png',
-    'assets/images/avatars/avatar_12.png',
+    'assets/images/reado_ip_1_reader.png',
+    'assets/images/reado_ip_2_music.png',
+    'assets/images/reado_ip_3_builder_v2.png',
+    'assets/images/reado_ip_4_explorer.png',
+    'assets/images/reado_ip_5_coder.png',
+    'assets/images/reado_ip_6_artist.png',
+    'assets/images/reado_ip_7_idea.png',
+    'assets/images/reado_ip_8_stargazer.png',
   ];
 
   @override

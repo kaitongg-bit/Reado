@@ -15,6 +15,8 @@ abstract class DataService {
   Future<void> updateUserNote(
       String itemId, UserNotePage oldNote, String newQ, String newA);
   Future<void> deleteCustomFeedItem(String itemId);
+  Future<void> moveCustomFeedItem(
+      String userId, String itemId, String targetModuleId);
   Future<void> updateSRSStatus(
       String itemId, DateTime nextReview, int interval, double ease);
   Future<void> updateMasteryLevel(String itemId, String masteryLevel);
@@ -29,6 +31,8 @@ abstract class DataService {
       String userId); // Includes hidden ones
   Future<KnowledgeModule> createModule(
       String userId, String title, String description);
+  Future<void> updateModule(String userId, String moduleId,
+      {String? title, String? description});
   Future<int> fixOrphanItems(String userId, String targetModuleId);
   Future<void> saveModuleProgress(
       String userId, String moduleId, int index); // Save reading progress
@@ -368,6 +372,24 @@ class FirestoreService implements DataService {
   }
 
   @override
+  Future<void> moveCustomFeedItem(
+      String userId, String itemId, String targetModuleId) async {
+    try {
+      final ref =
+          _usersRef.doc(userId).collection('custom_items').doc(itemId);
+      final doc = await ref.get();
+      if (!doc.exists) {
+        throw Exception('该知识卡不存在或无法移动');
+      }
+      await ref.update({'module': targetModuleId});
+      print('✅ Moved custom item $itemId to module $targetModuleId');
+    } catch (e) {
+      print('❌ Error moving custom item: $e');
+      rethrow;
+    }
+  }
+
+  @override
   Future<void> deleteUserNote(String itemId, UserNotePage note) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -573,6 +595,27 @@ class FirestoreService implements DataService {
       );
     } catch (e) {
       print('Error creating module: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> updateModule(String userId, String moduleId,
+      {String? title, String? description}) async {
+    try {
+      final ref = _usersRef.doc(userId).collection('modules').doc(moduleId);
+      final doc = await ref.get();
+      if (!doc.exists) {
+        throw Exception('该知识库不存在');
+      }
+      final Map<String, dynamic> updates = {};
+      if (title != null) updates['title'] = title;
+      if (description != null) updates['description'] = description;
+      if (updates.isEmpty) return;
+      await ref.update(updates);
+      print('✅ Updated module $moduleId: $updates');
+    } catch (e) {
+      print('Error updating module: $e');
       rethrow;
     }
   }

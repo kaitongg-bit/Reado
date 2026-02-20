@@ -157,6 +157,12 @@ class FeedProgressNotifier extends StateNotifier<Map<String, int>> {
 // DATA SOURCE PROVIDER
 final dataServiceProvider = Provider<DataService>((ref) => FirestoreService());
 
+/// 分享时是否开放笔记（个人设置）
+final shareNotesPublicProvider =
+    FutureProvider.family<bool, String>((ref, userId) async {
+  return ref.watch(dataServiceProvider).getShareNotesPublic(userId);
+});
+
 // Content Generator Provider
 final contentGeneratorProvider = Provider((ref) {
   try {

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../models/knowledge_module.dart';
+import '../../../models/shared_module_data.dart';
 import '../../../data/services/firestore_service.dart';
 import '../../feed/presentation/feed_provider.dart';
 
@@ -145,4 +146,13 @@ final moduleProvider =
     StateNotifierProvider<ModuleNotifier, ModuleState>((ref) {
   final dataService = ref.watch(dataServiceProvider);
   return ModuleNotifier(dataService);
+});
+
+/// 共享知识库只读数据（游客或「保存到我的知识库」前预览）
+/// 参数：(ownerId, moduleId)，对应分享链接中的 ref 与 moduleId
+final sharedModuleProvider =
+    FutureProvider.family<SharedModuleData, (String, String)>((ref, param) async {
+  final (ownerId, moduleId) = param;
+  final dataService = ref.watch(dataServiceProvider);
+  return dataService.fetchSharedModule(ownerId, moduleId);
 });

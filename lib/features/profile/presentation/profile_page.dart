@@ -373,6 +373,38 @@ class ProfilePage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
 
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user == null) return const SizedBox.shrink();
+                      final shareNotesAsync =
+                          ref.watch(shareNotesPublicProvider(user.uid));
+                      return shareNotesAsync.when(
+                        data: (shareNotesPublic) => _GlassTile(
+                          icon: Icons.menu_book_outlined,
+                          title: '分享时开放我的笔记',
+                          subtitle: shareNotesPublic
+                              ? '他人通过链接可看到你的笔记'
+                              : '仅展示卡片正文',
+                          isDark: isDark,
+                          trailing: Switch(
+                            value: shareNotesPublic,
+                            activeColor: Colors.orangeAccent,
+                            onChanged: (val) async {
+                              await ref
+                                  .read(dataServiceProvider)
+                                  .setShareNotesPublic(user.uid, val);
+                              ref.invalidate(shareNotesPublicProvider(user.uid));
+                            },
+                          ),
+                        ),
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
                   if (FirebaseAuth.instance.currentUser?.email ==
                       'kitatest@qq.com') ...[
                     _GlassTile(

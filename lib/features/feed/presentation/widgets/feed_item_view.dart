@@ -6,6 +6,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../models/feed_item.dart';
 import '../feed_provider.dart';
 import '../../../../core/providers/adhd_provider.dart';
@@ -40,11 +41,14 @@ bool _isConversationNote(UserNotePage content) {
 class FeedItemView extends ConsumerStatefulWidget {
   final FeedItem feedItem;
   final bool isReviewMode;
+  /// 分享知识库只读模式：不展示 Ask AI、Pin、编辑等
+  final bool isSharedReadOnly;
 
   const FeedItemView({
     super.key,
     required this.feedItem,
     this.isReviewMode = false,
+    this.isSharedReadOnly = false,
     this.onNextTap,
     this.onViewModeChanged,
   });
@@ -100,10 +104,14 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
   }
 
   void _showAskAISheet(BuildContext context) {
+    if (widget.isSharedReadOnly) {
+      _showAskAISheetShared(context);
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).canvasColor, // Use theme color
+      backgroundColor: Theme.of(context).canvasColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -115,7 +123,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                 question,
                 answer,
               );
-          Navigator.pop(context); // 关闭弹窗
+          Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('✨ 笔记已置顶成功！'),
@@ -126,6 +134,98 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
         },
       ),
     );
+  }
+
+  void _showAskAISheetShared(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).canvasColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => _AskAISheet(
+        feedItem: widget.feedItem,
+        onPin: (question, answer) {
+          final user = FirebaseAuth.instance.currentUser;
+          if (user == null) {
+            _showLoginDialogForPin(context);
+            return;
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('分享内容暂不支持保存笔记到当前卡片'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showLoginDialogForPin(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('保存笔记需要登录'),
+        content: const Text(
+            '登录后可将笔记保存到自己的知识库。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('暂不'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.go('/onboarding');
+            },
+            child: const Text('去登录'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLoginDialogForFavorite(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('收藏需要登录'),
+        content: const Text('是否前往登录？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('暂不'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.go('/onboarding');
+            },
+            child: const Text('去登录'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _onFavoriteTap() {
+    if (widget.isSharedReadOnly) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _showLoginDialogForFavorite(context);
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('分享内容暂不支持收藏到复习区'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    _toggleFavorite();
   }
 
   void _toggleFavorite() {
@@ -293,7 +393,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
             ),
           ),
 
-        // 3. Action Bar
+        // 3. Action Bar（分享只读也展示：笔记入口、收藏、囤囤鼠；收藏/Pin 时游客弹窗提示登录）
         Positioned(
           right: 16,
           bottom: 110,
@@ -306,10 +406,9 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                 color: widget.feedItem.isFavorited
                     ? Colors.redAccent
                     : Colors.white,
-                onTap: _toggleFavorite,
+                onTap: _onFavoriteTap,
               ),
               const SizedBox(height: 16),
-              // Note Navigation Icon (if notes exist)
               if (widget.feedItem.pages.length > 1) ...[
                 _buildActionButton(
                   icon: Icons.note_alt_outlined,
@@ -327,10 +426,9 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                 const SizedBox(height: 16),
               ],
               _buildActionButton(
-                // icon: Icons.smart_toy_outlined,
                 customChild: Padding(
                   padding: const EdgeInsets.all(
-                      8.0), // Increased padding for smaller icon
+                      8.0),
                   child: SvgPicture.asset(
                     'assets/images/reado_traced.svg',
                   ),
@@ -342,7 +440,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           ),
         ),
 
-        // 4. "Next Topic" Button - HIDDEN IF VIEWING NOTE
+        // 4. "Next Topic" Button - 分享只读也显示，与学习页一致
         if (!widget.isReviewMode && !isViewingNote)
           Positioned(
             bottom: 60,
@@ -729,8 +827,8 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                   ),
 
                   const Spacer(),
-                  // Direct Action Buttons instead of Menu
-                  if (!content.isReadOnly)
+                  // Direct Action Buttons（分享只读模式下不展示）
+                  if (!content.isReadOnly && !widget.isSharedReadOnly)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

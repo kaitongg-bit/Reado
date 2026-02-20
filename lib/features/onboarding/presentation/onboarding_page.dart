@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/widgets/app_background.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/router/pending_login_return_path.dart';
 import '../../../core/services/auth_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -51,7 +52,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
 
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (user != null && mounted) {
-        context.go('/');
+        final path = PendingLoginReturnPath.take();
+        context.go(path != null && path.isNotEmpty ? path : '/');
       }
     });
   }
@@ -71,7 +73,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
     try {
       await _authService.signInWithGoogle();
       if (!mounted) return;
-      context.go('/');
+      // 跳转由 authStateChanges 监听器统一处理（含 returnUrl）
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -116,7 +118,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
         await _authService.signInWithEmail(email, password);
       }
       if (!mounted) return;
-      context.go('/');
+      // 跳转由 authStateChanges 监听器统一处理（含 returnUrl）
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

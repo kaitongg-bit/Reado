@@ -863,6 +863,18 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                                   ),
                                                 ),
                                               const Spacer(),
+                                              if (item.pages.length > 1)
+                                                Padding(
+                                                  padding: const EdgeInsets
+                                                      .only(right: 4),
+                                                  child: Icon(
+                                                    Icons.push_pin,
+                                                    size: 14,
+                                                    color: isDark
+                                                        ? Colors.amber.shade300
+                                                        : Colors.amber.shade700,
+                                                  ),
+                                                ),
                                               if (item.isFavorited)
                                                 const Padding(
                                                   padding:

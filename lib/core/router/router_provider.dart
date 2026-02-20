@@ -10,6 +10,7 @@ import '../../features/war_room/presentation/war_room_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 import '../../features/home/presentation/module_detail_page.dart';
 import '../../features/feed/presentation/feed_provider.dart';
+import '../../features/feed/presentation/shared_feed_page.dart';
 import '../../features/onboarding/presentation/onboarding_page.dart';
 import '../../features/notes/presentation/ai_notes_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -24,21 +25,54 @@ final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Web 下用浏览器 hash 作为首屏路由，否则直接打开分享链接会先被 initialLocation 带到 onboarding
+String _initialLocation() {
+  final fragment = Uri.base.fragment;
+  if (fragment.isNotEmpty && fragment.startsWith('/')) {
+    return fragment;
+  }
+  return '/onboarding';
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: '/onboarding',
+    initialLocation: _initialLocation(),
     redirect: (context, state) {
       final user = FirebaseAuth.instance.currentUser;
       final isLoggingIn = state.matchedLocation == '/onboarding';
+      final ref = state.uri.queryParameters['ref'];
 
       if (user == null) {
+        // 游客通过分享链接可访问模块详情和只读 Feed
+        final isSharedModule =
+            state.matchedLocation.startsWith('/module/') && ref != null;
+        final isSharedFeed =
+            state.matchedLocation.startsWith('/shared-feed/');
+        if (isSharedFeed) {
+          if (ref == null) return '/onboarding';
+          return null;
+        }
+        if (isSharedModule) return null;
         // 未登录用户只能看 Onboarding
         return isLoggingIn ? null : '/onboarding';
       }
 
-      // 已登录用户不能去 Onboarding
-      if (isLoggingIn) return '/';
+      // 已登录用户离开 Onboarding：若有 returnUrl 则跳回分享页
+      // 兼容：地址栏常被解析成解码形式，returnUrl 会被第一个 ? 截断，ref/afterLogin 变成独立参数，这里拼回完整路径
+      if (isLoggingIn) {
+        final returnUrl = state.uri.queryParameters['returnUrl'];
+        final refParam = state.uri.queryParameters['ref'];
+        final afterLoginParam = state.uri.queryParameters['afterLogin'];
+        if (returnUrl != null && returnUrl.isNotEmpty) {
+          String path = returnUrl.contains('%') ? Uri.decodeComponent(returnUrl) : returnUrl;
+          if (refParam != null && !path.contains('ref=')) {
+            path = '$path?ref=$refParam&afterLogin=${afterLoginParam ?? 'save'}';
+          }
+          return path;
+        }
+        return '/';
+      }
 
       return null;
     },
@@ -133,28 +167,55 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(
+        path: '/shared-feed/:moduleId',
+        pageBuilder: (context, state) {
+          final moduleId = state.pathParameters['moduleId']!;
+          final ownerId = state.uri.queryParameters['ref'];
+          final indexStr = state.uri.queryParameters['index'];
+          final initialIndex =
+              indexStr != null ? int.tryParse(indexStr) : null;
+          if (ownerId == null) {
+            return NoTransitionPage(
+                child: ModuleDetailPage(moduleId: moduleId));
+          }
+          return NoTransitionPage(
+            child: SharedFeedPage(
+              moduleId: moduleId,
+              ownerId: ownerId,
+              initialIndex: initialIndex,
+            ),
+          );
+        },
+      ),
+      GoRoute(
         path: '/module/:moduleId',
         pageBuilder: (context, state) {
           final moduleId = state.pathParameters['moduleId']!;
+          final ownerId = state.uri.queryParameters['ref'];
 
           // --- 追踪分享点击 ---
-          final referrerId = state.uri.queryParameters['ref'];
-          if (referrerId != null) {
+          if (ownerId != null) {
             Future.microtask(() async {
               final dataService = ref.read(dataServiceProvider);
-              await dataService.logShareClick(referrerId);
+              await dataService.logShareClick(ownerId);
 
               // 如果分享者就是当前用户，立即刷新本地状态
               final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-              if (currentUserId == referrerId) {
+              if (currentUserId == ownerId) {
                 ref.read(creditProvider.notifier).refresh();
               }
             });
           }
           // ------------------
 
+          final afterLoginSave =
+              state.uri.queryParameters['afterLogin'] == 'save';
           return NoTransitionPage(
-            child: ModuleDetailPage(moduleId: moduleId),
+            child: ModuleDetailPage(
+              moduleId: moduleId,
+              ownerId: ownerId,
+              afterLoginSave: afterLoginSave,
+            ),
           );
         },
       ),

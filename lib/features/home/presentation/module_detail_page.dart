@@ -5,9 +5,12 @@ import 'dart:html' as html;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../../core/router/pending_login_return_path.dart';
+import '../../../../core/widgets/save_error_dialog.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../../models/feed_item.dart';
 import '../../../models/knowledge_module.dart';
+import '../../../models/shared_module_data.dart';
 import 'module_provider.dart';
 import 'home_page.dart'; // Import for homeTabControlProvider
 import '../../lab/presentation/add_material_modal.dart';
@@ -15,18 +18,260 @@ import '../../../../core/providers/credit_provider.dart';
 
 class ModuleDetailPage extends ConsumerWidget {
   final String moduleId;
+  final String? ownerId;
+  final bool afterLoginSave;
 
-  const ModuleDetailPage({super.key, required this.moduleId});
+  const ModuleDetailPage({
+    super.key,
+    required this.moduleId,
+    this.ownerId,
+    this.afterLoginSave = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (ownerId != null) {
+      return _buildSharedView(context, ref);
+    }
+    return _buildLoggedInView(context, ref);
+  }
+
+  Widget _buildSharedView(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sharedAsync = ref.watch(sharedModuleProvider((ownerId!, moduleId)));
+
+    return sharedAsync.when(
+      data: (shared) {
+        if (afterLoginSave) {
+          return _AutoSaveAfterLogin(
+            moduleId: moduleId,
+            ownerId: ownerId!,
+            onSave: () => _onSaveToMyLibrary(
+              context,
+              ref,
+              shared,
+              '/module/$moduleId?ref=$ownerId',
+            ),
+            onClearParam: () =>
+                context.go('/module/$moduleId?ref=$ownerId'),
+            child: _buildGuestSharedBody(context, ref, isDark, shared),
+          );
+        }
+        return _buildGuestSharedBody(context, ref, isDark, shared);
+      },
+      loading: () => Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, st) => Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline, size: 48, color: Colors.grey[600]),
+                const SizedBox(height: 16),
+                Text('加载失败：$e',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey[700])),
+                const SizedBox(height: 24),
+                TextButton.icon(
+                  onPressed: () => context.go('/onboarding'),
+                  icon: const Icon(Icons.login),
+                  label: const Text('去登录'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGuestSharedBody(
+      BuildContext context, WidgetRef ref, bool isDark, SharedModuleData shared) {
+    final module = shared.module;
+    final moduleItems = shared.items;
+    final cardCount = moduleItems.length;
+    final baseUrl = html.window.location.origin;
+    final returnPath =
+        '/module/$moduleId?ref=$ownerId&afterLogin=save';
+    final currentShareUrl = '$baseUrl/#$returnPath';
+    final user = FirebaseAuth.instance.currentUser;
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () =>
+                        user == null ? context.go('/onboarding') : context.go('/'),
+                  ),
+                  Expanded(
+                    child: Text(
+                      '分享的知识库',
+                      style: Theme.of(context).textTheme.titleMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 16),
+                    Text(module.title,
+                        style: const TextStyle(
+                            fontSize: 22, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Text(module.description,
+                        style: TextStyle(
+                            fontSize: 14,
+                            color: isDark ? Colors.white70 : Colors.black54)),
+                    const SizedBox(height: 8),
+                    Text('共 $cardCount 张卡片',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white54 : Colors.black45)),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _onSaveToMyLibrary(
+                                context, ref, shared, returnPath),
+                            icon: const Icon(Icons.bookmark_add_outlined),
+                            label: const Text('保存到我的知识库'),
+                            style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              context.push(
+                                  '/shared-feed/$moduleId?ref=$ownerId');
+                            },
+                            icon: const Icon(Icons.menu_book),
+                            label: const Text('开始阅读'),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.black,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    ...moduleItems.asMap().entries.map((e) {
+                      final item = e.value;
+                      final index = e.key;
+                      return _buildCompactCard(context, item, index, isDark,
+                          ref, false,
+                          sharedModuleId: moduleId, sharedOwnerId: ownerId);
+                    }),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onSaveToMyLibrary(BuildContext context, WidgetRef ref,
+      SharedModuleData shared, String returnPath) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      PendingLoginReturnPath.set(returnPath);
+      context.go('/onboarding');
+      return;
+    }
+    if (!context.mounted) return;
+    // 立即弹出加载框，避免用户以为没反应
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 20),
+            const Text('正在保存到你的知识库…'),
+          ],
+        ),
+      ),
+    );
+    try {
+      if (shared.module.isOfficial) {
+        ref.read(lastActiveModuleProvider.notifier).setActiveModule(moduleId);
+        ref.read(homeTabControlProvider.notifier).state = 1;
+        if (context.mounted) Navigator.of(context).pop();
+        if (context.mounted) context.go('/');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('已加入学习，去首页开始吧'),
+                behavior: SnackBarBehavior.floating),
+          );
+        }
+      } else {
+        final dataService = ref.read(dataServiceProvider);
+        final newId =
+            await dataService.copySharedModuleToMine(ownerId!, moduleId);
+        if (!context.mounted) {
+          Navigator.of(context).pop();
+          return;
+        }
+        await ref.read(moduleProvider.notifier).refresh();
+        await ref.read(feedProvider.notifier).loadAllData();
+        ref.read(feedProvider.notifier).loadModule(newId);
+        await Future.delayed(const Duration(milliseconds: 80));
+        if (!context.mounted) return;
+        Navigator.of(context).pop();
+        context.go('/module/$newId');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('已保存到你的知识库'),
+              behavior: SnackBarBehavior.floating),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        showSaveToLibraryErrorDialog(context, error: e, onRetry: () {
+          _onSaveToMyLibrary(context, ref, shared, returnPath);
+        });
+      }
+    }
+  }
+
+  Widget _buildLoggedInView(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final moduleState = ref.watch(moduleProvider);
     final feedItems = ref.watch(allItemsProvider);
-    print('🔍 ModuleDetailPage build: moduleId=$moduleId'); // DEBUG LOG
+    print('🔍 ModuleDetailPage build: moduleId=$moduleId');
 
-    // Find the module
-    // Show loader if initializing
     if (moduleState.isLoading &&
         moduleState.officials.isEmpty &&
         moduleState.custom.isEmpty) {
@@ -36,7 +281,6 @@ class ModuleDetailPage extends ConsumerWidget {
       );
     }
 
-    // Find the module
     KnowledgeModule module;
     if (moduleId == 'ALL') {
       module = KnowledgeModule(
@@ -106,52 +350,80 @@ class ModuleDetailPage extends ConsumerWidget {
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.share),
-                    onPressed: () {
+                    onPressed: () async {
                       final user = FirebaseAuth.instance.currentUser;
                       if (user == null) return;
 
-                      // 1. 生成专属链接
-                      // 生产环境使用实际域名，开发环境使用 window.location.origin
-                      final String baseUrl = html.window.location.origin;
-                      // 显式添加 /#/ 以确保 Web Hash 模式下的路由匹配
-                      final String shareUrl =
-                          "$baseUrl/#/module/$moduleId?ref=${user.uid}";
-
-                      // 2. 复制到剪贴板
-                      Clipboard.setData(ClipboardData(
-                          text: '嘿！我正在使用 Reado 学习这个超棒的知识库，快来看看：\n$shareUrl'));
-
-                      // 3. 奖励积分 (动作奖励)
-                      ref.read(creditProvider.notifier).rewardShare(amount: 10);
-
-                      // 4. 显示提示
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Icon(Icons.stars, color: Color(0xFFFFB300)),
-                                  SizedBox(width: 8),
-                                  Text('分享成功！获得 10 积分动作奖励 🎁'),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              const Text('当好友通过您的链接加入时，您将再获得 50 积分！',
-                                  style: TextStyle(
-                                      fontSize: 12, color: Colors.white)),
-                              const SizedBox(height: 4),
-                              Text('专属链接已复制: $shareUrl',
-                                  style: const TextStyle(
-                                      fontSize: 10, color: Colors.white70)),
-                            ],
-                          ),
-                          backgroundColor: const Color(0xFF2E7D32),
-                          behavior: SnackBarBehavior.floating,
+                      final includeNotes = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('分享知识库'),
+                          content: const Text(
+                              '是否将笔记一并分享给查看者？'),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.pop(ctx, false),
+                              child: const Text('仅分享知识库'),
+                            ),
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.pop(ctx, true),
+                              child: const Text('分享知识库与笔记'),
+                            ),
+                          ],
                         ),
                       );
+                      if (includeNotes == null || !context.mounted) return;
+
+                      await ref
+                          .read(dataServiceProvider)
+                          .setShareNotesPublic(user.uid, includeNotes);
+
+                      final String baseUrl = html.window.location.origin;
+                      final String shareUrl =
+                          '$baseUrl/#/module/$moduleId?ref=${user.uid}';
+
+                      Clipboard.setData(ClipboardData(
+                          text:
+                              '嘿！我正在使用 Reado 学习这个超棒的知识库，快来看看：\n$shareUrl'));
+
+                      ref.read(creditProvider.notifier).rewardShare(amount: 10);
+
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.stars,
+                                        color: Color(0xFFFFB300)),
+                                    SizedBox(width: 8),
+                                    Text(
+                                        '分享成功！获得 10 积分动作奖励 🎁'),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                    '当好友通过您的链接加入时，您将再获得 50 积分！',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white)),
+                                const SizedBox(height: 4),
+                                Text('专属链接已复制: $shareUrl',
+                                    style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.white70)),
+                              ],
+                            ),
+                            backgroundColor: const Color(0xFF2E7D32),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
                     },
                   ),
                   PopupMenuButton<String>(
@@ -386,7 +658,8 @@ class ModuleDetailPage extends ConsumerWidget {
   }
 
   Widget _buildCompactCard(BuildContext context, FeedItem item, int index,
-      bool isDark, WidgetRef ref, bool isCurrentlyViewing) {
+      bool isDark, WidgetRef ref, bool isCurrentlyViewing,
+      {String? sharedModuleId, String? sharedOwnerId}) {
     // Get preview text
     String previewText = '';
     if (item.pages.isNotEmpty) {
@@ -402,8 +675,15 @@ class ModuleDetailPage extends ConsumerWidget {
       }
     }
 
+    final isGuestShared = sharedModuleId != null && sharedOwnerId != null;
+
     return GestureDetector(
       onTap: () {
+        if (isGuestShared) {
+          context.push(
+              '/shared-feed/$sharedModuleId?ref=$sharedOwnerId&index=$index');
+          return;
+        }
         // Save the active module and card index
         ref
             .read(lastActiveModuleProvider.notifier)
@@ -507,6 +787,17 @@ class ModuleDetailPage extends ConsumerWidget {
                 ],
               ),
             ),
+            if (item.pages.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Icon(
+                  Icons.push_pin,
+                  size: 14,
+                  color: isDark
+                      ? Colors.amber.shade300
+                      : Colors.amber.shade700,
+                ),
+              ),
             // Arrow / Actions
             if (true) // Allow hiding official cards too based on USER request
               PopupMenuButton<String>(
@@ -589,4 +880,42 @@ class ModuleDetailPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// 登录后回跳时自动执行一次「保存到我的知识库」，并显示「正在保存」弹窗
+class _AutoSaveAfterLogin extends StatefulWidget {
+  final String moduleId;
+  final String ownerId;
+  final VoidCallback onSave;
+  final VoidCallback onClearParam;
+  final Widget child;
+
+  const _AutoSaveAfterLogin({
+    required this.moduleId,
+    required this.ownerId,
+    required this.onSave,
+    required this.onClearParam,
+    required this.child,
+  });
+
+  @override
+  State<_AutoSaveAfterLogin> createState() => _AutoSaveAfterLoginState();
+}
+
+class _AutoSaveAfterLoginState extends State<_AutoSaveAfterLogin> {
+  bool _didRun = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_didRun) return;
+      _didRun = true;
+      widget.onSave();
+      widget.onClearParam();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

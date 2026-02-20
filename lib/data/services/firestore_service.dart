@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../../models/feed_item.dart';
 import '../../models/knowledge_module.dart';
+import '../../models/shared_module_data.dart';
 
 // Interface for Data Service (Repo Pattern)
 abstract class DataService {
@@ -57,6 +58,17 @@ abstract class DataService {
   /// 保存某知识点的 AI 囤囤鼠聊天记录
   Future<void> saveAiChatHistory(
       String userId, String itemId, List<Map<String, dynamic>> messages);
+
+  /// 获取共享知识库只读数据（游客或复制用）；ownerId 即分享链接中的 ref
+  Future<SharedModuleData> fetchSharedModule(String ownerId, String moduleId);
+
+  /// 是否分享时开放笔记
+  Future<bool> getShareNotesPublic(String userId);
+  Future<void> setShareNotesPublic(String userId, bool value);
+
+  /// 将他人分享的自定义知识库复制到当前用户，返回新模块 id
+  Future<String> copySharedModuleToMine(
+      String ownerId, String sourceModuleId);
 }
 
 class FirestoreService implements DataService {
@@ -1047,5 +1059,150 @@ class FirestoreService implements DataService {
       if (kDebugMode) print('Error saving AI chat for $itemId: $e');
       rethrow;
     }
+  }
+
+  static const _officialModuleIds = {'A', 'B', 'C', 'D'};
+
+  @override
+  Future<SharedModuleData> fetchSharedModule(
+      String ownerId, String moduleId) async {
+    if (_officialModuleIds.contains(moduleId)) {
+      return _fetchSharedOfficialModule(ownerId, moduleId);
+    }
+    return _fetchSharedCustomModule(ownerId, moduleId);
+  }
+
+  Future<SharedModuleData> _fetchSharedOfficialModule(
+      String ownerId, String moduleId) async {
+    final querySnapshot = await _feedRef
+        .where('module', isEqualTo: moduleId)
+        .get()
+        .timeout(const Duration(seconds: 10), onTimeout: () {
+      throw Exception('数据库连接超时');
+    });
+    final items = querySnapshot.docs.map((doc) {
+      final data = doc.data();
+      data['firestoreId'] = doc.id;
+      return data;
+    }).toList();
+
+    final shareNotesPublic = await getShareNotesPublic(ownerId);
+    if (shareNotesPublic && items.isNotEmpty) {
+      const chunkSize = 5;
+      for (var i = 0; i < items.length; i += chunkSize) {
+        final chunk = items.skip(i).take(chunkSize);
+        for (final item in chunk) {
+          final itemId = item['id'] as String?;
+          if (itemId == null) continue;
+          try {
+            final notes =
+                await _fetchUserNotesForItem(ownerId, itemId);
+            if (notes.isNotEmpty) {
+              final pages =
+                  List<Map<String, dynamic>>.from(item['pages'] ?? []);
+              pages.addAll(notes);
+              item['pages'] = pages;
+            }
+          } catch (e) {
+            if (kDebugMode) print('⚠️ Shared notes skip $itemId: $e');
+          }
+        }
+        if (i + chunkSize < items.length) {
+          await Future.delayed(const Duration(milliseconds: 50));
+        }
+      }
+    }
+
+    final feedItems = items.map((data) => FeedItem.fromJson(data)).toList();
+    final officialList =
+        KnowledgeModule.officials.where((m) => m.id == moduleId).toList();
+    final module = officialList.isNotEmpty
+        ? officialList.first
+        : KnowledgeModule(
+            id: moduleId,
+            title: '知识库',
+            description: '',
+            ownerId: 'official',
+            isOfficial: true,
+          );
+    return SharedModuleData(module: module, items: feedItems);
+  }
+
+  Future<SharedModuleData> _fetchSharedCustomModule(
+      String ownerId, String moduleId) async {
+    final moduleDoc = await _usersRef
+        .doc(ownerId)
+        .collection('modules')
+        .doc(moduleId)
+        .get();
+    if (!moduleDoc.exists) {
+      throw Exception('该知识库不存在或已关闭分享');
+    }
+    final moduleData = moduleDoc.data()!;
+    final module = KnowledgeModule.fromJson(moduleData, moduleId);
+
+    final snapshot = await _usersRef
+        .doc(ownerId)
+        .collection('custom_items')
+        .where('module', isEqualTo: moduleId)
+        .get();
+    final items = snapshot.docs.map<FeedItem>((doc) {
+      final data = doc.data();
+      data['isCustom'] = true;
+      return FeedItem.fromJson(data);
+    }).toList();
+
+    return SharedModuleData(module: module, items: items);
+  }
+
+  @override
+  Future<bool> getShareNotesPublic(String userId) async {
+    try {
+      final doc = await _usersRef
+          .doc(userId)
+          .collection('share_settings')
+          .doc('settings')
+          .get();
+      if (!doc.exists) return false;
+      return doc.data()?['shareNotesPublic'] as bool? ?? false;
+    } catch (e) {
+      if (kDebugMode) print('getShareNotesPublic: $e');
+      return false;
+    }
+  }
+
+  @override
+  Future<void> setShareNotesPublic(String userId, bool value) async {
+    await _usersRef
+        .doc(userId)
+        .collection('share_settings')
+        .doc('settings')
+        .set({'shareNotesPublic': value}, SetOptions(merge: true));
+  }
+
+  @override
+  Future<String> copySharedModuleToMine(
+      String ownerId, String sourceModuleId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('请先登录');
+
+    if (_officialModuleIds.contains(sourceModuleId)) {
+      throw Exception('官方知识库无需复制，登录后直接在首页学习即可');
+    }
+
+    final shared = await _fetchSharedCustomModule(ownerId, sourceModuleId);
+    final newModule = await createModule(
+      user.uid,
+      '${shared.module.title}（来自分享）',
+      shared.module.description,
+    );
+
+    for (final item in shared.items) {
+      final newId =
+          '${DateTime.now().millisecondsSinceEpoch}_${item.id.hashCode.abs()}';
+      final copy = item.copyWith(id: newId, moduleId: newModule.id);
+      await saveCustomFeedItem(copy, user.uid);
+    }
+    return newModule.id;
   }
 }

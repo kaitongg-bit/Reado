@@ -1,0 +1,65 @@
+rules_version = '2';
+// Firestore 安全规则：需在 Firebase 控制台部署或与本地模拟器同步
+// 部署: firebase deploy --only firestore
+//
+// 分享逻辑：
+// - 他人通过分享链接（ref=ownerId）可「只读」分享者的模块、卡片、分享设置、笔记（当开放时）
+// - 仅本人可写自己的数据；他人「保存到我的知识库」时写入的是自己的 users/{自己的 uid}/...，由下方 write 规则允许
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- 用户根文档：积分、资料等，仅本人可读写 ----------
+    // 例外：任何人可对 users/{userId} 做「仅含 shareClicks/credits/lastShareClickAt」的 merge 写，用于记录分享点击（logShareClick）
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if request.resource.data.keys().hasOnly([
+            'shareClicks', 'credits', 'lastShareClickAt'
+          ]);
+    }
+
+    // ---------- 分享相关：任何人可读（他人看分享链接、复制前拉取），仅本人可写 ----------
+    match /users/{userId}/modules/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /users/{userId}/custom_items/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /users/{userId}/share_settings/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /users/{userId}/notes/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ---------- 仅本人可读写（进度、隐藏、AI 对话等） ----------
+    match /users/{userId}/mastery/{docId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /users/{userId}/hidden_items/{docId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /users/{userId}/hidden_modules/{docId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /users/{userId}/progress/{docId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /users/{userId}/module_progress/{docId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /users/{userId}/ai_chats/{docId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ---------- 官方 feed：所有人可读，不开放写 ----------
+    match /feed_items/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

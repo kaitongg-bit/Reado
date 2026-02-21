@@ -180,8 +180,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                     ),
                   );
                 },
+                // 登录/注册页背景固定为白，故始终用浅色样式，避免深色主题下出现黑框+白字
                 child: isAuth
-                    ? _buildAuthView(isDark, textColor, subTextColor)
+                    ? _buildAuthView(false, Colors.black87, Colors.grey[600])
                     : _buildIntroView(false, Colors.black87, Colors.grey[600]),
               ),
             ),
@@ -893,8 +894,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
   }
 
   Widget _buildAuthView(bool isDark, Color textColor, Color? subTextColor) {
+    // 普通黑白：浅色用黑、深色用白；输入框背景接近白/深灰，不用黄
+    final hintColor = subTextColor ?? Colors.grey;
+    final inputFill = isDark ? Colors.grey.shade800 : Colors.grey.shade50;
+    final inputBorder = isDark ? Colors.grey.shade600 : Colors.grey.shade300;
     final accentColor = const Color(0xFFFF8A65);
-    final grey = Colors.grey.shade600;
     return SingleChildScrollView(
       key: const ValueKey('AuthView'),
       child: Center(
@@ -908,7 +912,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                 Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
-                    icon: Icon(Icons.arrow_back_ios_new, size: 20, color: Colors.black87),
+                    icon: Icon(Icons.arrow_back_ios_new, size: 20, color: textColor),
                     onPressed: () => setState(() => _isAuthView = false),
                   ),
                 ),
@@ -925,30 +929,32 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                 const SizedBox(height: 24),
                 Text(
                   _isSignUpMode ? '创建账号' : '登陆',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: textColor,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   _isSignUpMode ? '开始你的知识内化之旅' : '继续你的学习',
-                  style: TextStyle(fontSize: 14, color: grey),
+                  style: TextStyle(fontSize: 14, color: hintColor),
                 ),
                 const SizedBox(height: 32),
 
                 if (_isSignUpMode) ...[
                   TextField(
                     controller: _usernameController,
+                    style: TextStyle(color: textColor, fontSize: 16),
                     decoration: InputDecoration(
                       hintText: '用户名',
-                      prefixIcon: Icon(Icons.person_outline, color: grey, size: 22),
+                      hintStyle: TextStyle(color: hintColor),
+                      prefixIcon: Icon(Icons.person_outline, color: hintColor, size: 22),
                       filled: true,
-                      fillColor: Colors.grey.shade100,
+                      fillColor: inputFill,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
+                        borderSide: BorderSide(color: inputBorder),
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     ),
@@ -958,14 +964,16 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                 TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  style: TextStyle(color: textColor, fontSize: 16),
                   decoration: InputDecoration(
                     hintText: '电子邮箱',
-                    prefixIcon: Icon(Icons.email_outlined, color: grey, size: 22),
+                    hintStyle: TextStyle(color: hintColor),
+                    prefixIcon: Icon(Icons.email_outlined, color: hintColor, size: 22),
                     filled: true,
-                    fillColor: Colors.grey.shade100,
+                    fillColor: inputFill,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide(color: inputBorder),
                     ),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   ),
@@ -974,22 +982,24 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                 TextField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
+                  style: TextStyle(color: textColor, fontSize: 16),
                   decoration: InputDecoration(
                     hintText: '密码',
-                    prefixIcon: Icon(Icons.lock_outline, color: grey, size: 22),
+                    hintStyle: TextStyle(color: hintColor),
+                    prefixIcon: Icon(Icons.lock_outline, color: hintColor, size: 22),
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        color: grey,
+                        color: hintColor,
                         size: 22,
                       ),
                       onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                     ),
                     filled: true,
-                    fillColor: Colors.grey.shade100,
+                    fillColor: inputFill,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide(color: inputBorder),
                     ),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   ),
@@ -1025,18 +1035,18 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                   onPressed: () => setState(() => _isSignUpMode = !_isSignUpMode),
                   child: Text(
                     _isSignUpMode ? '已有账号？登陆' : '没有账号？注册',
-                    style: TextStyle(color: accentColor, fontSize: 14, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w500),
                   ),
                 ),
                 const SizedBox(height: 24),
                 Row(
                   children: [
-                    const Expanded(child: Divider(color: Colors.grey)),
+                    Expanded(child: Divider(color: inputBorder)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('或', style: TextStyle(fontSize: 13, color: grey)),
+                      child: Text('或', style: TextStyle(fontSize: 13, color: hintColor)),
                     ),
-                    const Expanded(child: Divider(color: Colors.grey)),
+                    Expanded(child: Divider(color: inputBorder)),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -1046,8 +1056,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                   child: OutlinedButton(
                     onPressed: _isLoading ? null : _signInWithGoogle,
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.black87,
-                      side: BorderSide(color: Colors.grey.shade400),
+                      foregroundColor: textColor,
+                      side: BorderSide(color: inputBorder),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -1059,10 +1069,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                           'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png',
                           width: 22,
                           height: 22,
-                          errorBuilder: (_, __, ___) => const Icon(Icons.login, size: 22),
+                          errorBuilder: (_, __, ___) => Icon(Icons.login, size: 22, color: textColor),
                         ),
                         const SizedBox(width: 10),
-                        const Text('使用 Google 登陆', style: TextStyle(fontSize: 15)),
+                        Text('使用 Google 登陆', style: TextStyle(fontSize: 15, color: textColor)),
                       ],
                     ),
                   ),
@@ -1070,7 +1080,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                 const SizedBox(height: 32),
                 Text(
                   '登陆即表示同意用户协议与隐私政策',
-                  style: TextStyle(fontSize: 12, color: grey),
+                  style: TextStyle(fontSize: 12, color: hintColor),
                   textAlign: TextAlign.center,
                 ),
               ],

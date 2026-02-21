@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Unifying background for the entire app.
-/// Provides a consistent top-to-bottom gradient.
-/// Light mode: Soft Orange Gradient
-/// Dark mode: Deep Gray/Black Gradient
+/// Light mode: Notion 风格白/浅灰，深色模式：深灰渐变
 class AppBackground extends StatelessWidget {
   const AppBackground({super.key});
 
@@ -23,8 +21,8 @@ class AppBackground extends StatelessWidget {
                     const Color(0xFF121212),
                   ]
                 : [
-                    const Color(0xFFFFF7ED), // Orange 50
-                    const Color(0xFFFFEDD5), // Orange 100
+                    Colors.white,
+                    Colors.grey.shade50,
                   ],
           ),
         ),

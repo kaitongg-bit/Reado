@@ -108,26 +108,30 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       displayedModules = [...moduleState.custom, ...moduleState.officials];
     }
 
-    // Theme Colors
-    final bgOrange = const Color(0xFFFFE0B2); // Background orange
+    // 浅色：顶部偏米色，内容区纯白，控件用有层次的暖灰，避免灰成一团
+    const topBeige = Color(0xFFFDF8F3); // 「晚上好」区域：偏米色
+    const contentWhite = Colors.white;
+    const inputBg = Color(0xFFF5F0E8);   // 搜索框等：暖灰，与白区分
+    const tabSelectedBg = Color(0xFFEFE9E1); // 选中标签：再深一点暖灰
+    const cardHighlight = Color(0xFFF8F6F3); // 卡片高亮：极浅暖灰
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF1A1A1A) : bgOrange,
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : contentWhite,
       body: Stack(
         children: [
-          // 1. Top Orange Background
+          // 1. 顶部区域：浅色用米色，深色不变
           Container(
             height: MediaQuery.of(context).size.height * 0.55,
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFFFCC80),
+              color: isDark ? const Color(0xFF1E1E1E) : topBeige,
             ),
           ),
 
-          // 2. White Content Sheet
+          // 2. 下方内容区：纯白，与顶部米色分层
           Container(
             margin: const EdgeInsets.only(top: 320),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF121212) : const Color(0xFFFAFAFA),
+              color: isDark ? const Color(0xFF121212) : contentWhite,
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(48)),
             ),
@@ -403,7 +407,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                           decoration: BoxDecoration(
                             color: isDark
                                 ? Colors.white.withOpacity(0.1)
-                                : const Color(0xFFFFF3E0),
+                                : inputBg,
                             borderRadius: BorderRadius.circular(16),
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -438,7 +442,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                     size: 24,
                                     color: isDark
                                         ? Colors.white54
-                                        : Colors.orangeAccent),
+                                        : Colors.grey.shade600),
                                 onPressed: () {
                                   final value = _searchController.text.trim();
                                   if (value.isNotEmpty) {
@@ -777,7 +781,9 @@ class _FilterTabItem extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFFFFCC80) : Colors.transparent,
+              color: isSelected
+                  ? (isDark ? const Color(0xFFFFCC80) : const Color(0xFFEFE9E1))
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -786,8 +792,8 @@ class _FilterTabItem extends StatelessWidget {
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.bold,
                 fontSize: 15,
                 color: isSelected
-                    ? const Color(0xFF3E2723)
-                    : (isDark ? Colors.grey : Colors.grey[400]),
+                    ? (isDark ? const Color(0xFF3E2723) : Colors.black87)
+                    : (isDark ? Colors.grey : Colors.grey[600]),
               ),
             ),
           ),
@@ -796,8 +802,8 @@ class _FilterTabItem extends StatelessWidget {
               margin: const EdgeInsets.only(top: 4),
               width: 4,
               height: 4,
-              decoration: const BoxDecoration(
-                color: Color(0xFFE65100),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFFE65100) : Colors.grey.shade700,
                 shape: BoxShape.circle,
               ),
             )
@@ -875,11 +881,12 @@ class _WideKnowledgeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Highlight colors
+    // Highlight colors（浅色用有层次的暖灰，与背景白区分）
+    final cardHighlight = const Color(0xFFF8F6F3);
     final bg = isHighlighted
         ? (isDark
             ? const Color(0xFF3E2723)
-            : const Color(0xFFFFF3E0)) // Pale Yellow/Orange for highlight
+            : cardHighlight)
         : (isDark ? Colors.white10 : Colors.white);
 
     return GestureDetector(
@@ -896,7 +903,7 @@ class _WideKnowledgeCard extends StatelessWidget {
           boxShadow: [
             if (isHighlighted)
               BoxShadow(
-                color: Colors.orange.withOpacity(0.1),
+                color: (isDark ? Colors.orange : Colors.grey).withOpacity(0.1),
                 blurRadius: 15,
                 offset: const Offset(0, 5),
               )

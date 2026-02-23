@@ -7,6 +7,11 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 admin.initializeApp();
 
+/** 用于分享点击统计的 reado 库（与 Flutter 端 databaseId 一致） */
+function getReadoDb() {
+  return getFirestore(admin.app(), 'reado');
+}
+
 // Secret Manager：敏感配置迁移（替代旧版 functions.config / 环境配置）
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
 
@@ -95,7 +100,7 @@ exports.processExtractionJob = onCall(
         }
 
         const userId = context.auth.uid;
-        const db = getFirestore(admin.app(), 'reado');
+        const db = getReadoDb();
         const jobRef = db.collection('extraction_jobs').doc(jobId);
 
         console.log(`🚀 Starting background job ${jobId} for user ${userId}`);
@@ -137,7 +142,7 @@ exports.processExtractionJob = onCall(
                 generationConfig: { responseMimeType: "application/json" }
             });
 
-            // 3. 生成大纲（知识点数量随内容长度缩放，避免长文只出 7 个点）
+            // 3. 生成大纲（知识点数量随内容长度缩放，与 Flutter 端积分/字数规则一致）
             const contentLen = (content && content.length) || 0;
             const minPoints = contentLen <= 5000 ? 2 : Math.max(2, Math.floor(contentLen / 1500));
             const maxPoints = contentLen <= 5000 ? 8 : Math.min(30, Math.max(8, Math.ceil(contentLen / 800)));
@@ -153,8 +158,8 @@ exports.processExtractionJob = onCall(
 ${modeOutlineInstructions}
 
 ## 任务
-1. 阅读用户的学习资料
-2. 识别出 ${pointRange} 个独立的核心知识点（内容较长时请尽量多拆、避免只出少量大块）
+1. 阅读用户的学习资料（当前约 ${contentLen} 字）
+2. **必须至少识别出 ${minPoints} 个、最多 ${maxPoints} 个**独立的核心知识点。内容越长，知识点数量应越多，严禁只输出 3～5 个大块；请按内容密度合理拆分。
 3. 每个知识点用一个简洁的标题概括（10-20字）
 
 ## 输出格式
@@ -178,7 +183,10 @@ ${content.substring(0, 30000)}
 
             let cleanOutline = outlineText.replace(/```json|```/g, '').trim();
             const outlineJson = JSON.parse(cleanOutline);
-            const topics = outlineJson.topics || outlineJson.items || [];
+            let topics = outlineJson.topics || outlineJson.items || [];
+            if (topics.length < minPoints) {
+                console.warn(`⚠️ Job ${jobId}: outline returned ${topics.length} topics (min ${minPoints} for ${contentLen} chars). Proceeding anyway.`);
+            }
 
             await jobRef.update({
                 progress: 0.2,
@@ -322,6 +330,34 @@ ${content.substring(0, 30000)}
                 completedAt: admin.firestore.FieldValue.serverTimestamp()
             });
             throw new HttpsError('internal', error.message);
+        }
+    }
+);
+
+/**
+ * 记录推广分享点击并给推广者加 50 积分（服务端写入 reado 库，不依赖客户端规则）
+ * 调用方：Flutter 在打开带 ref= 的分享链接时调用，可不要求登录。
+ */
+exports.logShareClick = onCall(
+    { timeoutSeconds: 10 },
+    async (request) => {
+        const referrerId = request.data && request.data.referrerId;
+        if (!referrerId || typeof referrerId !== 'string' || referrerId.length === 0) {
+            throw new HttpsError('invalid-argument', '缺少 referrerId');
+        }
+        const db = getReadoDb();
+        const userRef = db.collection('users').doc(referrerId);
+        try {
+            await userRef.set({
+                shareClicks: admin.firestore.FieldValue.increment(1),
+                credits: admin.firestore.FieldValue.increment(50),
+                lastShareClickAt: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            console.log('📈 Share click logged for', referrerId);
+            return { success: true };
+        } catch (e) {
+            console.error('❌ logShareClick failed:', e);
+            throw new HttpsError('internal', e.message || '记录失败');
         }
     }
 );

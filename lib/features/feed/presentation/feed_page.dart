@@ -119,6 +119,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   late TextEditingController _bodyEditController;
   int? _editingPageIndex;
   bool _initialPositionRestored = false;
+  bool _hasTouchedModuleForRecent = false;
 
   void _tryRestorePosition(int itemCount) {
     if (_initialPositionRestored || !mounted) return;
@@ -262,6 +263,17 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     if (!_initialPositionRestored && feedItems.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _tryRestorePosition(feedItems.length);
+      });
+    }
+
+    // 「最近在学」：进入学习页即标记该模块为刚访问
+    if (!_hasTouchedModuleForRecent &&
+        widget.moduleId != 'SEARCH' &&
+        widget.moduleId != 'ALL' &&
+        widget.moduleId != 'AI_NOTES') {
+      _hasTouchedModuleForRecent = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(moduleLastAccessedAtProvider.notifier).touch(widget.moduleId);
       });
     }
 

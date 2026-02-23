@@ -174,6 +174,20 @@ final routerProvider = Provider<GoRouter>((ref) {
           final indexStr = state.uri.queryParameters['index'];
           final initialIndex =
               indexStr != null ? int.tryParse(indexStr) : null;
+
+          // --- 追踪分享点击（与 /onboarding、/module 一致，避免分享到本页时漏统计）---
+          if (ownerId != null) {
+            Future.microtask(() async {
+              final dataService = ref.read(dataServiceProvider);
+              await dataService.logShareClick(ownerId);
+              final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+              if (currentUserId == ownerId) {
+                ref.read(creditProvider.notifier).refresh();
+              }
+            });
+          }
+          // -------------------------------------------------------------------------
+
           if (ownerId == null) {
             return NoTransitionPage(
                 child: ModuleDetailPage(moduleId: moduleId));

@@ -150,7 +150,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
     // 3. 奖励积分 (动作奖励)
     ref.read(creditProvider.notifier).rewardShare(amount: 10);
 
-    // 4. 显示提示
+    // 4. 显示提示（不展示长链接，文案更大更清晰）
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Column(
@@ -161,15 +161,19 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
               children: [
                 Icon(Icons.stars, color: Color(0xFFFFB300)),
                 SizedBox(width: 8),
-                Text('分享成功！获得 10 积分动作奖励 🎁'),
+                Text('分享成功！获得 10 积分动作奖励 🎁',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               ],
             ),
+            const SizedBox(height: 10),
+            const Text('已经为您复制到剪贴板',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
             const SizedBox(height: 4),
-            const Text('当好友通过您的链接加入时，您将再获得 50 积分！',
-                style: TextStyle(fontSize: 12, color: Colors.white)),
-            const SizedBox(height: 4),
-            Text('专属链接已复制: $shareUrl',
-                style: const TextStyle(fontSize: 10, color: Colors.white70)),
+            const Text('分享链接已复制到剪贴板，快粘贴给你的朋友使用吧',
+                style: TextStyle(fontSize: 14, color: Colors.white)),
+            const SizedBox(height: 6),
+            const Text('好友通过您的链接加入时，您将再获得 50 积分',
+                style: TextStyle(fontSize: 12, color: Colors.white70)),
           ],
         ),
         backgroundColor: const Color(0xFF2E7D32),

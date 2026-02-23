@@ -266,7 +266,19 @@ class ModuleDetailPage extends ConsumerWidget {
     }
   }
 
+  static final Set<String> _detailTouchedModuleIds = {};
+
   Widget _buildLoggedInView(BuildContext context, WidgetRef ref) {
+    // 「最近在学」：进入模块详情页即标记该模块为刚访问（仅一次 per 会话）
+    if (moduleId != 'ALL' &&
+        moduleId != 'AI_NOTES' &&
+        !_detailTouchedModuleIds.contains(moduleId)) {
+      _detailTouchedModuleIds.add(moduleId);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(moduleLastAccessedAtProvider.notifier).touch(moduleId);
+      });
+    }
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final moduleState = ref.watch(moduleProvider);
     final feedItems = ref.watch(allItemsProvider);
@@ -403,19 +415,29 @@ class ModuleDetailPage extends ConsumerWidget {
                                         color: Color(0xFFFFB300)),
                                     SizedBox(width: 8),
                                     Text(
-                                        '分享成功！获得 10 积分动作奖励 🎁'),
+                                        '分享成功！获得 10 积分动作奖励 🎁',
+                                        style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600)),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                    '当好友通过您的链接加入时，您将再获得 50 积分！',
+                                const SizedBox(height: 10),
+                                const Text('已经为您复制到剪贴板',
                                     style: TextStyle(
-                                        fontSize: 12,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
                                         color: Colors.white)),
                                 const SizedBox(height: 4),
-                                Text('专属链接已复制: $shareUrl',
-                                    style: const TextStyle(
-                                        fontSize: 10,
+                                const Text(
+                                    '分享链接已复制到剪贴板，快粘贴给你的朋友使用吧',
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.white)),
+                                const SizedBox(height: 6),
+                                const Text(
+                                    '好友通过您的链接加入时，您将再获得 50 积分',
+                                    style: TextStyle(
+                                        fontSize: 12,
                                         color: Colors.white70)),
                               ],
                             ),

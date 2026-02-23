@@ -80,13 +80,18 @@ class LastActiveModuleNotifier extends StateNotifier<String?> {
 final feedProgressProvider =
     StateNotifierProvider<FeedProgressNotifier, Map<String, int>>((ref) {
   final dataService = ref.watch(dataServiceProvider);
-  return FeedProgressNotifier(dataService);
+  final onProgressUpdated = (String moduleId) {
+    ref.read(moduleLastAccessedAtProvider.notifier).touch(moduleId);
+  };
+  return FeedProgressNotifier(dataService, onProgressUpdated: onProgressUpdated);
 });
 
 class FeedProgressNotifier extends StateNotifier<Map<String, int>> {
   final DataService _dataService;
+  final void Function(String moduleId)? onProgressUpdated;
 
-  FeedProgressNotifier(this._dataService) : super({}) {
+  FeedProgressNotifier(this._dataService, {this.onProgressUpdated})
+      : super({}) {
     _loadProgress();
   }
 
@@ -129,6 +134,7 @@ class FeedProgressNotifier extends StateNotifier<Map<String, int>> {
     if (state[moduleId] == index) return;
 
     print('💾 Saving progress: moduleId=$moduleId, index=$index');
+    onProgressUpdated?.call(moduleId);
 
     // CRITICAL: Must use this syntax to use variable as map key in Dart
     final newState = Map<String, int>.from(state);
@@ -151,6 +157,60 @@ class FeedProgressNotifier extends StateNotifier<Map<String, int>> {
     } catch (e) {
       print('❌ Failed to save progress: $e');
     }
+  }
+}
+
+/// 各模块最后学习/访问时间（ms），用于「最近在学」排序
+final moduleLastAccessedAtProvider =
+    StateNotifierProvider<ModuleLastAccessedAtNotifier, Map<String, int>>((ref) {
+  final dataService = ref.watch(dataServiceProvider);
+  return ModuleLastAccessedAtNotifier(dataService);
+});
+
+class ModuleLastAccessedAtNotifier extends StateNotifier<Map<String, int>> {
+  final DataService _dataService;
+
+  ModuleLastAccessedAtNotifier(this._dataService) : super({}) {
+    _load();
+  }
+
+  static const String _prefsKey = 'feed_progress_last_at';
+
+  Future<void> _load() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString(_prefsKey);
+      if (jsonStr != null) {
+        final decoded = json.decode(jsonStr) as Map<String, dynamic>;
+        state = decoded.map((key, value) => MapEntry(key, value as int));
+      }
+      User? user = FirebaseAuth.instance.currentUser;
+      for (int i = 0; i < 10 && user == null; i++) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        user = FirebaseAuth.instance.currentUser;
+      }
+      if (user != null) {
+        final cloud = await _dataService.fetchModuleLastAccessed(user.uid);
+        if (cloud.isNotEmpty) {
+          final merged = {...state, ...cloud};
+          state = merged;
+          await prefs.setString(_prefsKey, json.encode(merged));
+        }
+      }
+    } catch (e) {
+      // Quiet fail
+    }
+  }
+
+  void touch(String moduleId) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (state[moduleId] == now) return;
+    final newState = Map<String, int>.from(state);
+    newState[moduleId] = now;
+    state = newState;
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setString(_prefsKey, json.encode(state));
+    });
   }
 }
 

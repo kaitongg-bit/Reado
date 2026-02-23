@@ -1264,7 +1264,13 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                   : () async {
                                       final targetId =
                                           await _ensureTargetModuleId();
-                                      if (targetId != null) {
+                                      if (targetId == null) return;
+                                      final confirmed =
+                                          await _showBatchConfirmDialog(
+                                        context,
+                                        queue,
+                                      );
+                                      if (confirmed == true && context.mounted) {
                                         notifier.startProcessing(targetId);
                                       }
                                     }),
@@ -2423,6 +2429,137 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     } else {
       return '${(seconds / 60).toStringAsFixed(1)} 分钟';
     }
+  }
+
+  /// 批量处理前确认：展示预计消耗积分（与单次拆解一致的对话框风格）
+  static Future<bool?> _showBatchConfirmDialog(
+    BuildContext context,
+    List<BatchItem> queue,
+  ) {
+    final pending = queue
+        .where((i) => i.status != BatchStatus.completed)
+        .toList();
+    final aiPending = pending
+        .where((i) => i.processingMode == BatchProcessingMode.ai)
+        .toList();
+    final directPending = pending
+        .where((i) => i.processingMode == BatchProcessingMode.direct)
+        .length;
+
+    int totalCreditsForExtracted = 0;
+    int countWithoutExtraction = 0;
+    for (final item in aiPending) {
+      if (item.extractionResult != null) {
+        totalCreditsForExtracted +=
+            ContentExtractionService.calculateRequiredCredits(
+                item.extractionResult!.content.length);
+      } else {
+        countWithoutExtraction++;
+      }
+    }
+
+    final totalAi = aiPending.length;
+    if (totalAi == 0 && directPending == 0) return Future.value(false);
+    if (totalAi == 0) {
+      return showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('确认批量处理'),
+          content: const Text(
+            '当前队列中仅有「直接导入」项，不会消耗积分。是否开始？',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFee8f4b)),
+              child: const Text('开始'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    String creditsSummary;
+    if (countWithoutExtraction == 0) {
+      creditsSummary = '本次将扣除 $totalCreditsForExtracted 积分';
+    } else if (totalCreditsForExtracted == 0) {
+      creditsSummary =
+          '共 $totalAi 项，将按内容长度逐项扣费（约 10～40 积分/项）';
+    } else {
+      creditsSummary =
+          '已解析项合计 $totalCreditsForExtracted 积分；其余 $countWithoutExtraction 项将按长度逐项扣费（10～40 积分/项）';
+    }
+
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.auto_awesome, color: Color(0xFFee8f4b)),
+            SizedBox(width: 12),
+            Text('确认开始批量拆解？'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '共 ${totalAi + directPending} 项待处理（其中 $totalAi 项为 AI 智能拆解）。',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFee8f4b).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                    color: const Color(0xFFee8f4b).withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.stars,
+                      color: Color(0xFFee8f4b), size: 20),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      creditsSummary,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '💡 每项将根据字数按规则扣费（约 10～40 积分/项），与单次拆解一致。',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFee8f4b)),
+            child: const Text('开始生成'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<bool?> _showGenerationConfirmDialog(

@@ -98,14 +98,31 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     final feedItems = ref.watch(allItemsProvider);
     final moduleState = ref.watch(moduleProvider);
 
-    // Filter Modules
+    // 三个分类的列表都按「最后学习/访问时间」排序，使「最新」= 真正最近在学
+    final lastAt = ref.watch(moduleLastAccessedAtProvider);
     List<KnowledgeModule> displayedModules = [];
     if (filterIndex == 0) {
-      displayedModules = moduleState.officials;
+      displayedModules = List<KnowledgeModule>.from(moduleState.officials)
+        ..sort((a, b) {
+          final ta = lastAt[a.id] ?? 0;
+          final tb = lastAt[b.id] ?? 0;
+          return tb.compareTo(ta);
+        });
     } else if (filterIndex == 1) {
-      displayedModules = moduleState.custom;
+      displayedModules = List<KnowledgeModule>.from(moduleState.custom)
+        ..sort((a, b) {
+          final ta = lastAt[a.id] ?? 0;
+          final tb = lastAt[b.id] ?? 0;
+          return tb.compareTo(ta);
+        });
     } else {
-      displayedModules = [...moduleState.custom, ...moduleState.officials];
+      final combined = [...moduleState.custom, ...moduleState.officials];
+      displayedModules = List<KnowledgeModule>.from(combined)
+        ..sort((a, b) {
+          final ta = lastAt[a.id] ?? 0;
+          final tb = lastAt[b.id] ?? 0;
+          return tb.compareTo(ta);
+        });
     }
 
     // 浅色：顶部偏米色，内容区纯白，控件用有层次的暖灰，避免灰成一团

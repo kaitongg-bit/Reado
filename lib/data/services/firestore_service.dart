@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -41,6 +42,8 @@ abstract class DataService {
       String userId, String moduleId, int index); // Save reading progress
   Future<Map<String, int>> fetchAllModuleProgress(
       String userId); // Fetch all progress
+  /// 各模块最后学习时间（用于「最近在学」排序）moduleId -> 时间戳 ms
+  Future<Map<String, int>> fetchModuleLastAccessed(String userId);
   Future<Map<String, int>> fetchUserStats(String userId); // 获取积分和点击数
   Stream<Map<String, int>> userStatsStream(String userId); // 实时监听积分和点击数
   Future<void> logShareClick(String referrerId); // 记录分享点击
@@ -856,6 +859,31 @@ class FirestoreService implements DataService {
   }
 
   @override
+  Future<Map<String, int>> fetchModuleLastAccessed(String userId) async {
+    try {
+      final snapshot =
+          await _usersRef.doc(userId).collection('module_progress').get();
+      final map = <String, int>{};
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final updatedAt = data['updatedAt'];
+        if (updatedAt == null) continue;
+        int ms = 0;
+        if (updatedAt is Timestamp) {
+          ms = updatedAt.millisecondsSinceEpoch;
+        } else if (updatedAt is DateTime) {
+          ms = updatedAt.millisecondsSinceEpoch;
+        }
+        if (ms > 0) map[doc.id] = ms;
+      }
+      return map;
+    } catch (e) {
+      print('Error fetching module lastAccessed: $e');
+      return {};
+    }
+  }
+
+  @override
   Stream<Map<String, int>> userStatsStream(String userId) {
     return _usersRef.doc(userId).snapshots().map((doc) {
       if (!doc.exists) {
@@ -914,15 +942,19 @@ class FirestoreService implements DataService {
 
   Future<void> logShareClick(String referrerId) async {
     try {
-      // ⚠️ 同理，使用 set(merge: true) 确保分享数据持久化
-      await _usersRef.doc(referrerId).set({
-        'shareClicks': FieldValue.increment(1),
-        'credits': FieldValue.increment(50),
-        'lastShareClickAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-      print('📈 Share click tracked and rewarded (set/merge) for $referrerId');
-    } catch (e) {
-      print('Error logging share click: $e');
+      // 优先走 Cloud Function（服务端写入 reado 库，不依赖客户端 Firestore 规则）
+      final callable = FirebaseFunctions.instance.httpsCallable('logShareClick');
+      await callable.call<Map<String, dynamic>>({'referrerId': referrerId});
+      if (kDebugMode) {
+        print('📈 Share click tracked (via Cloud Function) for $referrerId');
+      }
+    } catch (e, st) {
+      if (kDebugMode) {
+        print('❌ logShareClick failed: $e');
+        print(st);
+      }
+      // 可选：若未部署 Cloud Function，可在此 fallback 到直接写 Firestore（需 rules 允许）
+      // await _usersRef.doc(referrerId).set({...}, SetOptions(merge: true));
     }
   }
 

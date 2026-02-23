@@ -588,6 +588,19 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     }).toList();
   }
 
+  /// 可读性最佳实践：宽屏时限制内容最大宽度，左右边距随窗口加宽而增加（类似 Gemini 等）
+  static const double _kReadableContentMaxWidth = 720.0;
+  static const double _kMinHorizontalPadding = 24.0;
+
+  EdgeInsets _responsiveContentPadding(BoxConstraints constraints,
+      {required double top, required double bottom}) {
+    final contentMaxWidth = constraints.maxWidth > _kReadableContentMaxWidth + _kMinHorizontalPadding * 2
+        ? _kReadableContentMaxWidth
+        : (constraints.maxWidth - _kMinHorizontalPadding * 2);
+    final horizontal = (constraints.maxWidth - contentMaxWidth) / 2;
+    return EdgeInsets.fromLTRB(horizontal, top, horizontal, bottom);
+  }
+
   Widget _buildPageContent(CardPageContent content) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final adhdSettings = ref.watch(adhdSettingsProvider);
@@ -596,16 +609,14 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     final backgroundColor =
         isDark ? Colors.black.withOpacity(0.3) : Colors.white.withOpacity(0.85);
 
-    // Padding to clear the Top Header (which is in FeedPage)
-    // Reduce from 130 to 88 to fix "giant gap" issue
-    final contentPadding = const EdgeInsets.fromLTRB(24, 88, 24, 140);
-
     if (content is OfficialPage) {
       return Container(
         color: backgroundColor, // Semi-transparent base
         child: SelectionArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
+              final contentPadding = _responsiveContentPadding(constraints,
+                  top: 88, bottom: 140);
               return ScrollConfiguration(
                 behavior:
                     ScrollConfiguration.of(context).copyWith(scrollbars: false),
@@ -742,14 +753,19 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
         ),
       );
     } else if (content is UserNotePage) {
-      // No bottom padding for notes - maximize reading space
-      final notePadding = const EdgeInsets.fromLTRB(24, 88, 24, 0);
+      // 笔记区与正文一致：窄屏最小 24 边距，宽屏随窗口加宽
+      const noteTop = 88.0;
+      const noteBottom = 0.0;
 
       // In-Place Editing Mode
       if (_isEditing && _editingNote == content) {
-        return Container(
-          color: isDark ? const Color(0xFF2C2518) : const Color(0xFFFFFBE6),
-          padding: notePadding.copyWith(bottom: 24),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final padding = _responsiveContentPadding(constraints,
+                top: noteTop, bottom: 24);
+            return Container(
+              color: isDark ? const Color(0xFF2C2518) : const Color(0xFFFFFBE6),
+              padding: padding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -813,14 +829,20 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
             ],
           ),
         );
+          },
+        );
       }
 
-      return Container(
-        color: isDark
-            ? const Color(0xFF2C2518) // Dark mode: Warmer dark grey
-            : const Color(0xFFFFFBE6), // Light mode: Soft yellowish paper
-        padding: notePadding,
-        child: SelectionArea(
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final notePadding = _responsiveContentPadding(constraints,
+              top: noteTop, bottom: noteBottom);
+          return Container(
+            color: isDark
+                ? const Color(0xFF2C2518) // Dark mode: Warmer dark grey
+                : const Color(0xFFFFFBE6), // Light mode: Soft yellowish paper
+            padding: notePadding,
+            child: SelectionArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -997,6 +1019,8 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           ),
         ),
       );
+        },
+      );
     }
     return const SizedBox.shrink();
   }
@@ -1006,12 +1030,13 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final backgroundColor =
         isDark ? Colors.black.withOpacity(0.3) : Colors.white.withOpacity(0.85);
-    final contentPadding = const EdgeInsets.fromLTRB(24, 88, 24, 140);
     final c = widget.bodyEditController!;
     return Container(
       color: backgroundColor,
       child: LayoutBuilder(
         builder: (context, constraints) {
+          final contentPadding = _responsiveContentPadding(constraints,
+              top: 88, bottom: 140);
           return SingleChildScrollView(
             padding: contentPadding,
             child: ConstrainedBox(

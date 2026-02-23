@@ -73,6 +73,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
 
     // Default: Search -> Grid, Normal -> Single
     _isSingleView = !isSearch;
+    _bodyEditController = TextEditingController();
 
     if (isSearch && widget.searchQuery != null) {
       Future.microtask(() =>
@@ -109,10 +110,14 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   @override
   void dispose() {
     _verticalController.dispose();
+    _bodyEditController.dispose();
     super.dispose();
   }
 
   int _focusedItemIndex = 0;
+  bool _isEditingBody = false;
+  late TextEditingController _bodyEditController;
+  int? _editingPageIndex;
   bool _initialPositionRestored = false;
 
   void _tryRestorePosition(int itemCount) {
@@ -466,53 +471,117 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                         ),
                         Row(
                           children: [
-                            // Right: View All (back to detail page)
-                            GestureDetector(
-                              key: _allCardsKey,
-                              onTap: () {
-                                if (onboardingState.isTutorialActive &&
-                                    !onboardingState.hasSeenAllCardsPhase2 &&
-                                    onboardingState.hasSeenAllCardsPhase1) {
-                                  ref
-                                      .read(onboardingProvider.notifier)
-                                      .completeStep('all_cards_p2');
-                                }
-                                context.push('/module/${widget.moduleId}');
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 7),
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? Colors.white.withOpacity(0.15)
-                                      : Colors.black.withOpacity(0.08),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
+                            if (_isEditingBody)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  TextButton(
+                                    onPressed: () async {
+                                      final item =
+                                          feedItems[_focusedItemIndex];
+                                      final pageIndex = _editingPageIndex;
+                                      if (pageIndex == null) return;
+                                      try {
+                                        await ref
+                                            .read(feedProvider.notifier)
+                                            .updateFeedItemPageContent(
+                                                item.id,
+                                                pageIndex,
+                                                _bodyEditController.text);
+                                        if (mounted) {
+                                          setState(() {
+                                            _isEditingBody = false;
+                                            _editingPageIndex = null;
+                                          });
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(const SnackBar(
+                                                  content: Text('正文已保存')));
+                                        }
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(SnackBar(
+                                                  content: Text(
+                                                      '保存失败: $e')));
+                                        }
+                                      }
+                                    },
+                                    child: const Text('保存'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _isEditingBody = false;
+                                        _editingPageIndex = null;
+                                      });
+                                    },
+                                    child: const Text('取消'),
+                                  ),
+                                ],
+                              )
+                            else ...[
+                              // Right: View All (back to detail page)
+                              GestureDetector(
+                                key: _allCardsKey,
+                                onTap: () {
+                                  if (onboardingState.isTutorialActive &&
+                                      !onboardingState.hasSeenAllCardsPhase2 &&
+                                      onboardingState.hasSeenAllCardsPhase1) {
+                                    ref
+                                        .read(onboardingProvider.notifier)
+                                        .completeStep('all_cards_p2');
+                                  }
+                                  context.push('/module/${widget.moduleId}');
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 7),
+                                  decoration: BoxDecoration(
                                     color: isDark
-                                        ? Colors.white.withOpacity(0.2)
-                                        : Colors.black.withOpacity(0.1),
+                                        ? Colors.white.withOpacity(0.15)
+                                        : Colors.black.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? Colors.white.withOpacity(0.2)
+                                          : Colors.black.withOpacity(0.1),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '全部',
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark
+                                            ? Colors.white
+                                            : Colors.black87),
                                   ),
                                 ),
-                                child: Text(
-                                  '全部',
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark
-                                          ? Colors.white
-                                          : Colors.black87),
-                                ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            // More Options (Delete)
-                            PopupMenuButton<String>(
+                              const SizedBox(width: 10),
+                              // More Options (Delete)
+                              PopupMenuButton<String>(
                               icon: Icon(Icons.more_horiz,
                                   color:
                                       isDark ? Colors.white70 : Colors.black54),
                               padding: EdgeInsets.zero,
                               onSelected: (value) async {
                                 final item = feedItems[_focusedItemIndex];
+                                if (value == 'edit_body') {
+                                  final idx = item.pages
+                                      .indexWhere((p) => p is OfficialPage);
+                                  if (idx >= 0) {
+                                    final page =
+                                        item.pages[idx] as OfficialPage;
+                                    _bodyEditController.text =
+                                        page.markdownContent;
+                                    setState(() {
+                                      _editingPageIndex = idx;
+                                      _isEditingBody = true;
+                                    });
+                                  }
+                                  return;
+                                }
                                 if (value == 'move') {
                                   final modules = ref
                                       .read(moduleProvider)
@@ -652,7 +721,28 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                 final isCustom = feedItems.isNotEmpty &&
                                     _focusedItemIndex < feedItems.length &&
                                     feedItems[_focusedItemIndex].isCustom;
+                                final item = feedItems.isNotEmpty &&
+                                        _focusedItemIndex < feedItems.length
+                                    ? feedItems[_focusedItemIndex]
+                                    : null;
+                                final hasBodyPage = item != null &&
+                                    item.pages
+                                        .any((p) => p is OfficialPage);
                                 final list = <PopupMenuItem<String>>[
+                                  if (isCustom && hasBodyPage)
+                                    const PopupMenuItem(
+                                      value: 'edit_body',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.edit_note,
+                                              color: Colors.green, size: 20),
+                                          SizedBox(width: 8),
+                                          Text('编辑正文',
+                                              style: TextStyle(
+                                                  color: Colors.green)),
+                                        ],
+                                      ),
+                                    ),
                                   if (isCustom)
                                     const PopupMenuItem(
                                       value: 'move',
@@ -697,6 +787,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                 return list;
                               },
                             ),
+                            ],
                           ],
                         ),
                       ],
@@ -781,6 +872,13 @@ class _FeedPageState extends ConsumerState<FeedPage> {
           child: FeedItemView(
             key: ValueKey(item.id),
             feedItem: item,
+            isEditingBody: _isEditingBody && index == _focusedItemIndex,
+            bodyEditController: _isEditingBody && index == _focusedItemIndex
+                ? _bodyEditController
+                : null,
+            editingPageIndex: _isEditingBody && index == _focusedItemIndex
+                ? _editingPageIndex
+                : null,
             onViewModeChanged: (isNote) {
               // Defer state update to avoid build collisions
               if (_isVerticalNavLocked != isNote) {

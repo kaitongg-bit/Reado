@@ -137,7 +137,12 @@ exports.processExtractionJob = onCall(
                 generationConfig: { responseMimeType: "application/json" }
             });
 
-            // 3. 生成大纲
+            // 3. 生成大纲（知识点数量随内容长度缩放，避免长文只出 7 个点）
+            const contentLen = (content && content.length) || 0;
+            const minPoints = contentLen <= 5000 ? 2 : Math.max(2, Math.floor(contentLen / 1500));
+            const maxPoints = contentLen <= 5000 ? 8 : Math.min(30, Math.max(8, Math.ceil(contentLen / 800)));
+            const pointRange = `${minPoints}-${maxPoints}`;
+
             const modeOutlineInstructions = mode === 'grandma'
                 ? "采用“极简大白话”风格：识别出最基础、最通俗的核心知识点，标题要平实直白。"
                 : (mode === 'phd' ? "采用“智障博士生”风格：极简大白话，但逻辑极严密，不要任何花哨类比，直接提取硬核逻辑支柱。" : "");
@@ -149,7 +154,7 @@ ${modeOutlineInstructions}
 
 ## 任务
 1. 阅读用户的学习资料
-2. 识别出 2-8 个独立的核心知识点
+2. 识别出 ${pointRange} 个独立的核心知识点（内容较长时请尽量多拆、避免只出少量大块）
 3. 每个知识点用一个简洁的标题概括（10-20字）
 
 ## 输出格式

@@ -627,6 +627,35 @@ class FeedNotifier extends StateNotifier<List<FeedItem>> {
     _dataService.updateUserNote(itemId, oldNote, newQ, newA);
   }
 
+  /// 更新自定义卡某一页的正文（原位编辑保存）
+  Future<void> updateFeedItemPageContent(
+      String itemId, int pageIndex, String newMarkdownContent) async {
+    final userId = currentUserId;
+    if (userId == null) return;
+
+    final index = _allItems.indexWhere((i) => i.id == itemId);
+    if (index == -1) return;
+
+    final item = _allItems[index];
+    if (pageIndex < 0 || pageIndex >= item.pages.length) return;
+
+    final page = item.pages[pageIndex];
+    if (page is! OfficialPage) return;
+
+    await _dataService.updateCustomFeedItemPageContent(
+        userId, itemId, pageIndex, newMarkdownContent);
+
+    final newPage = OfficialPage(
+      newMarkdownContent,
+      flashcardQuestion: page.flashcardQuestion,
+      flashcardAnswer: page.flashcardAnswer,
+    );
+    final newPages = List<CardPageContent>.from(item.pages);
+    newPages[pageIndex] = newPage;
+    final newItem = item.copyWith(pages: newPages);
+    updateItem(newItem);
+  }
+
   int get totalDueCount {
     final now = DateTime.now();
     return _allItems.where((item) {

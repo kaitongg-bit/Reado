@@ -117,6 +117,14 @@ class ContentExtractionService {
     return chunkCount * 20;
   }
 
+  /// 根据字符数给出知识点数量范围文案（与云函数逻辑一致，避免长文只出 7 个点）
+  static String _pointRangeForChars(int charCount) {
+    if (charCount <= 5000) return '2-8';
+    final minP = (charCount ~/ 1500).clamp(2, 30);
+    final maxP = ((charCount / 800).ceil()).clamp(8, 30);
+    return '$minP-$maxP';
+  }
+
   /// 从 URL 提取内容
   ///
   /// 优先级：
@@ -327,7 +335,7 @@ $modeInstructions
 - **独立性**：每个知识点应该是一个独立的概念或技能
 - **适度粒度**：不要太大（难以消化）也不要太小（过于琐碎）
 - **逻辑顺序**：按照从基础到进阶的顺序排列
-- **数量控制**：根据输入内容长度，生成 2-8 个知识点
+- **数量控制**：根据输入内容长度，生成 ${_pointRangeForChars(extraction.content.length)} 个知识点（内容较长时请多拆、避免只出少量大块）
 
 ### 2. 正文内容要求
 每个知识点的正文必须：
@@ -488,11 +496,12 @@ $modeInstructions
         modeOutlineInstructions = "采用“智障博士生”风格：极简大白话，禁止多余空格，逻辑严密，直接提取逻辑支柱。";
       }
 
-      // 长文分段时每段内容多，应生成更多知识点，与积分（多段=多扣费）对应
+      // 知识点数量随本段长度缩放（与云函数、积分逻辑一致）
+      final String pointRange = _pointRangeForChars(chunkContent.length);
       final bool isMultiChunk = chunks.length > 1;
       final String topicCountInstruction = isMultiChunk
-          ? '2. 本段为长文档的第 ${chunkIndex + 1}/${chunks.length} 段，内容较多，请充分拆解并识别出 6-15 个独立的核心知识点'
-          : '2. 识别出 2-8 个独立的核心知识点';
+          ? '2. 本段为长文档的第 ${chunkIndex + 1}/${chunks.length} 段，内容较多，请充分拆解并识别出 $pointRange 个独立的核心知识点'
+          : '2. 识别出 $pointRange 个独立的核心知识点（内容较长时请多拆、避免只出少量大块）';
 
       final outlinePrompt = '''
 你是一位资深的教育内容专家。请快速分析用户提供的学习资料，识别出其中的核心知识点。

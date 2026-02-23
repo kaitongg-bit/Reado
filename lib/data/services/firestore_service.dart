@@ -25,6 +25,9 @@ abstract class DataService {
       {bool force = false}); // For migration
   Future<void> saveCustomFeedItem(
       FeedItem item, String userId); // 保存AI生成的自定义知识点
+  /// 更新自定义知识卡某一页的正文（原位编辑保存）
+  Future<void> updateCustomFeedItemPageContent(
+      String userId, String itemId, int pageIndex, String newMarkdownContent);
   Future<void> saveOfficialFeedItem(FeedItem item); // 管理员发布官方内容
   Future<List<KnowledgeModule>> fetchUserModules(String userId);
   Future<List<KnowledgeModule>> fetchAllUserModules(
@@ -336,6 +339,34 @@ class FirestoreService implements DataService {
       print('✅ Saved AI Custom Item: ${item.id}');
     } catch (e) {
       print('❌ Error saving custom item: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> updateCustomFeedItemPageContent(
+      String userId, String itemId, int pageIndex, String newMarkdownContent) async {
+    try {
+      final ref =
+          _usersRef.doc(userId).collection('custom_items').doc(itemId);
+      final doc = await ref.get();
+      if (!doc.exists || doc.data() == null) {
+        throw Exception('自定义知识点不存在: $itemId');
+      }
+      final data = doc.data()!;
+      final pages = List<Map<String, dynamic>>.from(data['pages'] ?? []);
+      if (pageIndex < 0 || pageIndex >= pages.length) {
+        throw Exception('页面索引无效: $pageIndex');
+      }
+      final page = Map<String, dynamic>.from(pages[pageIndex]);
+      if (page['type'] != 'text') {
+        throw Exception('该页不是正文页，无法编辑');
+      }
+      page['markdownContent'] = newMarkdownContent;
+      pages[pageIndex] = page;
+      await ref.update({'pages': pages});
+    } catch (e) {
+      print('❌ Error updating page content: $e');
       rethrow;
     }
   }

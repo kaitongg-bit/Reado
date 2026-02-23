@@ -43,12 +43,19 @@ class FeedItemView extends ConsumerStatefulWidget {
   final bool isReviewMode;
   /// 分享知识库只读模式：不展示 Ask AI、Pin、编辑等
   final bool isSharedReadOnly;
+  /// 正文原位编辑：为 true 时在 editingPageIndex 页显示编辑框
+  final bool isEditingBody;
+  final TextEditingController? bodyEditController;
+  final int? editingPageIndex;
 
   const FeedItemView({
     super.key,
     required this.feedItem,
     this.isReviewMode = false,
     this.isSharedReadOnly = false,
+    this.isEditingBody = false,
+    this.bodyEditController,
+    this.editingPageIndex,
     this.onNextTap,
     this.onViewModeChanged,
   });
@@ -96,6 +103,21 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           _horizontalController.animateToPage(
             widget.feedItem.pages.length - 1,
             duration: const Duration(milliseconds: 500),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      });
+    }
+    // 进入正文编辑时滚动到该页，便于用户看到编辑框
+    if (widget.isEditingBody &&
+        widget.editingPageIndex != null &&
+        _currentPageIndex != widget.editingPageIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_horizontalController.hasClients) {
+          _currentPageIndex = widget.editingPageIndex!;
+          _horizontalController.animateToPage(
+            widget.editingPageIndex!,
+            duration: const Duration(milliseconds: 300),
             curve: Curves.easeOutCubic,
           );
         }
@@ -318,6 +340,12 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           },
           itemBuilder: (context, index) {
             final pageContent = pages[index];
+            if (widget.isEditingBody &&
+                widget.editingPageIndex != null &&
+                index == widget.editingPageIndex &&
+                widget.bodyEditController != null) {
+              return _buildBodyEditor();
+            }
             return _buildPageContent(pageContent);
           },
         ),
@@ -971,6 +999,51 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
       );
     }
     return const SizedBox.shrink();
+  }
+
+  /// 正文原位编辑：与 OfficialPage 同区域、同 padding 的多行输入
+  Widget _buildBodyEditor() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor =
+        isDark ? Colors.black.withOpacity(0.3) : Colors.white.withOpacity(0.85);
+    final contentPadding = const EdgeInsets.fromLTRB(24, 88, 24, 140);
+    final c = widget.bodyEditController!;
+    return Container(
+      color: backgroundColor,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            padding: contentPadding,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight:
+                    constraints.maxHeight - contentPadding.vertical + 1,
+              ),
+              child: SizedBox(
+                height: constraints.maxHeight - contentPadding.vertical,
+                child: TextField(
+                  controller: c,
+                  style: TextStyle(
+                    fontFamily: 'JinghuaSong',
+                    fontSize: 18,
+                    height: 1.8,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  maxLines: null,
+                  textAlignVertical: TextAlignVertical.top,
+                  decoration: const InputDecoration(
+                    hintText: '输入正文（支持 Markdown）',
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildActionButton({

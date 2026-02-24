@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/pending_login_return_path.dart';
 import '../../../core/services/auth_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../profile/presentation/philosophy_vision_section.dart';
 
 /// 官网页主价值句，便于后续改文案或多语言
 const String _kOnboardingValueProp =
@@ -308,6 +309,16 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                           _ProcessStep('手机端接着刷', Icons.phone_android),
                         ],
                       ),
+                      const SizedBox(height: 40),
+
+                      // 理念 + 未来愿景（主图与功能介绍下方）
+                      PhilosophyVisionSection(isDark: isDark),
+                      const SizedBox(height: 40),
+
+                      // 大家怎么说（模拟用户反馈卡片）
+                      _buildSectionTitle(textColor, '大家怎么说'),
+                      const SizedBox(height: 16),
+                      _buildOnboardingTestimonials(isDark, textColor, subTextColor),
                       const SizedBox(height: 48),
 
                       // 4. 引用线（Notion 风格）
@@ -541,6 +552,138 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
           fontWeight: FontWeight.bold,
           color: textColor,
         ),
+      ),
+    );
+  }
+
+  static const List<Map<String, String>> _kOnboardingTestimonials = [
+    {
+      'name': '小林',
+      'tag': '产品学习者',
+      'quote': '官方免费知识库有aipm必学知识，我还学了深度学习basic知识库，良心。而且，拆成卡片后确实没那么大压力，通勤刷几张刚好。',
+    },
+    {
+      'name': '阿橙',
+      'tag': '职场人',
+      'quote': '最喜欢的还是问完 AI 能直接 Pin 成笔记，我就当普通ai来用，想问啥问啥，不用自己整理太方便。再也不会「当时懂、过后忘」了。',
+    },
+    {
+      'name': 'Mia',
+      'tag': '备考党',
+      'quote': '老奶模式讲得特别接地气。但我一般还是会针对不同情况，切换不同的模式。',
+    },
+    {
+      'name': 'LindaWu_1111',
+      'tag': '留学生',
+      'quote': '智障博士模式太棒了，我现在把英语课件放在左边，把 Reado开在右边。一边看课件，一边看拆解出来的中文知识点，哪里不会问哪里，还能一键整理成笔记，爽死了这个用户体验',
+    },
+    {
+      'name': '一凡',
+      'tag': '产品经理求职',
+      'quote': '现在已经支持挺多文件和链接的，但是如果国内的一些内容，比如能支持从小红书、微信公众号等平台导入内容，那就无敌了。我知道可以复制粘贴微信公众号的内容，但小红书就没那么方便，毕竟很多是图文笔记。',
+    },
+  ];
+
+  Widget _buildOnboardingTestimonials(bool isDark, Color textColor, Color? subTextColor) {
+    final sub = subTextColor ?? Colors.grey[600] ?? Colors.grey;
+    return SizedBox(
+      height: 220,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _kOnboardingTestimonials.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 16),
+        itemBuilder: (context, index) {
+          final t = _kOnboardingTestimonials[index];
+          return _buildOnboardingTestimonialCard(
+            name: t['name']!,
+            tag: t['tag']!,
+            quote: t['quote']!,
+            isDark: isDark,
+            textColor: textColor,
+            subColor: sub,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildOnboardingTestimonialCard({
+    required String name,
+    required String tag,
+    required String quote,
+    required bool isDark,
+    required Color textColor,
+    required Color subColor,
+  }) {
+    return Container(
+      width: 260,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withOpacity(0.06)
+            : Colors.black.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.1)
+              : Colors.black.withOpacity(0.06),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '"$quote"',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.5,
+              color: subColor,
+              fontStyle: FontStyle.italic,
+            ),
+            maxLines: 8,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 14,
+                backgroundColor: const Color(0xFFFF8A65).withOpacity(0.3),
+                child: Text(
+                  name.isNotEmpty ? name[0] : '?',
+                  style: const TextStyle(
+                    color: Color(0xFFFF8A65),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    name,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  ),
+                  Text(
+                    tag,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: subColor,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

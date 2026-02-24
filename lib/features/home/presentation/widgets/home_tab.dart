@@ -220,12 +220,17 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                         displayedModules.length) {
                                       return const SizedBox(height: 80);
                                     }
+                                    final firstStarIndex = displayedModules
+                                        .indexWhere(
+                                            (m) => m.title.contains('STAR'));
                                     return _buildModuleCard(
                                       context,
                                       displayedModules[index],
                                       feedItems,
                                       index == 0,
                                       onboardingState,
+                                      useStarKey: firstStarIndex >= 0 &&
+                                          index == firstStarIndex,
                                     );
                                   },
                                 );
@@ -243,12 +248,17 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                 ),
                                 itemCount: displayedModules.length,
                                 itemBuilder: (context, index) {
+                                  final firstStarIndex = displayedModules
+                                      .indexWhere(
+                                          (m) => m.title.contains('STAR'));
                                   return _buildModuleCard(
                                     context,
                                     displayedModules[index],
                                     feedItems,
                                     index == 0,
                                     onboardingState,
+                                    useStarKey: firstStarIndex >= 0 &&
+                                        index == firstStarIndex,
                                   );
                                 },
                               );
@@ -518,8 +528,9 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     KnowledgeModule module,
     List<FeedItem> feedItems,
     bool isHighlighted,
-    OnboardingState onboardingState,
-  ) {
+    OnboardingState onboardingState, {
+    bool useStarKey = false,
+  }) {
     final mItems =
         feedItems.where((i) => i.moduleId == module.id).toList();
     final count = mItems.length;
@@ -531,7 +542,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     final isStarModule = module.title.contains('STAR');
 
     return _WideKnowledgeCard(
-      key: isStarModule ? _starModuleKey : null,
+      key: useStarKey ? _starModuleKey : ValueKey('module_${module.id}'),
       title: module.title,
       description: module.description,
       progress: progress,

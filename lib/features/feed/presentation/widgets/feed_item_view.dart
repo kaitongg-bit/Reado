@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -11,6 +13,35 @@ import '../../../../models/feed_item.dart';
 import '../feed_provider.dart';
 import '../../../../core/providers/adhd_provider.dart';
 import '../../../../core/providers/adhd_text_transformer.dart';
+
+void _debugLogPodcast({
+  required bool isDialogue,
+  required int parsedCount,
+  required String contentPreview,
+}) {
+  http
+      .post(
+        Uri.parse(
+            'http://127.0.0.1:7242/ingest/a29fc895-770c-4fe5-9d70-c0fd34a9a605'),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Debug-Session-Id': 'd0ba21',
+        },
+        body: jsonEncode({
+          'sessionId': 'd0ba21',
+          'location': 'feed_item_view.dart:_buildPageContent',
+          'message': 'Page content build',
+          'data': {
+            'isDialogue': isDialogue,
+            'parsedCount': parsedCount,
+            'contentPreview': contentPreview,
+          },
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'hypothesisId': 'podcast_display',
+        }),
+      )
+      .catchError((_) {});
+}
 
 /// 解析「原味保存」的对话记录："我: ...\n\n囤囤鼠: ..." -> [{isUser, text}, ...]
 List<({bool isUser, String text})> _parseConversationNote(String raw) {
@@ -36,6 +67,71 @@ bool _isConversationNote(UserNotePage content) {
   return content.question == '对话记录' ||
       content.answer.contains('囤囤鼠:') ||
       content.answer.contains('我:');
+}
+
+/// 解析播客式正文对话稿："主持人A: ...\n\n主持人B: ..." 或 "A: ...\n\nB: ..." -> [{isSpeakerA, text}, ...]
+/// 支持全角冒号、空格等变体；若按段解析为空则尝试按“主持人A/B”分割整段
+List<({bool isSpeakerA, String text})> _parseDialogueContent(String raw) {
+  final list = _parseDialogueContentByParagraphs(raw);
+  if (list.isNotEmpty) return list;
+  return _parseDialogueContentBySpeakerSplit(raw);
+}
+
+/// 按双换行分段的解析
+List<({bool isSpeakerA, String text})> _parseDialogueContentByParagraphs(String raw) {
+  final list = <({bool isSpeakerA, String text})>[];
+  final segments = raw.split(RegExp(r'\n\n+'));
+  final aPrefix = RegExp(r'^主持人\s*A[：:]\s*', caseSensitive: false);
+  final bPrefix = RegExp(r'^主持人\s*B[：:]\s*', caseSensitive: false);
+  final aShort = RegExp(r'^A[：:]\s*');
+  final bShort = RegExp(r'^B[：:]\s*');
+  for (final s in segments) {
+    final trimmed = s.trim();
+    if (trimmed.isEmpty) continue;
+    final isA = aPrefix.hasMatch(trimmed) || aShort.hasMatch(trimmed);
+    final isB = bPrefix.hasMatch(trimmed) || bShort.hasMatch(trimmed);
+    if (isA) {
+      final text = trimmed
+          .replaceFirst(aPrefix, '')
+          .replaceFirst(RegExp(r'^主持人A[：:]\s*'), '')
+          .replaceFirst(aShort, '')
+          .trim();
+      list.add((isSpeakerA: true, text: text));
+    } else if (isB) {
+      final text = trimmed
+          .replaceFirst(bPrefix, '')
+          .replaceFirst(RegExp(r'^主持人B[：:]\s*'), '')
+          .replaceFirst(bShort, '')
+          .trim();
+      list.add((isSpeakerA: false, text: text));
+    } else if (list.isNotEmpty) {
+      final last = list.removeLast();
+      list.add((isSpeakerA: last.isSpeakerA, text: '${last.text}\n\n$trimmed'));
+    }
+  }
+  return list;
+}
+
+/// 当分段解析为空时：按“主持人A：”“主持人B：”等分割整段（应对 AI 未用双换行）
+List<({bool isSpeakerA, String text})> _parseDialogueContentBySpeakerSplit(String raw) {
+  final list = <({bool isSpeakerA, String text})>[];
+  final speakerPattern = RegExp(
+    r'(主持人\s*A[：:]\s*|主持人\s*B[：:]\s*|^A[：:]\s*|^B[：:]\s*)',
+    caseSensitive: false,
+    multiLine: true,
+  );
+  final matches = speakerPattern.allMatches(raw).toList();
+  if (matches.isEmpty) return list;
+  for (int i = 0; i < matches.length; i++) {
+    final m = matches[i];
+    final prefix = m.group(0)!.toLowerCase();
+    final isA = prefix.contains('a') && !prefix.contains('b');
+    final textStart = m.end;
+    final textEnd = i + 1 < matches.length ? matches[i + 1].start : raw.length;
+    final text = raw.substring(textStart, textEnd).trim();
+    if (text.isNotEmpty) list.add((isSpeakerA: isA, text: text));
+  }
+  return list;
 }
 
 class FeedItemView extends ConsumerStatefulWidget {
@@ -633,6 +729,65 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     }).toList();
   }
 
+  /// 播客式正文对话稿气泡（主持人A 左 / 主持人B 右），复用与笔记对话相同的样式
+  List<Widget> _buildDialogueBubblesForPage(
+    List<({bool isSpeakerA, String text})> items,
+    bool isDark,
+  ) {
+    if (items.isEmpty) return [];
+    final textColorRight = Colors.white;
+    final textColorLeft = isDark
+        ? Colors.white.withOpacity(0.9)
+        : Colors.black87;
+    final bubbleColorRight = isDark ? const Color(0xFF9333EA) : Colors.black;
+    final bubbleColorLeft =
+        isDark ? Colors.white.withOpacity(0.1) : Colors.grey[100]!;
+    return items.map<Widget>((e) {
+      final isRight = !e.isSpeakerA; // B 在右
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Row(
+          mainAxisAlignment:
+              isRight ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            if (!isRight) const SizedBox(width: 40),
+            Flexible(
+              child: Container(
+                margin: EdgeInsets.only(
+                    left: isRight ? 40 : 0, right: isRight ? 16 : 40),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isRight ? bubbleColorRight : bubbleColorLeft,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(20),
+                    topRight: const Radius.circular(20),
+                    bottomLeft: Radius.circular(isRight ? 20 : 4),
+                    bottomRight: Radius.circular(isRight ? 4 : 20),
+                  ),
+                ),
+                child: isRight
+                    ? SelectableText(
+                        e.text,
+                        style: TextStyle(color: textColorRight, height: 1.5),
+                      )
+                    : MarkdownBody(
+                        data: e.text,
+                        selectable: true,
+                        styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
+                            .copyWith(
+                          p: TextStyle(color: textColorLeft, height: 1.5),
+                          strong: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+              ),
+            ),
+            if (isRight) const SizedBox(width: 40),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
   /// 可读性最佳实践：宽屏时限制内容最大宽度，左右边距随窗口加宽而增加（类似 Gemini 等）
   static const double _kReadableContentMaxWidth = 720.0;
   static const double _kMinHorizontalPadding = 24.0;
@@ -655,8 +810,130 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
         isDark ? Colors.black.withOpacity(0.3) : Colors.white.withOpacity(0.85);
 
     if (content is OfficialPage) {
+      final isDialogue = content.isDialogueContent;
+      final parsed = _parseDialogueContent(content.markdownContent);
+      // 只要解析出 ≥2 条对话就按播客气泡显示（不依赖 contentFormat，兼容 CF 未更新或 AI 格式微调）
+      final useBubbles = parsed.length >= 2;
+      // #region agent log
+      _debugLogPodcast(
+        isDialogue: isDialogue,
+        parsedCount: parsed.length,
+        contentPreview: content.markdownContent.length > 80
+            ? content.markdownContent.substring(0, 80)
+            : content.markdownContent,
+      );
+      // #endregion
+      final bodyWidget = useBubbles
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 播客页也保留知识点标题
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: Text(
+                    widget.feedItem.title,
+                    style: TextStyle(
+                      fontFamily: 'JinghuaSong',
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      height: 1.3,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                ..._buildDialogueBubblesForPage(parsed, isDark),
+              ],
+            )
+          : DefaultTextStyle(
+              style: TextStyle(
+                  fontFamily: 'JinghuaSong',
+                  color: Theme.of(context).colorScheme.onSurface),
+              child: MarkdownBody(
+                data: content.markdownContent,
+                styleSheet:
+                    MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                  h1: TextStyle(
+                      fontFamily: 'JinghuaSong',
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      height: 1.3,
+                      letterSpacing: -0.5,
+                      color: Theme.of(context).colorScheme.onSurface),
+                  h2: TextStyle(
+                    fontFamily: 'JinghuaSong',
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    height: 1.5,
+                  ),
+                  h3: const TextStyle(
+                      fontFamily: 'JinghuaSong',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20),
+                  h4: const TextStyle(
+                      fontFamily: 'JinghuaSong',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18),
+                  h5: const TextStyle(
+                      fontFamily: 'JinghuaSong',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16),
+                  h6: const TextStyle(
+                      fontFamily: 'JinghuaSong',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14),
+                  p: TextStyle(
+                      fontFamily: 'JinghuaSong',
+                      fontSize: 18,
+                      height: 1.8,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.9),
+                      letterSpacing: 0.2),
+                  listBullet: TextStyle(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.7),
+                  ),
+                  strong: const TextStyle(
+                      fontFamily: 'JinghuaSong', fontWeight: FontWeight.bold),
+                  em: const TextStyle(
+                      fontFamily: 'JinghuaSong', fontStyle: FontStyle.italic),
+                  blockquote: const TextStyle(
+                      fontFamily: 'JinghuaSong', color: Colors.grey),
+                  code: const TextStyle(
+                      fontFamily: 'JinghuaSong',
+                      backgroundColor: Colors.transparent),
+                  codeblockPadding: const EdgeInsets.all(8),
+                  codeblockDecoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white10
+                        : Colors.grey[200],
+                  ),
+                ),
+                builders: adhdSettings.isEnabled
+                    ? {
+                        'p': AdhdMarkdownParagraphBuilder(
+                            adhdSettings: adhdSettings),
+                        'li': AdhdMarkdownParagraphBuilder(
+                            adhdSettings: adhdSettings),
+                        'blockquote': AdhdMarkdownParagraphBuilder(
+                            adhdSettings: adhdSettings),
+                        'h1': AdhdMarkdownParagraphBuilder(
+                            adhdSettings: adhdSettings),
+                        'h2': AdhdMarkdownParagraphBuilder(
+                            adhdSettings: adhdSettings),
+                        'h3': AdhdMarkdownParagraphBuilder(
+                            adhdSettings: adhdSettings),
+                      }
+                    : {},
+              ),
+            );
       return Container(
-        color: backgroundColor, // Semi-transparent base
+        color: backgroundColor,
         child: SelectionArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -676,108 +953,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // No redundant header here
-
-                        DefaultTextStyle(
-                          style: TextStyle(
-                              fontFamily: 'JinghuaSong',
-                              color: Theme.of(context).colorScheme.onSurface),
-                          child: MarkdownBody(
-                            data: content.markdownContent,
-                            styleSheet:
-                                MarkdownStyleSheet.fromTheme(Theme.of(context))
-                                    .copyWith(
-                              h1: TextStyle(
-                                  fontFamily: 'JinghuaSong',
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.3,
-                                  letterSpacing: -0.5,
-                                  color:
-                                      Theme.of(context).colorScheme.onSurface),
-                              h2: TextStyle(
-                                fontFamily: 'JinghuaSong',
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onSurface,
-                                height: 1.5,
-                              ),
-                              h3: const TextStyle(
-                                  fontFamily: 'JinghuaSong',
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 20),
-                              h4: const TextStyle(
-                                  fontFamily: 'JinghuaSong',
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18),
-                              h5: const TextStyle(
-                                  fontFamily: 'JinghuaSong',
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16),
-                              h6: const TextStyle(
-                                  fontFamily: 'JinghuaSong',
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14),
-                              p: TextStyle(
-                                  fontFamily: 'JinghuaSong',
-                                  fontSize: 18,
-                                  height: 1.8,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withOpacity(0.9),
-                                  letterSpacing: 0.2),
-                              listBullet: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withOpacity(0.7),
-                              ),
-                              strong: const TextStyle(
-                                  fontFamily: 'JinghuaSong',
-                                  fontWeight: FontWeight.bold),
-                              em: const TextStyle(
-                                  fontFamily: 'JinghuaSong',
-                                  fontStyle: FontStyle.italic),
-                              blockquote: const TextStyle(
-                                  fontFamily: 'JinghuaSong',
-                                  color: Colors.grey),
-                              code: const TextStyle(
-                                  fontFamily: 'JinghuaSong',
-                                  backgroundColor: Colors.transparent),
-                              codeblockPadding: const EdgeInsets.all(8),
-                              codeblockDecoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(4),
-                                color: Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? Colors.white10
-                                    : Colors.grey[200],
-                              ),
-                            ),
-                            builders: adhdSettings.isEnabled
-                                ? {
-                                    'p': AdhdMarkdownParagraphBuilder(
-                                      adhdSettings: adhdSettings,
-                                    ),
-                                    'li': AdhdMarkdownParagraphBuilder(
-                                      adhdSettings: adhdSettings,
-                                    ),
-                                    'blockquote': AdhdMarkdownParagraphBuilder(
-                                      adhdSettings: adhdSettings,
-                                    ),
-                                    'h1': AdhdMarkdownParagraphBuilder(
-                                      adhdSettings: adhdSettings,
-                                    ),
-                                    'h2': AdhdMarkdownParagraphBuilder(
-                                      adhdSettings: adhdSettings,
-                                    ),
-                                    'h3': AdhdMarkdownParagraphBuilder(
-                                      adhdSettings: adhdSettings,
-                                    ),
-                                  }
-                                : {},
-                          ),
-                        ),
+                        bodyWidget,
                         const SizedBox(height: 48),
                         // Dynamic Flashcard Section
                         if (content.flashcardQuestion != null) ...[

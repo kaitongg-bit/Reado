@@ -533,8 +533,13 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                               )
                             else ...[
                               // Right: View All (back to detail page)
+                              // 仅在本页需要教程高亮时挂 GlobalKey，避免与其他页重复
                               GestureDetector(
-                                key: _allCardsKey,
+                                key: (onboardingState.isTutorialActive &&
+                                        onboardingState.hasSeenAllCardsPhase1 &&
+                                        !onboardingState.hasSeenAllCardsPhase2)
+                                    ? _allCardsKey
+                                    : null,
                                 onTap: () {
                                   if (onboardingState.isTutorialActive &&
                                       !onboardingState.hasSeenAllCardsPhase2 &&

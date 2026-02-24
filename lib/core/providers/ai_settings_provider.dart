@@ -5,6 +5,7 @@ enum AiDeconstructionMode {
   standard,
   grandma, // 极简大白话
   phd, // 智力障碍博士生
+  podcast, // 播客/对话式输出
 }
 
 class AiSettings {

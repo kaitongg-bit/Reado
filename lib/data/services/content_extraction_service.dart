@@ -494,6 +494,8 @@ $modeInstructions
         modeOutlineInstructions = "采用“极简大白话”风格：识别出最基础、最通俗的核心知识点，标题要平实直白。";
       } else if (mode == AiDeconstructionMode.phd) {
         modeOutlineInstructions = "采用“智障博士生”风格：极简大白话，禁止多余空格，逻辑严密，直接提取逻辑支柱。";
+      } else if (mode == AiDeconstructionMode.podcast) {
+        modeOutlineInstructions = "识别适合用对话讲解的核心知识点，标题简洁便于作为播客话题。";
       }
 
       // 知识点数量随本段长度缩放（与云函数、积分逻辑一致）
@@ -597,9 +599,46 @@ $topicCountInstruction
             modeInstructions = '采用“极简大白话”风格：极其通俗易懂，严禁术语，多用生活化类比。禁止寒暄，直接讲解。';
           } else if (mode == AiDeconstructionMode.phd) {
             modeInstructions = '采用“智障博士生”风格：极简大白话，严禁文中空格，禁止类比。重点在于硬核逻辑拆解。直接讲解。';
+          } else if (mode == AiDeconstructionMode.podcast) {
+            modeInstructions = '正文必须是一段**两人对话稿**，像播客对谈一样讲解该知识点。';
           }
 
-          final cardPrompt = '''
+          final bool isPodcast = mode == AiDeconstructionMode.podcast;
+          final cardPrompt = isPodcast
+              ? '''
+你是一位资深的教育内容专家。请针对以下知识点，生成一张**播客对话式**知识卡片。
+
+$modeInstructions
+
+## 知识点标题
+$title
+
+## 参考资料（从中提取相关内容）
+$chunkContent
+
+## 要求
+1. **正文内容**：必须是一段两人对话稿，格式**严格**为：
+   主持人A:\\n[一段话]\\n\\n主持人B:\\n[一段话]\\n\\n主持人A:\\n...
+   - 4-10 轮对白，两人用口语化对白讲解该知识点，可包含提问、举例、追问、总结。
+   - 不要使用 Markdown（无标题、列表、加粗），仅纯文本对白。称呼固定为「主持人A」「主持人B」。
+2. **Flashcard**：一个具体的测试问题 + 简洁但完整的答案（100-200字）
+3. **语言要求**：输出的所有内容必须使用简体中文。
+
+## 输出格式
+严格按照以下 JSON 格式输出（只输出 JSON）：
+
+{
+  "title": "$title",
+  "category": "$category",
+  "difficulty": "$difficulty",
+  "content": "主持人A:\\n[第一段对白]\\n\\n主持人B:\\n[第二段对白]\\n\\n...",
+  "flashcard": {
+    "question": "具体的测试问题",
+    "answer": "简洁但完整的答案"
+  }
+}
+'''
+              : '''
 你是一位资深的教育内容专家。请针对以下知识点，生成一张详细的知识卡片。
 
 $modeInstructions
@@ -668,6 +707,7 @@ $chunkContent
                   cardJson['content'] ?? '',
                   flashcardQuestion: cardJson['flashcard']?['question'],
                   flashcardAnswer: cardJson['flashcard']?['answer'],
+                  isDialogueContent: isPodcast,
                 ),
               ],
             );
@@ -867,6 +907,34 @@ $chunkContent
         for (int i = yieldedCardsCount; i < cardsData.length; i++) {
           try {
             final cardMap = cardsData[i] as Map<String, dynamic>;
+            // #region agent log
+            final pages = cardMap['pages'] as List<dynamic>?;
+            final firstPage = pages != null && pages.isNotEmpty
+                ? pages[0] as Map<String, dynamic>?
+                : null;
+            final contentFormat = firstPage?['contentFormat']?.toString();
+            http
+                .post(
+                  Uri.parse(
+                      'http://127.0.0.1:7242/ingest/a29fc895-770c-4fe5-9d70-c0fd34a9a605'),
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-Debug-Session-Id': 'd0ba21',
+                  },
+                  body: jsonEncode({
+                    'sessionId': 'd0ba21',
+                    'location': 'content_extraction_service.dart:parseCard',
+                    'message': 'Job card parsed',
+                    'data': {
+                      'contentFormat': contentFormat,
+                      'hasPages': pages != null && pages.isNotEmpty,
+                    },
+                    'timestamp': DateTime.now().millisecondsSinceEpoch,
+                    'hypothesisId': 'podcast_parse',
+                  }),
+                )
+                .catchError((_) {});
+            // #endregion
             // Pass jobModuleId to parser
             final item =
                 _parseCardFromMap(cardMap, defaultModuleId: jobModuleId);
@@ -919,7 +987,7 @@ $chunkContent
       final pages = cardMap['pages'] as List<dynamic>?;
       String pageContent = '';
       String? flashQ, flashA;
-
+      bool isDialogueContent = false;
       if (pages != null && pages.isNotEmpty) {
         final firstPage = pages[0] as Map<String, dynamic>;
         // 兼容 content 和 markdownContent 两个字段
@@ -929,6 +997,7 @@ $chunkContent
             .toString();
         flashQ = firstPage['flashcardQuestion']?.toString();
         flashA = firstPage['flashcardAnswer']?.toString();
+        isDialogueContent = firstPage['contentFormat'] == 'dialogue' || firstPage['isDialogueContent'] == true;
       } else {
         pageContent = (cardMap['content'] ?? '').toString();
         final flashMap = cardMap['flashcard'] as Map<String, dynamic>?;
@@ -953,6 +1022,7 @@ $chunkContent
             pageContent,
             flashcardQuestion: flashQ,
             flashcardAnswer: flashA,
+            isDialogueContent: isDialogueContent,
           )
         ],
         isCustom: true,

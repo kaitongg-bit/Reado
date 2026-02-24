@@ -78,6 +78,7 @@ exports.geminiProxy = onRequest(
 /**
  * 完全后台 AI 提取任务
  * 使用 Secret Manager 存储 GEMINI_API_KEY。
+ * v2: 播客模式强制输出「主持人A/B」对话稿 + contentFormat: 'dialogue'
  */
 exports.processExtractionJob = onCall(
     {
@@ -150,7 +151,7 @@ exports.processExtractionJob = onCall(
 
             const modeOutlineInstructions = mode === 'grandma'
                 ? "采用“极简大白话”风格：识别出最基础、最通俗的核心知识点，标题要平实直白。"
-                : (mode === 'phd' ? "采用“智障博士生”风格：极简大白话，但逻辑极严密，不要任何花哨类比，直接提取硬核逻辑支柱。" : "");
+                : (mode === 'phd' ? "采用“智障博士生”风格：极简大白话，但逻辑极严密，不要任何花哨类比，直接提取硬核逻辑支柱。" : (mode === 'podcast' ? "识别适合用对话讲解的核心知识点，标题简洁便于作为播客话题。" : ""));
 
             const outlinePrompt = `
 你是一位资深的教育内容专家。请快速分析用户提供的学习资料，识别出其中的核心知识点。
@@ -221,9 +222,47 @@ ${content.substring(0, 30000)}
 - **逻辑要求**：禁止任何感性类比（如：买菜、带孩子）。必须通过严密的逻辑推导、事实陈述、因果链条来拆解核心。
 - **语气**：直白。禁止任何寒暄，直接开始讲解知识点本身。
 `;
+                } else if (mode === 'podcast') {
+                    modeInstructions = `
+## 🚨 播客对话稿：通俗好学 + B 必须追问质疑 🚨
+- **格式**：正文 content 只能是「主持人A:」「主持人B:」交替的纯文本，禁止 Markdown。每段对白前写「主持人A:」或「主持人B:」，换行写内容，段与段之间两个换行。
+- **主持人B 的人设**：B 代表「听得不太懂、想搞明白」的听众。B **必须**经常：问「为什么？」、问「能举个生活中的例子吗？」、说「这里我没懂，能再说简单点吗？」、问「那和 XXX 有啥区别？」。禁止 B 只会「好的」「然后呢」「明白了」敷衍附和；至少 2/3 的 B 的发言要带疑问或追问。
+- **通俗易懂**：假设听众零基础、记不住复杂东西。用**极简大白话**，少用术语，必要时用生活类比（买菜、做饭、日常事）。A 要拆成小步讲，重复重点，被 B 问到时再讲透。
+- **轮数**：6-12 轮对白，有问有答、有来有回。称呼固定「主持人A」「主持人B」。
+`;
                 }
 
-                const cardPrompt = `
+                const isPodcast = mode === 'podcast';
+                const cardPrompt = isPodcast ? `
+你是一位**通俗播客**内容专家：用对话形式把知识点讲给「零基础、记性一般、希望一听就懂」的听众。假设听众不够聪明，需要多问、多举例、多重复重点。
+
+${modeInstructions}
+
+## 知识点标题
+${title}
+
+## 参考资料（从中提取相关内容）
+${content.substring(0, 30000)}
+
+## 硬性要求
+1. **主持人B**：不能只会说「好的」「然后呢」。B 要替听众问出「为什么？」「能举个生活中的例子吗？」「这里我没懂，能再说简单点？」「和 XXX 有啥区别？」。B 的发言里至少一半以上要是**疑问或追问**，这样对话才好学。
+2. **主持人A**：用极简大白话回答，必要时用生活类比（买菜、做饭、日常事）。遇到术语先解释再继续。被 B 问到时再展开，不要一口气倒完。
+3. **content 字段**：纯对话稿。每句对白前写「主持人A:」或「主持人B:」，换行写内容；段与段之间两个换行。禁止 #、**、列表等 Markdown。
+4. **Flashcard**：question 与 answer 各 100-200 字，简体中文。
+5. 输出只包含一个 JSON 对象，不要其他文字。
+
+## 输出格式（只输出 JSON）
+{
+  "title": "${title}",
+  "category": "${topic.category || 'AI Generated'}",
+  "difficulty": "${topic.difficulty || 'Medium'}",
+  "content": "主持人A:\\n[第一段对白]\\n\\n主持人B:\\n[追问或疑问]\\n\\n主持人A:\\n[用大白话/举例回答]\\n\\n主持人B:\\n[再问或确认]\\n\\n...",
+  "flashcard": {
+    "question": "具体的测试问题",
+    "answer": "简洁但完整的答案"
+  }
+}
+` : `
 你是一位资深的教育内容专家。请针对以下知识点，生成一张详细的知识卡片。
 
 ${modeInstructions}
@@ -276,7 +315,8 @@ ${content.substring(0, 30000)}
                             type: 'text',
                             markdownContent: cardJson.content || cardJson.markdownContent || 'No content generated',
                             flashcardQuestion: cardJson.flashcard?.question,
-                            flashcardAnswer: cardJson.flashcard?.answer
+                            flashcardAnswer: cardJson.flashcard?.answer,
+                            ...(isPodcast ? { contentFormat: 'dialogue' } : {})
                         }];
 
                         cards.push(cardJson);

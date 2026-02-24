@@ -12,11 +12,14 @@ class OfficialPage extends CardPageContent {
   final String markdownContent;
   final String? flashcardQuestion;
   final String? flashcardAnswer;
+  /// 正文是否为播客式对话稿（主持人A/B 格式），用于气泡渲染
+  final bool isDialogueContent;
 
   OfficialPage(
     this.markdownContent, {
     this.flashcardQuestion,
     this.flashcardAnswer,
+    this.isDialogueContent = false,
   }) : super(type: 'text');
 }
 
@@ -144,12 +147,16 @@ class FeedItem {
       'createdAt': createdAt?.toIso8601String(),
       'pages': pages.map((p) {
         if (p is OfficialPage) {
-          return {
+          final map = <String, dynamic>{
             'type': 'text',
             'markdownContent': p.markdownContent,
             'flashcardQuestion': p.flashcardQuestion,
             'flashcardAnswer': p.flashcardAnswer,
           };
+          if (p.isDialogueContent) {
+            map['contentFormat'] = 'dialogue';
+          }
+          return map;
         } else if (p is UserNotePage) {
           return {
             'type': 'user_note',
@@ -169,10 +176,12 @@ class FeedItem {
     if (json['pages'] != null) {
       for (var p in json['pages']) {
         if (p['type'] == 'text') {
+          final isDialogue = p['contentFormat'] == 'dialogue' || p['isDialogueContent'] == true;
           pageList.add(OfficialPage(
             p['markdownContent'] ?? '',
             flashcardQuestion: p['flashcardQuestion'],
             flashcardAnswer: p['flashcardAnswer'],
+            isDialogueContent: isDialogue,
           ));
         } else if (p['type'] == 'user_note') {
           pageList.add(UserNotePage(

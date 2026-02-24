@@ -2753,6 +2753,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
             _buildModeChip(AiDeconstructionMode.grandma, '老奶奶', '极其通俗'),
             const SizedBox(width: 8),
             _buildModeChip(AiDeconstructionMode.phd, '智障博士', '大白话'),
+            const SizedBox(width: 8),
+            _buildModeChip(AiDeconstructionMode.podcast, '播客', '两人对谈讲解'),
           ],
         ),
       ],

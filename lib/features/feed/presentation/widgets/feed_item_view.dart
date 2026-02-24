@@ -77,6 +77,9 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
   late TextEditingController _titleController;
   late TextEditingController _contentController;
 
+  /// 收藏后是否显示「熟练/一般/生疏」快捷标注（点击即隐藏）
+  bool _showMasteryQuickPick = false;
+
   @override
   void initState() {
     super.initState();
@@ -251,13 +254,31 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
   }
 
   void _toggleFavorite() {
+    final wasFavorited = widget.feedItem.isFavorited;
     ref.read(feedProvider.notifier).toggleFavorite(widget.feedItem.id);
-    final isFavorited = !widget.feedItem.isFavorited;
+    final isFavorited = !wasFavorited;
+    setState(() => _showMasteryQuickPick = isFavorited);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(isFavorited ? '✨ 已收藏到复习区' : '已取消收藏'),
         duration: const Duration(seconds: 1),
         backgroundColor: isFavorited ? Colors.green[600] : Colors.grey[600],
+      ),
+    );
+  }
+
+  void _setMasteryAndHide(FeedItemMastery level) {
+    final levelStr = level.name;
+    ref.read(feedProvider.notifier).updateMastery(widget.feedItem.id, levelStr);
+    setState(() => _showMasteryQuickPick = false);
+    final label = level == FeedItemMastery.easy
+        ? '熟练'
+        : (level == FeedItemMastery.medium ? '一般' : '生疏');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('已标记为 $label'),
+        duration: const Duration(seconds: 1),
+        backgroundColor: Colors.green[600],
       ),
     );
   }
@@ -426,7 +447,31 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           right: 16,
           bottom: 110,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              // 收藏后冒出的「熟练 / 一般 / 生疏」快捷标注
+              if (_showMasteryQuickPick) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _masteryChip('熟练', FeedItemMastery.easy),
+                      const SizedBox(width: 6),
+                      _masteryChip('一般', FeedItemMastery.medium),
+                      const SizedBox(width: 6),
+                      _masteryChip('生疏', FeedItemMastery.hard),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               _buildActionButton(
                 icon: widget.feedItem.isFavorited
                     ? Icons.favorite
@@ -1071,6 +1116,27 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     );
   }
 
+  Widget _masteryChip(String label, FeedItemMastery level) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _setMasteryAndHide(level),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildActionButton({
     IconData? icon,
     Widget? customChild,
@@ -1173,6 +1239,15 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
     '正在思考中...',
     '马上生成好...',
     '快好了...',
+  ];
+
+  /// 无对话时的预设问题（通俗易懂，点击即填入并发送，不调用 LLM）
+  static const List<String> _presetQuestions = [
+    '举个例子讲解一下',
+    '用简单的话总结一下',
+    '这段在说什么？',
+    '有什么重点？',
+    '能再解释得通俗一点吗？',
   ];
 
   @override
@@ -1544,18 +1619,52 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                       )
                     : _messages.isEmpty
                         ? Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.chat_bubble_outline,
-                                    size: 48, color: Colors.grey[300]),
-                                const SizedBox(height: 16),
-                                Text(
-                                  '关于卡片内容，尽管问我',
-                                  style: TextStyle(
-                                      color: Theme.of(context).hintColor),
-                                ),
-                              ],
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.chat_bubble_outline,
+                                      size: 48, color: Colors.grey[300]),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    '关于卡片内容，尽管问我',
+                                    style: TextStyle(
+                                        color: Theme.of(context).hintColor),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  Text(
+                                    '试试这些常见问题：',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Theme.of(context).hintColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Wrap(
+                                    alignment: WrapAlignment.center,
+                                    spacing: 10,
+                                    runSpacing: 10,
+                                    children: _presetQuestions.map((q) {
+                                      return ActionChip(
+                                        label: Text(q,
+                                            style: const TextStyle(fontSize: 13)),
+                                        onPressed: _isLoading
+                                            ? null
+                                            : () {
+                                                _controller.text = q;
+                                                _handleSend();
+                                              },
+                                        backgroundColor: Theme.of(context)
+                                            .brightness == Brightness.dark
+                                            ? Colors.white.withOpacity(0.1)
+                                            : Colors.grey[200],
+                                        side: BorderSide.none,
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                              ),
                             ),
                           )
                         : ListView.builder(

@@ -1173,7 +1173,18 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                           ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                if (!_isSignUpMode)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: TextButton(
+                      onPressed: () => context.push('/forgot-password'),
+                      child: Text(
+                        '忘记密码？',
+                        style: TextStyle(color: hintColor, fontSize: 14),
+                      ),
+                    ),
+                  ),
                 TextButton(
                   onPressed: () => setState(() => _isSignUpMode = !_isSignUpMode),
                   child: Text(

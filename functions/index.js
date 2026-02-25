@@ -1,11 +1,21 @@
 const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const axios = require("axios");
+const crypto = require("crypto");
 const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 admin.initializeApp();
+
+/** 密保问题列表（与 Flutter 端一致） */
+const SECURITY_QUESTIONS = [
+    "您母亲的姓名是？",
+    "您出生的城市是？",
+    "您的第一个宠物名字是？",
+    "您的小学名称是？",
+    "您的配偶生日（MMDD，如 0315）是？"
+];
 
 /** 用于分享点击统计的 reado 库（与 Flutter 端 databaseId 一致） */
 function getReadoDb() {
@@ -563,5 +573,125 @@ exports.claimDailyCheckIn = onCall(
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
         return { success: true, alreadyClaimed: false, credits: 20 };
+    }
+);
+
+// ---------- 忘记密码：密保问题 ----------
+
+/**
+ * 获取密保问题（用于忘记密码流程，不返回答案）
+ * 入参: { email }
+ * 返回: { questionId, questionText } 或 抛错
+ */
+exports.getSecurityQuestion = onCall(
+    { timeoutSeconds: 10 },
+    async (request) => {
+        const email = request.data?.email;
+        if (!email || typeof email !== "string" || !email.trim()) {
+            throw new HttpsError("invalid-argument", "请提供邮箱");
+        }
+        const normalizedEmail = email.trim().toLowerCase();
+        let uid;
+        try {
+            const userRecord = await admin.auth().getUserByEmail(normalizedEmail);
+            uid = userRecord.uid;
+        } catch (e) {
+            throw new HttpsError("not-found", "该邮箱未注册");
+        }
+        const db = getReadoDb();
+        const userRef = db.collection("users").doc(uid);
+        const doc = await userRef.get();
+        if (!doc.exists) {
+            throw new HttpsError("failed-precondition", "未设置密保，请使用邮件重置或联系客服");
+        }
+        const data = doc.data() || {};
+        const questionId = data.securityQuestionId;
+        if (questionId == null || questionId < 0 || questionId >= SECURITY_QUESTIONS.length) {
+            throw new HttpsError("failed-precondition", "未设置密保，请使用邮件重置或联系客服");
+        }
+        return {
+            questionId,
+            questionText: SECURITY_QUESTIONS[questionId],
+        };
+    }
+);
+
+/**
+ * 设置密保问题（仅登录后可用）
+ * 入参: { questionId: number, answer: string }
+ */
+exports.setSecurityQuestion = onCall(
+    { timeoutSeconds: 10 },
+    async (request) => {
+        if (!request.auth || !request.auth.uid) {
+            throw new HttpsError("unauthenticated", "请先登录");
+        }
+        const uid = request.auth.uid;
+        const questionId = request.data?.questionId;
+        const answer = request.data?.answer;
+        if (typeof questionId !== "number" || questionId < 0 || questionId >= SECURITY_QUESTIONS.length) {
+            throw new HttpsError("invalid-argument", "请选择有效密保问题");
+        }
+        if (!answer || typeof answer !== "string" || answer.trim().length < 2) {
+            throw new HttpsError("invalid-argument", "答案至少 2 个字符");
+        }
+        const salt = crypto.randomBytes(16).toString("hex");
+        const hash = crypto.createHash("sha256").update(salt + answer.trim(), "utf8").digest("hex");
+        const db = getReadoDb();
+        await db.collection("users").doc(uid).set({
+            securityQuestionId: questionId,
+            securityAnswerSalt: salt,
+            securityAnswerHash: hash,
+            securityQuestionUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        return { success: true };
+    }
+);
+
+/**
+ * 通过密保答案重置密码
+ * 入参: { email, answer, newPassword }
+ */
+exports.resetPasswordWithSecurityAnswer = onCall(
+    { timeoutSeconds: 15 },
+    async (request) => {
+        const email = request.data?.email;
+        const answer = request.data?.answer;
+        const newPassword = request.data?.newPassword;
+        if (!email || typeof email !== "string" || !email.trim()) {
+            throw new HttpsError("invalid-argument", "请提供邮箱");
+        }
+        if (!answer || typeof answer !== "string") {
+            throw new HttpsError("invalid-argument", "请填写密保答案");
+        }
+        if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+            throw new HttpsError("invalid-argument", "新密码至少 6 位");
+        }
+        const normalizedEmail = email.trim().toLowerCase();
+        let uid;
+        try {
+            const userRecord = await admin.auth().getUserByEmail(normalizedEmail);
+            uid = userRecord.uid;
+        } catch (e) {
+            throw new HttpsError("not-found", "该邮箱未注册");
+        }
+        const db = getReadoDb();
+        const userRef = db.collection("users").doc(uid);
+        const doc = await userRef.get();
+        if (!doc.exists) {
+            throw new HttpsError("failed-precondition", "未设置密保，无法通过密保找回");
+        }
+        const data = doc.data() || {};
+        const salt = data.securityAnswerSalt;
+        const storedHash = data.securityAnswerHash;
+        if (!salt || !storedHash) {
+            throw new HttpsError("failed-precondition", "未设置密保，请使用邮件重置");
+        }
+        const hash = crypto.createHash("sha256").update(salt + answer.trim(), "utf8").digest("hex");
+        if (hash !== storedHash) {
+            throw new HttpsError("invalid-argument", "密保答案错误");
+        }
+        await admin.auth().updateUser(uid, { password: newPassword });
+        return { success: true };
     }
 );

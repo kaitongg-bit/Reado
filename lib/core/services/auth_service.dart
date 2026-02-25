@@ -52,6 +52,17 @@ class AuthService {
     }
   }
 
+  /// 发送密码重置邮件（Firebase 邮件可能在国内收不到，可配合密保找回）
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      debugPrint('✅ 密码重置邮件已发送: $email');
+    } on FirebaseAuthException catch (e) {
+      debugPrint('❌ 发送重置邮件失败: ${e.code} - ${e.message}');
+      throw _handleAuthException(e);
+    }
+  }
+
   /// 邮箱密码注册
   Future<UserCredential?> signUpWithEmail(String email, String password,
       {String? displayName}) async {
@@ -88,6 +99,8 @@ class AuthService {
         return Exception('该邮箱已被注册');
       case 'invalid-email':
         return Exception('邮箱格式不正确');
+      case 'invalid-credential':
+        return Exception('邮箱或密码错误');
       case 'weak-password':
         return Exception('密码强度不足');
       case 'too-many-requests':

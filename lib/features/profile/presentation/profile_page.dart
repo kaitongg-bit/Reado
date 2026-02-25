@@ -11,6 +11,7 @@ import '../../../core/providers/credit_provider.dart';
 import '../../../core/providers/adhd_provider.dart';
 import '../../onboarding/providers/onboarding_provider.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'dart:html' as html;
 
 class ProfilePage extends ConsumerWidget {
@@ -440,6 +441,19 @@ class ProfilePage extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
+
+                  if (FirebaseAuth.instance.currentUser?.email != null &&
+                      FirebaseAuth.instance.currentUser?.email!.isNotEmpty == true) ...[
+                    _GlassTile(
+                      icon: Icons.lock_reset_outlined,
+                      title: '密保问题',
+                      subtitle: '忘记密码时可通过密保找回',
+                      isDark: isDark,
+                      onTap: () => _showSecurityQuestionDialog(context),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
 
                   _buildAdhdSettings(context, ref, isDark),
                   const SizedBox(height: 24),
@@ -1369,6 +1383,130 @@ class _ContactDialogState extends ConsumerState<_ContactDialog> {
               : const Text('提交',
                   style: TextStyle(
                       color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+      ],
+    );
+  }
+}
+
+/// 密保问题列表（与 Cloud Functions 一致）
+const List<String> _kSecurityQuestions = [
+  '您母亲的姓名是？',
+  '您出生的城市是？',
+  '您的第一个宠物名字是？',
+  '您的小学名称是？',
+  '您的配偶生日（MMDD，如 0315）是？',
+];
+
+void _showSecurityQuestionDialog(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => const _SecurityQuestionDialog(),
+  );
+}
+
+class _SecurityQuestionDialog extends StatefulWidget {
+  const _SecurityQuestionDialog();
+
+  @override
+  State<_SecurityQuestionDialog> createState() => _SecurityQuestionDialogState();
+}
+
+class _SecurityQuestionDialogState extends State<_SecurityQuestionDialog> {
+  int _selectedIndex = 0;
+  final TextEditingController _answerController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMsg;
+
+  @override
+  void dispose() {
+    _answerController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final answer = _answerController.text.trim();
+    if (answer.length < 2) {
+      setState(() => _errorMsg = '答案至少 2 个字符');
+      return;
+    }
+    setState(() { _isLoading = true; _errorMsg = null; });
+    try {
+      await FirebaseFunctions.instance.httpsCallable('setSecurityQuestion').call({
+        'questionId': _selectedIndex,
+        'answer': answer,
+      });
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('密保已设置，可用于忘记密码时找回'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on FirebaseFunctionsException catch (e) {
+      if (!context.mounted) return;
+      setState(() => _errorMsg = e.message ?? '设置失败');
+    } catch (e) {
+      if (!context.mounted) return;
+      setState(() => _errorMsg = '网络异常，请稍后重试');
+    } finally {
+      if (context.mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final hintColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+
+    return AlertDialog(
+      title: Text('设置密保问题', style: TextStyle(color: textColor)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('用于忘记密码时找回，请牢记答案。', style: TextStyle(color: hintColor, fontSize: 13)),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<int>(
+              value: _selectedIndex,
+              decoration: InputDecoration(
+                labelText: '选择问题',
+                border: const OutlineInputBorder(),
+              ),
+              items: List.generate(_kSecurityQuestions.length, (i) => DropdownMenuItem(value: i, child: Text(_kSecurityQuestions[i], overflow: TextOverflow.ellipsis))),
+              onChanged: _isLoading ? null : (v) => setState(() => _selectedIndex = v ?? 0),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _answerController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: '答案（至少 2 个字符）',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (_) => setState(() => _errorMsg = null),
+            ),
+            if (_errorMsg != null) ...[
+              const SizedBox(height: 8),
+              Text(_errorMsg!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
+          child: Text('取消', style: TextStyle(color: hintColor)),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _save,
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
+          child: _isLoading
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('保存'),
         ),
       ],
     );

@@ -12,6 +12,7 @@ import '../../features/home/presentation/module_detail_page.dart';
 import '../../features/feed/presentation/feed_provider.dart';
 import '../../features/feed/presentation/shared_feed_page.dart';
 import '../../features/onboarding/presentation/onboarding_page.dart';
+import '../../features/onboarding/presentation/forgot_password_page.dart';
 import '../../features/notes/presentation/ai_notes_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/credit_provider.dart';
@@ -44,6 +45,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final ref = state.uri.queryParameters['ref'];
 
       if (user == null) {
+        // 未登录可访问：忘记密码页
+        if (state.matchedLocation == '/forgot-password') return null;
         // 游客通过分享链接可访问模块详情和只读 Feed
         final isSharedModule =
             state.matchedLocation.startsWith('/module/') && ref != null;
@@ -80,6 +83,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin',
         builder: (context, state) => const AdminPage(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => const ForgotPasswordPage(),
       ),
       GoRoute(
         path: '/onboarding',

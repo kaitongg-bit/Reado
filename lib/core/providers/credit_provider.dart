@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/services/firestore_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../features/feed/presentation/feed_provider.dart';
+
+String _todayDateStr() =>
+    DateTime.now().toIso8601String().substring(0, 10);
 
 class UserStats {
   final int credits;
@@ -111,3 +115,30 @@ final creditProvider =
   final dataService = ref.watch(dataServiceProvider);
   return CreditNotifier(dataService, userId);
 });
+
+/// 每日签到：今日是否已领取（用于个人页逻辑）
+final dailyCheckInClaimedTodayProvider = FutureProvider.autoDispose<bool>((ref) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return false;
+  final dataService = ref.watch(dataServiceProvider);
+  return dataService.getDailyCheckInClaimedToday();
+});
+
+/// 头像旁是否显示签到/奖励角标：只要今天还没“点进个人页并看过签到结果”就显示，用于引导用户进入个人中心
+const String _kLastCheckInSeenDate = 'lastCheckInSeenDate';
+
+final dailyCheckInBadgeVisibleProvider = FutureProvider.autoDispose<bool>((ref) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return false;
+  final prefs = await SharedPreferences.getInstance();
+  final seen = prefs.getString(_kLastCheckInSeenDate);
+  final today = _todayDateStr();
+  return seen != today;
+});
+
+/// 标记“今日已在个人页看过签到结果”，角标将消失
+Future<void> markCheckInSeenToday(WidgetRef ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_kLastCheckInSeenDate, _todayDateStr());
+  ref.invalidate(dailyCheckInBadgeVisibleProvider);
+}

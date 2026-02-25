@@ -38,6 +38,7 @@ class ProfilePage extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildRuleItem(Icons.fiber_new, '新用户注册', '+200 积分'),
+              _buildRuleItem(Icons.calendar_today, '每日签到', '+20 积分/天'),
               _buildRuleItem(
                   Icons.chat_bubble_outline, 'AI 聊天 & 陪练', '目前免费 ⚡️'),
               _buildRuleItem(
@@ -141,7 +142,9 @@ class ProfilePage extends ConsumerWidget {
       );
     }
 
-    return Scaffold(
+    return _DailyCheckInOnEnter(
+      ref: ref,
+      child: Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -506,6 +509,7 @@ class ProfilePage extends ConsumerWidget {
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -837,6 +841,63 @@ class _StatCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 进入个人中心时尝试领取每日签到并提示
+class _DailyCheckInOnEnter extends ConsumerStatefulWidget {
+  final WidgetRef ref;
+  final Widget child;
+
+  const _DailyCheckInOnEnter({required this.ref, required this.child});
+
+  @override
+  ConsumerState<_DailyCheckInOnEnter> createState() => _DailyCheckInOnEnterState();
+}
+
+class _DailyCheckInOnEnterState extends ConsumerState<_DailyCheckInOnEnter> {
+  bool _tried = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_tried && FirebaseAuth.instance.currentUser != null) {
+      _tried = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _tryClaimAndMarkSeen());
+    }
+    return widget.child;
+  }
+
+  Future<void> _tryClaimAndMarkSeen() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final dataService = widget.ref.read(dataServiceProvider);
+    final alreadyClaimed = await dataService.getDailyCheckInClaimedToday();
+    if (!alreadyClaimed) {
+      final result = await dataService.claimDailyCheckIn();
+      widget.ref.invalidate(dailyCheckInClaimedTodayProvider);
+      widget.ref.read(creditProvider.notifier).refresh();
+      if (mounted) {
+        final credits = result['credits'] ?? 20;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已领取每日签到积分，$credits 积分'),
+            backgroundColor: const Color(0xFF2E7D32),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('今日已签到，已领取 20 积分'),
+            backgroundColor: Color(0xFF2E7D32),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+    await markCheckInSeenToday(widget.ref);
   }
 }
 

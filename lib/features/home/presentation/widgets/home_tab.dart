@@ -6,7 +6,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../feed/presentation/feed_provider.dart';
 import '../../../../models/feed_item.dart';
 import '../../../../models/knowledge_module.dart';
+import '../../../../models/share_stats.dart';
 import '../module_provider.dart';
+import '../../../../core/providers/credit_provider.dart';
 import '../../../lab/presentation/add_material_modal.dart';
 import '../../../lab/presentation/widgets/tutorial_pulse.dart';
 import '../../../onboarding/providers/onboarding_provider.dart';
@@ -136,6 +138,11 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       backgroundColor: isDark ? const Color(0xFF1A1A1A) : contentWhite,
       body: Stack(
         children: [
+          if (_currentUser != null)
+            _HomeShareStatsRefresher(
+              userId: _currentUser!.uid,
+              moduleIds: ref.watch(moduleProvider).custom.map((e) => e.id).toList(),
+            ),
           // 1. 顶部区域：浅色用米色，深色不变
           Container(
             height: MediaQuery.of(context).size.height * 0.55,
@@ -322,17 +329,53 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                         tag: 'home_avatar',
                         child: GestureDetector(
                           onTap: () => context.push('/profile'),
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withOpacity(0.3),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.5),
-                                width: 1,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white.withOpacity(0.3),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.5),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: _buildAvatar(user: _currentUser, radius: 36),
                               ),
-                            ),
-                            child: _buildAvatar(user: _currentUser, radius: 36),
+                              if (_currentUser != null)
+                                ref.watch(dailyCheckInBadgeVisibleProvider).when(
+                                  data: (showBadge) {
+                                    if (!showBadge) return const SizedBox.shrink();
+                                    return Positioned(
+                                      top: -2,
+                                      right: -2,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(5),
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFFFF8A65),
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black26,
+                                              blurRadius: 4,
+                                              offset: Offset(0, 1),
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Icon(
+                                          Icons.notification_important,
+                                          size: 16,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  loading: () => const SizedBox.shrink(),
+                                  error: (_, __) => const SizedBox.shrink(),
+                                ),
+                            ],
                           ),
                         ),
                       ),
@@ -540,6 +583,9 @@ class _HomeTabState extends ConsumerState<HomeTab> {
         .length;
     final progress = count > 0 ? learned / count : 0.0;
     final isStarModule = module.title.contains('STAR');
+    final ShareStats? shareStats = (!module.isOfficial && _currentUser != null)
+        ? ref.watch(shareStatsProvider((_currentUser!.uid, module.id))).valueOrNull
+        : null;
 
     return _WideKnowledgeCard(
       key: useStarKey ? _starModuleKey : ValueKey('module_${module.id}'),
@@ -548,6 +594,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       progress: progress,
       cardCount: count,
       isHighlighted: isHighlighted,
+      shareStats: shareStats,
       onTap: () {
         if (onboardingState.isTutorialActive &&
             _tutorialTargetKey == _starModuleKey &&
@@ -893,6 +940,7 @@ class _WideKnowledgeCard extends StatelessWidget {
   final double progress;
   final int cardCount;
   final bool isHighlighted;
+  final ShareStats? shareStats;
   final VoidCallback onTap;
 
   const _WideKnowledgeCard({
@@ -902,6 +950,7 @@ class _WideKnowledgeCard extends StatelessWidget {
     required this.progress,
     required this.cardCount,
     this.isHighlighted = false,
+    this.shareStats,
     required this.onTap,
   });
 
@@ -1012,6 +1061,21 @@ class _WideKnowledgeCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (shareStats != null &&
+                      (shareStats!.viewCount > 0 ||
+                          shareStats!.saveCount > 0 ||
+                          shareStats!.likeCount > 0)) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      '${shareStats!.viewCount} 人浏览 · ${shareStats!.saveCount} 人保存 · ${shareStats!.likeCount} 人点赞',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark
+                            ? Colors.white38
+                            : const Color(0xFF8D6E63).withOpacity(0.8),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1023,5 +1087,42 @@ class _WideKnowledgeCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 首页停留时每 15 秒刷新主人所有知识库的分享数据，列表上的浏览/保存/点赞会更新
+class _HomeShareStatsRefresher extends ConsumerStatefulWidget {
+  final String userId;
+  final List<String> moduleIds;
+
+  const _HomeShareStatsRefresher({
+    required this.userId,
+    required this.moduleIds,
+  });
+
+  @override
+  ConsumerState<_HomeShareStatsRefresher> createState() => _HomeShareStatsRefresherState();
+}
+
+class _HomeShareStatsRefresherState extends ConsumerState<_HomeShareStatsRefresher> {
+  Timer? _timer;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_timer == null && widget.moduleIds.isNotEmpty) {
+      _timer = Timer.periodic(const Duration(seconds: 15), (_) {
+        if (!mounted) return;
+        for (final moduleId in widget.moduleIds) {
+          ref.invalidate(shareStatsProvider((widget.userId, moduleId)));
+        }
+      });
+    }
+    return const SizedBox.shrink();
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,12 +12,15 @@ import '../../feed/presentation/feed_provider.dart';
 import '../../../models/feed_item.dart';
 import '../../../models/knowledge_module.dart';
 import '../../../models/shared_module_data.dart';
+import '../../../models/share_stats.dart';
 import 'module_provider.dart';
 import 'home_page.dart'; // Import for homeTabControlProvider
 import '../../lab/presentation/add_material_modal.dart';
 import '../../../../core/providers/credit_provider.dart';
 
 class ModuleDetailPage extends ConsumerWidget {
+  static final Set<String> _shareViewRecorded = {};
+
   final String moduleId;
   final String? ownerId;
   final bool afterLoginSave;
@@ -42,6 +46,11 @@ class ModuleDetailPage extends ConsumerWidget {
 
     return sharedAsync.when(
       data: (shared) {
+        // 统计：分享页被浏览一次（每会话每链接只记一次）
+        if (!ModuleDetailPage._shareViewRecorded.contains('$ownerId-$moduleId')) {
+          ModuleDetailPage._shareViewRecorded.add('$ownerId-$moduleId');
+          ref.read(dataServiceProvider).recordShareView(ownerId!, moduleId);
+        }
         if (afterLoginSave) {
           return _AutoSaveAfterLogin(
             moduleId: moduleId,
@@ -101,7 +110,10 @@ class ModuleDetailPage extends ConsumerWidget {
     final currentShareUrl = '$baseUrl/#$returnPath';
     final user = FirebaseAuth.instance.currentUser;
 
-    return Scaffold(
+    return _ShareStatsRefreshWrapper(
+      ownerId: ownerId!,
+      moduleId: moduleId,
+      child: Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
@@ -146,6 +158,8 @@ class ModuleDetailPage extends ConsumerWidget {
                         style: TextStyle(
                             fontSize: 12,
                             color: isDark ? Colors.white54 : Colors.black45)),
+                    const SizedBox(height: 8),
+                    _buildShareStatsRow(context, ref, isDark),
                     const SizedBox(height: 24),
                     Row(
                       children: [
@@ -191,6 +205,7 @@ class ModuleDetailPage extends ConsumerWidget {
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -239,6 +254,8 @@ class ModuleDetailPage extends ConsumerWidget {
         final dataService = ref.read(dataServiceProvider);
         final newId =
             await dataService.copySharedModuleToMine(ownerId!, moduleId);
+        dataService.recordShareSave(ownerId!, moduleId);
+        ref.invalidate(shareStatsProvider((ownerId!, moduleId)));
         if (!context.mounted) {
           Navigator.of(context).pop();
           return;
@@ -264,6 +281,93 @@ class ModuleDetailPage extends ConsumerWidget {
         });
       }
     }
+  }
+
+  Widget _buildShareStatsRow(BuildContext context, WidgetRef ref, bool isDark) {
+    if (ownerId == null) return const SizedBox.shrink();
+    final statsAsync = ref.watch(shareStatsProvider((ownerId!, moduleId)));
+    final likedKeys = ref.watch(shareLikedKeysProvider);
+    final user = FirebaseAuth.instance.currentUser;
+    final likedKey = '${ownerId}_$moduleId';
+    return statsAsync.when(
+      data: (stats) {
+        final v = stats?.viewCount ?? 0;
+        final s = stats?.saveCount ?? 0;
+        final l = stats?.likeCount ?? 0;
+        final hasLiked = (stats?.hasLiked(user?.uid) ?? false) || likedKeys.contains(likedKey);
+        final subColor = isDark ? Colors.white54 : Colors.black45;
+        return Row(
+          children: [
+            Icon(Icons.visibility_outlined, size: 14, color: subColor),
+            const SizedBox(width: 4),
+            Text('$v 人浏览', style: TextStyle(fontSize: 12, color: subColor)),
+            const SizedBox(width: 12),
+            Icon(Icons.bookmark_outline, size: 14, color: subColor),
+            const SizedBox(width: 4),
+            Text('$s 人保存', style: TextStyle(fontSize: 12, color: subColor)),
+            const SizedBox(width: 12),
+            Icon(Icons.thumb_up_outlined, size: 14, color: subColor),
+            const SizedBox(width: 4),
+            Text('$l 人点赞', style: TextStyle(fontSize: 12, color: subColor)),
+            const Spacer(),
+            IconButton(
+              icon: Icon(
+                hasLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+                size: 20,
+                color: hasLiked ? Colors.orange : subColor,
+              ),
+              onPressed: () async {
+                final dataService = ref.read(dataServiceProvider);
+                final isNewLike = await dataService.recordShareLike(ownerId!, moduleId);
+                if (isNewLike) {
+                  ref.read(shareLikedKeysProvider.notifier).state = {...likedKeys, likedKey};
+                }
+                ref.invalidate(shareStatsProvider((ownerId!, moduleId)));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(isNewLike ? '感谢点赞～' : '您已点过赞啦'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+      loading: () => const SizedBox(height: 20),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
+  Widget _buildOwnerShareStats(BuildContext context, WidgetRef ref, bool isDark) {
+    final user = FirebaseAuth.instance.currentUser;
+    final moduleState = ref.watch(moduleProvider);
+    final isOwnCustom = user != null &&
+        moduleState.custom.any((m) => m.id == moduleId);
+    if (!isOwnCustom) return const SizedBox.shrink();
+    final statsAsync = ref.watch(shareStatsProvider((user!.uid, moduleId)));
+    return statsAsync.when(
+      data: (stats) {
+        if (stats == null || (stats.viewCount == 0 && stats.saveCount == 0 && stats.likeCount == 0)) {
+          return const SizedBox.shrink();
+        }
+        final subColor = isDark ? Colors.white54 : Colors.black45;
+        return Row(
+          children: [
+            Icon(Icons.bar_chart_outlined, size: 16, color: subColor),
+            const SizedBox(width: 6),
+            Text(
+              '分享数据：${stats.viewCount} 人浏览 · ${stats.saveCount} 人保存 · ${stats.likeCount} 人点赞',
+              style: TextStyle(fontSize: 13, color: subColor),
+            ),
+          ],
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
   }
 
   static final Set<String> _detailTouchedModuleIds = {};
@@ -344,12 +448,20 @@ class ModuleDetailPage extends ConsumerWidget {
     // Get current progress for this module
     final currentProgress = ref.watch(feedProgressProvider);
     final currentModuleIndex = currentProgress[moduleId] ?? 0;
+    final user = FirebaseAuth.instance.currentUser;
+    final isOwnCustom = user != null &&
+        moduleState.custom.any((m) => m.id == moduleId);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
+            if (isOwnCustom)
+              _ShareStatsRefreshRunner(
+                ownerId: user!.uid,
+                moduleId: moduleId,
+              ),
             // Top Bar
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -398,7 +510,7 @@ class ModuleDetailPage extends ConsumerWidget {
 
                       Clipboard.setData(ClipboardData(
                           text:
-                              '嘿！我正在使用 Reado 学习这个超棒的知识库，快来看看：\n$shareUrl'));
+                              '嘿！我正在使用 Reado 学习这个超棒的知识库，快来看看：\n$shareUrl\n\n这是我创建的名叫「${module.title}」的知识库，欢迎你保存到自己的知识库中。'));
 
                       ref.read(creditProvider.notifier).rewardShare(amount: 10);
 
@@ -664,6 +776,8 @@ class ModuleDetailPage extends ConsumerWidget {
                       _buildTag('${(progress * 100).toInt()}% 已掌握', isDark),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  _buildOwnerShareStats(context, ref, isDark),
                   const SizedBox(height: 24),
 
                   // Action Buttons
@@ -1068,6 +1182,80 @@ class ModuleDetailPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// 分享页展示时每 15 秒刷新一次统计，实现准实时更新
+class _ShareStatsRefreshWrapper extends ConsumerStatefulWidget {
+  final String ownerId;
+  final String moduleId;
+  final Widget child;
+
+  const _ShareStatsRefreshWrapper({
+    required this.ownerId,
+    required this.moduleId,
+    required this.child,
+  });
+
+  @override
+  ConsumerState<_ShareStatsRefreshWrapper> createState() => _ShareStatsRefreshWrapperState();
+}
+
+class _ShareStatsRefreshWrapperState extends ConsumerState<_ShareStatsRefreshWrapper> {
+  Timer? _timer;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_timer == null) {
+      _timer = Timer.periodic(const Duration(seconds: 15), (_) {
+        if (mounted) {
+          ref.invalidate(shareStatsProvider((widget.ownerId, widget.moduleId)));
+        }
+      });
+    }
+    return widget.child;
+  }
+}
+
+/// 主人端知识库详情页：仅跑定时器刷新分享数据，不占布局
+class _ShareStatsRefreshRunner extends ConsumerStatefulWidget {
+  final String ownerId;
+  final String moduleId;
+
+  const _ShareStatsRefreshRunner({
+    required this.ownerId,
+    required this.moduleId,
+  });
+
+  @override
+  ConsumerState<_ShareStatsRefreshRunner> createState() => _ShareStatsRefreshRunnerState();
+}
+
+class _ShareStatsRefreshRunnerState extends ConsumerState<_ShareStatsRefreshRunner> {
+  Timer? _timer;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_timer == null) {
+      _timer = Timer.periodic(const Duration(seconds: 15), (_) {
+        if (mounted) {
+          ref.invalidate(shareStatsProvider((widget.ownerId, widget.moduleId)));
+        }
+      });
+    }
+    return const SizedBox.shrink();
   }
 }
 

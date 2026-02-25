@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../models/feed_item.dart';
 import '../../models/knowledge_module.dart';
 import '../../models/shared_module_data.dart';
+import '../../models/share_stats.dart';
 
 // Interface for Data Service (Repo Pattern)
 abstract class DataService {
@@ -76,9 +77,21 @@ abstract class DataService {
   Future<bool> getShareNotesPublic(String userId);
   Future<void> setShareNotesPublic(String userId, bool value);
 
+  /// 分享统计：获取某知识库分享页的浏览/保存/点赞数
+  Future<ShareStats?> getShareStats(String ownerId, String moduleId);
+  Future<void> recordShareView(String ownerId, String moduleId);
+  Future<void> recordShareSave(String ownerId, String moduleId);
+  /// 点赞（需登录），返回是否本次新点赞（false 表示已点过）
+  Future<bool> recordShareLike(String ownerId, String moduleId);
+
   /// 将他人分享的自定义知识库复制到当前用户，返回新模块 id
   Future<String> copySharedModuleToMine(
       String ownerId, String sourceModuleId);
+
+  /// 每日签到：今日是否已领取
+  Future<bool> getDailyCheckInClaimedToday();
+  /// 领取每日签到积分（20），返回 { claimed: 是否本次新领取, credits: 20 }
+  Future<Map<String, dynamic>> claimDailyCheckIn();
 }
 
 class FirestoreService implements DataService {
@@ -1310,5 +1323,103 @@ class FirestoreService implements DataService {
       await saveCustomFeedItem(copy, user.uid);
     }
     return newModule.id;
+  }
+
+  @override
+  Future<ShareStats?> getShareStats(String ownerId, String moduleId) async {
+    try {
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('getShareStats');
+      final result = await callable.call<Map<String, dynamic>>({
+        'ownerId': ownerId,
+        'moduleId': moduleId,
+      });
+      final data = result.data;
+      if (data == null) return null;
+      return ShareStats.fromMap(Map<String, dynamic>.from(data));
+    } catch (e) {
+      if (kDebugMode) print('getShareStats error: $e');
+      return null;
+    }
+  }
+
+  @override
+  Future<void> recordShareView(String ownerId, String moduleId) async {
+    try {
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('recordShareView');
+      await callable.call<Map<String, dynamic>>({
+        'ownerId': ownerId,
+        'moduleId': moduleId,
+      });
+    } catch (e) {
+      if (kDebugMode) print('recordShareView error: $e');
+    }
+  }
+
+  @override
+  Future<void> recordShareSave(String ownerId, String moduleId) async {
+    try {
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('recordShareSave');
+      await callable.call<Map<String, dynamic>>({
+        'ownerId': ownerId,
+        'moduleId': moduleId,
+      });
+    } catch (e) {
+      if (kDebugMode) print('recordShareSave error: $e');
+    }
+  }
+
+  @override
+  Future<bool> recordShareLike(String ownerId, String moduleId) async {
+    try {
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('recordShareLike');
+      final result = await callable.call<Map<String, dynamic>>({
+        'ownerId': ownerId,
+        'moduleId': moduleId,
+      });
+      final data = result.data;
+      // true = 本次新点赞成功，false = 已点过
+      return data == null || data['alreadyLiked'] != true;
+    } catch (e) {
+      if (kDebugMode) print('recordShareLike error: $e');
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> getDailyCheckInClaimedToday() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return false;
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('getDailyCheckInStatus');
+      final result = await callable.call<Map<String, dynamic>>({});
+      final data = result.data;
+      return data != null && data['claimedToday'] == true;
+    } catch (e) {
+      if (kDebugMode) print('getDailyCheckInClaimedToday error: $e');
+      return false;
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> claimDailyCheckIn() async {
+    try {
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('claimDailyCheckIn');
+      final result = await callable.call<Map<String, dynamic>>({});
+      final data = result.data ?? {};
+      return {
+        'success': data['success'] == true,
+        'alreadyClaimed': data['alreadyClaimed'] == true,
+        'credits': (data['credits'] is num) ? (data['credits'] as num).toInt() : 0,
+      };
+    } catch (e) {
+      if (kDebugMode) print('claimDailyCheckIn error: $e');
+      return {'success': false, 'alreadyClaimed': false, 'credits': 0};
+    }
   }
 }

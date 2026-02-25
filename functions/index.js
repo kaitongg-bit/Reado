@@ -401,3 +401,167 @@ exports.logShareClick = onCall(
         }
     }
 );
+
+/** 知识库分享统计：文档 id = ownerId_moduleId，字段 viewCount / saveCount / likeCount / likedBy */
+function getShareStatsRef(db, ownerId, moduleId) {
+    return db.collection('share_stats').doc(`${ownerId}_${moduleId}`);
+}
+
+/**
+ * 获取分享统计（服务端读 reado 库返回，不依赖客户端 Firestore 规则）
+ */
+exports.getShareStats = onCall(
+    { timeoutSeconds: 10 },
+    async (request) => {
+        const ownerId = request.data && request.data.ownerId;
+        const moduleId = request.data && request.data.moduleId;
+        if (!ownerId || !moduleId || typeof ownerId !== 'string' || typeof moduleId !== 'string') {
+            throw new HttpsError('invalid-argument', '缺少 ownerId 或 moduleId');
+        }
+        const db = getReadoDb();
+        const ref = getShareStatsRef(db, ownerId, moduleId);
+        const doc = await ref.get();
+        if (!doc.exists) {
+            return { viewCount: 0, saveCount: 0, likeCount: 0 };
+        }
+        const data = doc.data();
+        return {
+            viewCount: typeof data.viewCount === 'number' ? data.viewCount : 0,
+            saveCount: typeof data.saveCount === 'number' ? data.saveCount : 0,
+            likeCount: typeof data.likeCount === 'number' ? data.likeCount : 0,
+            likedBy: Array.isArray(data.likedBy) ? data.likedBy : []
+        };
+    }
+);
+
+/**
+ * 记录分享页被浏览（任何人打开分享链接时调用，可不登录）
+ */
+exports.recordShareView = onCall(
+    { timeoutSeconds: 10 },
+    async (request) => {
+        const ownerId = request.data && request.data.ownerId;
+        const moduleId = request.data && request.data.moduleId;
+        if (!ownerId || !moduleId || typeof ownerId !== 'string' || typeof moduleId !== 'string') {
+            throw new HttpsError('invalid-argument', '缺少 ownerId 或 moduleId');
+        }
+        const db = getReadoDb();
+        const ref = getShareStatsRef(db, ownerId, moduleId);
+        await ref.set({
+            viewCount: admin.firestore.FieldValue.increment(1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        return { success: true };
+    }
+);
+
+/**
+ * 记录有人点击「保存到我的知识库」并保存成功（由客户端在保存成功后调用）
+ */
+exports.recordShareSave = onCall(
+    { timeoutSeconds: 10 },
+    async (request) => {
+        const ownerId = request.data && request.data.ownerId;
+        const moduleId = request.data && request.data.moduleId;
+        if (!ownerId || !moduleId || typeof ownerId !== 'string' || typeof moduleId !== 'string') {
+            throw new HttpsError('invalid-argument', '缺少 ownerId 或 moduleId');
+        }
+        const db = getReadoDb();
+        const ref = getShareStatsRef(db, ownerId, moduleId);
+        await ref.set({
+            saveCount: admin.firestore.FieldValue.increment(1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        return { success: true };
+    }
+);
+
+/**
+ * 点赞分享的知识库（路人也可点赞；登录用户每人仅计一次，未登录直接加一）
+ */
+exports.recordShareLike = onCall(
+    { timeoutSeconds: 10 },
+    async (request) => {
+        const ownerId = request.data && request.data.ownerId;
+        const moduleId = request.data && request.data.moduleId;
+        if (!ownerId || !moduleId || typeof ownerId !== 'string' || typeof moduleId !== 'string') {
+            throw new HttpsError('invalid-argument', '缺少 ownerId 或 moduleId');
+        }
+        const uid = request.auth && request.auth.uid;
+        const db = getReadoDb();
+        const ref = getShareStatsRef(db, ownerId, moduleId);
+        if (uid) {
+            const doc = await ref.get();
+            const data = doc.exists ? doc.data() : {};
+            const likedBy = Array.isArray(data.likedBy) ? data.likedBy : [];
+            if (likedBy.includes(uid)) {
+                return { success: true, alreadyLiked: true };
+            }
+            await ref.set({
+                viewCount: admin.firestore.FieldValue.increment(0),
+                saveCount: admin.firestore.FieldValue.increment(0),
+                likeCount: admin.firestore.FieldValue.increment(1),
+                likedBy: admin.firestore.FieldValue.arrayUnion(uid),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            return { success: true, alreadyLiked: false };
+        } else {
+            await ref.set({
+                likeCount: admin.firestore.FieldValue.increment(1),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            return { success: true, alreadyLiked: false };
+        }
+    }
+);
+
+/** 每日签到：lastCheckInDate 存于 reado users 文档，格式 YYYY-MM-DD */
+function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/**
+ * 获取今日是否已签到（用于头像旁是否显示提示）
+ */
+exports.getDailyCheckInStatus = onCall(
+    { timeoutSeconds: 10 },
+    async (request) => {
+        if (!request.auth || !request.auth.uid) {
+            return { claimedToday: false };
+        }
+        const db = getReadoDb();
+        const userRef = db.collection('users').doc(request.auth.uid);
+        const doc = await userRef.get();
+        const last = doc.exists ? (doc.data().lastCheckInDate || '') : '';
+        return { claimedToday: last === todayStr() };
+    }
+);
+
+/**
+ * 领取每日签到积分（每天一次，20 积分）
+ */
+exports.claimDailyCheckIn = onCall(
+    { timeoutSeconds: 10 },
+    async (request) => {
+        if (!request.auth || !request.auth.uid) {
+            throw new HttpsError('unauthenticated', '请先登录');
+        }
+        const uid = request.auth.uid;
+        const db = getReadoDb();
+        const userRef = db.collection('users').doc(uid);
+        const today = todayStr();
+        const doc = await userRef.get();
+        const data = doc.exists ? doc.data() : {};
+        const lastCheckIn = data.lastCheckInDate || '';
+        if (lastCheckIn === today) {
+            return { success: true, alreadyClaimed: true, credits: 0 };
+        }
+        await userRef.set({
+            lastCheckInDate: today,
+            credits: admin.firestore.FieldValue.increment(20),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        return { success: true, alreadyClaimed: false, credits: 20 };
+    }
+);

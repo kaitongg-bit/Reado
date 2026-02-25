@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../models/knowledge_module.dart';
 import '../../../models/shared_module_data.dart';
+import '../../../models/share_stats.dart';
 import '../../../data/services/firestore_service.dart';
 import '../../feed/presentation/feed_provider.dart';
 
@@ -184,3 +185,14 @@ final sharedModuleProvider =
   final dataService = ref.watch(dataServiceProvider);
   return dataService.fetchSharedModule(ownerId, moduleId);
 });
+
+/// 分享页互动统计（浏览/保存/点赞），用于分享链接页与主人查看
+final shareStatsProvider =
+    FutureProvider.family<ShareStats?, (String, String)>((ref, param) async {
+  final (ownerId, moduleId) = param;
+  final dataService = ref.watch(dataServiceProvider);
+  return dataService.getShareStats(ownerId, moduleId);
+});
+
+/// 本次会话内“已点赞”的分享 key（ownerId_moduleId），用于点赞后按钮立即变色（含游客）
+final shareLikedKeysProvider = StateProvider<Set<String>>((ref) => {});

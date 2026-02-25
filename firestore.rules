@@ -71,5 +71,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+
+    // ---------- 分享统计（浏览/保存/点赞）：所有人可读，仅 Cloud Functions 可写 ----------
+    match /share_stats/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
   }
 }

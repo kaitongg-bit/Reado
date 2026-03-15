@@ -14,6 +14,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../../../core/services/proxy_http_client.dart';
 import '../../core/providers/ai_settings_provider.dart';
+import '../../core/prompts/app_prompts.dart';
 
 /// 内容来源类型
 enum SourceType {
@@ -286,6 +287,7 @@ class ContentExtractionService {
     ExtractionResult extraction, {
     required String moduleId,
     AiDeconstructionMode mode = AiDeconstructionMode.standard,
+    String outputLocale = 'zh',
   }) async {
     final apiKey = ApiConfig.getApiKey();
     final proxyUrl = ApiConfig.geminiProxyUrl;
@@ -328,8 +330,8 @@ $modeInstructions
 
 ## 核心要求
 
-### 0. 语言语言约束
-- **强制要求**：无论原始学习资料使用何种语言（英文、日文、德文等），生成的知识卡片中的所有字段（title, category, content, flashcard 里的 question 和 answer）**必须全部且只能使用简体中文**。
+### 0. 语言约束
+- ${languageInstruction(outputLocale)}
 
 ### 1. 知识点拆分原则
 - **独立性**：每个知识点应该是一个独立的概念或技能
@@ -436,6 +438,7 @@ $modeInstructions
     required String moduleId,
     required Future<bool> Function(int) onChunkProcess, // 传入需要扣除的积分数
     AiDeconstructionMode mode = AiDeconstructionMode.standard,
+    String outputLocale = 'zh',
   }) async* {
     const int baseLimit = 15000;
     const double graceFactor = 1.2; // 20% 的宽容度
@@ -517,7 +520,7 @@ $topicCountInstruction
 
 ## 输出格式
 严格按照以下 JSON 格式输出（只输出 JSON，不要有其他文字）。
-**重要提示：所有输出内容必须使用简体中文，即使原文是英文。**
+${languageInstruction(outputLocale)}
 
 严格按照以下 JSON 格式输出：
 
@@ -622,7 +625,7 @@ $chunkContent
    - 4-10 轮对白，两人用口语化对白讲解该知识点，可包含提问、举例、追问、总结。
    - 不要使用 Markdown（无标题、列表、加粗），仅纯文本对白。称呼固定为「主持人A」「主持人B」。
 2. **Flashcard**：一个具体的测试问题 + 简洁但完整的答案（100-200字）
-3. **语言要求**：输出的所有内容必须使用简体中文。
+3. ${cardBodyLanguageRequirement(outputLocale)}
 
 ## 输出格式
 严格按照以下 JSON 格式输出（只输出 JSON）：
@@ -653,7 +656,7 @@ $chunkContent
 1. 正文内容：必须生成 300-800 字的详细解释。${mode == AiDeconstructionMode.grandma ? "采用极简大白话和生活类比。" : (mode == AiDeconstructionMode.phd ? "采用极简大白话，严密逻辑拆解，严禁文中多余空格。" : "采用\"是什么 → 为什么 → 怎么做\"的结构。")}
 2. **Flashcard**：一个具体的测试问题 + 简洁但完整的答案（100-200字）
 3. 使用 Markdown 格式
-4. **语言要求**：输出的所有内容必须使用简体中文。
+4. ${cardBodyLanguageRequirement(outputLocale)}
 
 ## 输出格式
 严格按照以下 JSON 格式输出：
@@ -762,6 +765,7 @@ $chunkContent
     String content, {
     required String moduleId,
     bool isGrandmaMode = false,
+    String outputLocale = 'zh',
   }) async* {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception('未登录');
@@ -782,6 +786,7 @@ $chunkContent
         'content': content,
         'moduleId': moduleId,
         'isGrandmaMode': isGrandmaMode,
+        'outputLocale': outputLocale,
         'status': 'pending',
         'progress': 0.0,
         'message': '等待服务器...',
@@ -789,7 +794,7 @@ $chunkContent
       });
 
       final jobId = docRef.id;
-      if (kDebugMode) print('📝 Created job: $jobId');
+      if (kDebugMode) print('📝 Created job: $jobId (outputLocale=$outputLocale)');
 
       yield StreamingGenerationEvent.status('任务已提交，正在启动处理...');
 
@@ -823,6 +828,7 @@ $chunkContent
     String content, {
     required String moduleId,
     AiDeconstructionMode mode = AiDeconstructionMode.standard,
+    String outputLocale = 'zh',
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception('未登录');
@@ -841,6 +847,7 @@ $chunkContent
       'moduleId': moduleId,
       'isGrandmaMode': mode == AiDeconstructionMode.grandma, // 兼容旧逻辑
       'deconstructionMode': mode.name,
+      'outputLocale': outputLocale,
       'status': 'pending',
       'progress': 0.0,
       'message': '等待服务器...',
@@ -848,7 +855,7 @@ $chunkContent
     });
 
     final jobId = docRef.id;
-    if (kDebugMode) print('📝 Created job (fire-and-forget): $jobId');
+    if (kDebugMode) print('📝 Created job (fire-and-forget): $jobId (outputLocale=$outputLocale)');
 
     // 2. 调用云函数启动处理 (Fire-and-forget)
     final callable = FirebaseFunctions.instance.httpsCallable(

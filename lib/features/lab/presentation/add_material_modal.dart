@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../models/feed_item.dart';
@@ -10,6 +11,7 @@ import '../../feed/presentation/feed_provider.dart';
 import '../providers/batch_import_provider.dart';
 import '../../../../core/providers/credit_provider.dart';
 import '../../../../core/providers/ai_settings_provider.dart';
+import '../../../../core/locale/locale_provider.dart';
 import '../../../../core/router/router_provider.dart';
 import '../../onboarding/providers/onboarding_provider.dart';
 import '../../home/presentation/module_provider.dart';
@@ -151,12 +153,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                 (allModules.isNotEmpty ? allModules.first.id : null);
             return StatefulBuilder(builder: (context, setState) {
               return AlertDialog(
-                  title: const Text('选择知识库'),
+                  title: Text(AppLocalizations.of(context)!.addMaterialSelectModule),
                   content: SizedBox(
                       width: double.maxFinite,
                       height: 300,
                       child: Column(children: [
-                        const Text('请选择存储位置：',
+                        Text(AppLocalizations.of(context)!.addMaterialSelectWhere,
                             style: TextStyle(color: Colors.grey, fontSize: 13)),
                         const SizedBox(height: 12),
                         Expanded(
@@ -211,10 +213,10 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('取消')),
+                        child: Text(AppLocalizations.of(context)!.cancel)),
                     FilledButton(
                         onPressed: () => Navigator.pop(context, tempId),
-                        child: const Text('确定')),
+                        child: Text(AppLocalizations.of(context)!.create)),
                   ]);
             });
           });
@@ -233,12 +235,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     final moduleState = ref.watch(moduleProvider);
     final allModules = [...moduleState.custom, ...moduleState.officials];
 
-    String displayTitle = '点击选择知识库';
+    String displayTitle = AppLocalizations.of(context)!.addMaterialClickToSelect;
     if (_selectedModuleId != null) {
       final mod = allModules.firstWhere((m) => m.id == _selectedModuleId,
           orElse: () => KnowledgeModule(
               id: '?',
-              title: '未知知识库',
+              title: AppLocalizations.of(context)!.addMaterialUnknownModule,
               ownerId: '',
               isOfficial: false,
               cardCount: 0,
@@ -246,7 +248,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
       if (mod.id != '?') {
         displayTitle = mod.title;
       } else if (_selectedModuleId == 'unknown_default') {
-        displayTitle = '默认知识库';
+        displayTitle = AppLocalizations.of(context)!.addMaterialDefaultModule;
       }
     }
 
@@ -272,7 +274,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                   size: 18,
                   color: isDark ? Colors.grey[400] : Colors.grey[600]),
               const SizedBox(width: 8),
-              Text('存储至: ',
+              Text(AppLocalizations.of(context)!.addMaterialStoreTo,
                   style: TextStyle(
                       fontSize: 13,
                       color: isDark ? Colors.grey[400] : Colors.grey[600])),
@@ -341,6 +343,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
         text,
         moduleId: resolvedModuleId,
         mode: ref.read(aiSettingsProvider).mode,
+        outputLocale: ref.read(localeProvider).outputLocale,
       );
 
       ref.read(feedProvider.notifier).observeJob(jobId);
@@ -371,11 +374,11 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     if (messenger == null) return;
     messenger.clearSnackBars();
     messenger.showSnackBar(
-      const SnackBar(
-        content: Text('✅ 任务已提交！AI 正在后台为您拆解知识。'),
+      SnackBar(
+        content: Text(AppLocalizations.of(context)!.addMaterialTaskSubmitted),
         backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 4),
+        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -391,7 +394,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
         if (file.size > 10 * 1024 * 1024) {
-          throw Exception('文件大小不能超过 10MB');
+            throw Exception(AppLocalizations.of(context)!.addMaterialFileTooBig);
         }
 
         setState(() {
@@ -406,7 +409,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = '选择文件失败: ${e.toString()}';
+        _error = '${AppLocalizations.of(context)!.addMaterialSelectFileFailed}: ${e.toString()}';
       });
     }
   }
@@ -417,7 +420,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
 
     try {
       if (_urlController.text.isEmpty && _pickedFile == null) {
-        throw Exception('请先上传文件或粘贴链接');
+        throw Exception(AppLocalizations.of(context)!.addMaterialUploadOrPaste);
       }
 
       setState(() {
@@ -429,12 +432,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
       if (_pickedFile != null) {
         // ... existing file parse ...
         final bytes = _pickedFile!.bytes;
-        if (bytes == null) throw Exception('无法读取文件内容');
+        if (bytes == null) throw Exception(AppLocalizations.of(context)!.addMaterialCannotReadFile);
         result = await ContentExtractionService.extractContentFromFile(bytes,
             filename: _pickedFile!.name);
       } else {
         final url = _urlController.text.trim();
-        if (!url.startsWith('http')) throw Exception('请输入有效的 http/https 链接');
+        if (!url.startsWith('http')) throw Exception(AppLocalizations.of(context)!.addMaterialInvalidUrl);
         result = await ContentExtractionService.extractFromUrl(url);
       }
 
@@ -518,19 +521,19 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
 
           return StatefulBuilder(builder: (context, setState) {
             return AlertDialog(
-              title: const Text('选择目标知识库'),
+              title: Text(AppLocalizations.of(context)!.addMaterialSelectTarget),
               content: SizedBox(
                 width: double.maxFinite,
                 height: 300, // Fixed height for scrolling
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('请选择存储拆解结果的知识库：',
+                    Text(AppLocalizations.of(context)!.addMaterialSelectTargetHint,
                         style: TextStyle(color: Colors.grey, fontSize: 13)),
                     const SizedBox(height: 12),
                     Expanded(
                       child: allModules.isEmpty
-                          ? const Center(child: Text('暂无知识库'))
+                          ? Center(child: Text(AppLocalizations.of(context)!.addMaterialNoModule))
                           : ListView.separated(
                               itemCount: allModules.length,
                               separatorBuilder: (ctx, i) =>
@@ -675,6 +678,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
         _extractionResult!.content,
         moduleId: targetId,
         mode: ref.read(aiSettingsProvider).mode,
+        outputLocale: ref.read(localeProvider).outputLocale,
       );
 
       ref.read(feedProvider.notifier).observeJob(jobId);
@@ -763,14 +767,16 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
       ref.read(feedProvider.notifier).addCustomItems(_generatedItems!);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('✅ 导入成功！知识卡片已添加到学习库'), backgroundColor: Colors.green),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.addMaterialImportSuccess),
+          backgroundColor: Colors.green,
+        ),
       );
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存失败: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('${AppLocalizations.of(context)!.addMaterialSaveFailed}: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -810,20 +816,20 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
         await showDialog(
             context: context,
             builder: (c) => AlertDialog(
-                  title: const Text('新手教程未完成'),
+                  title: Text(AppLocalizations.of(context)!.addMaterialTutorialIncomplete),
                   content:
-                      const Text('建议完成教程以获得最佳体验。完成后将不再显示。\n\n(完成后可获得 0 积分特权)'),
+                      Text(AppLocalizations.of(context)!.addMaterialTutorialSuggestion),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.of(c).pop(),
-                        child: const Text('继续体验')),
+                        child: Text(AppLocalizations.of(context)!.addMaterialContinueAnyway)),
                     TextButton(
                         onPressed: () {
                           Navigator.of(c).pop(); // Close alert
                           Navigator.of(context)
                               .pop(); // Close modal (Force quit)
                         },
-                        child: const Text('暂不完成',
+                        child: Text(AppLocalizations.of(context)!.addMaterialSkipTutorial,
                             style: TextStyle(color: Colors.grey)))
                   ],
                 ));
@@ -905,7 +911,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                   children: [
                     Flexible(
                       child: Text(
-                        isDesktop ? '添加学习资料 (批量)' : '添加学习资料',
+                        isDesktop ? AppLocalizations.of(context)!.addMaterialTitleBatch : AppLocalizations.of(context)!.addMaterialTitle,
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
@@ -924,7 +930,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                             color: Colors.orangeAccent.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: Colors.orangeAccent)),
-                        child: const Text('新手引导模式',
+                        child: Text(AppLocalizations.of(context)!.addMaterialTutorialMode,
                             style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.orangeAccent,
@@ -985,9 +991,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                   const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               indicatorSize: TabBarIndicatorSize.tab,
               dividerColor: Colors.transparent,
-              tabs: const [
-                Tab(text: '文本导入'),
-                Tab(text: '多模态 (AI)'),
+              tabs: [
+                Tab(text: AppLocalizations.of(context)!.addMaterialTabText),
+                Tab(text: AppLocalizations.of(context)!.addMaterialTabMultimodal),
               ],
             ),
           ),
@@ -1046,7 +1052,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                 Icon(Icons.playlist_add_check, color: accentColor),
                 const SizedBox(width: 12),
                 Text(
-                  '批量处理队列 (${queue.length})',
+                  AppLocalizations.of(context)!.addMaterialQueueCount(queue.length),
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -1068,8 +1074,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                         Icon(Icons.inbox_outlined,
                             size: 48, color: subTextColor.withOpacity(0.5)),
                         const SizedBox(height: 16),
-                        Text('队列为空', style: TextStyle(color: subTextColor)),
-                        Text('在左侧添加内容以开始处理',
+                        Text(AppLocalizations.of(context)!.addMaterialQueueEmpty, style: TextStyle(color: subTextColor)),
+                        Text(AppLocalizations.of(context)!.addMaterialQueueEmptyHint,
                             style: TextStyle(
                                 color: subTextColor.withOpacity(0.7),
                                 fontSize: 12)),
@@ -1219,7 +1225,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                           const Icon(Icons.check_circle_outline,
                               size: 16, color: Colors.green),
                           const SizedBox(width: 8),
-                          const Text('后台运行中，可安全离开',
+                          Text(AppLocalizations.of(context)!.addMaterialRunningInBg,
                               style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.green,
@@ -1244,7 +1250,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                               foregroundColor: subTextColor,
                               side: BorderSide(color: borderColor),
                             ),
-                            child: const Text('清除已完成'),
+                            child: Text(AppLocalizations.of(context)!.addMaterialClearDone),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -1278,11 +1284,11 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                               ? const Icon(Icons.exit_to_app)
                               : const Icon(Icons.play_arrow),
                           label: Text(batchState.isProcessing
-                              ? '暂时离开 (后台继续)'
+                              ? AppLocalizations.of(context)!.addMaterialLeaveTemporary
                               : (queue.every(
                                       (i) => i.status == BatchStatus.completed)
-                                  ? '全部完成'
-                                  : '开始批量处理')),
+                                  ? AppLocalizations.of(context)!.addMaterialAllDone
+                                  : AppLocalizations.of(context)!.addMaterialStartBatch)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: batchState.isProcessing
                                 ? Theme.of(context).scaffoldBackgroundColor
@@ -1583,7 +1589,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                         strokeWidth: 2, color: Colors.white))
                                 : const Icon(Icons.auto_awesome),
                             label:
-                                Text(_isGenerating ? 'AI 智能解析中...' : 'AI 智能拆解'),
+                                Text(_isGenerating ? AppLocalizations.of(context)!.addMaterialAiParsing : AppLocalizations.of(context)!.addMaterialAiDeconstruct),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: hasQueueItems
                                   ? (isDark
@@ -1635,7 +1641,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                             child: Text(
                               _isGenerating
                                   ? (_streamingStatus ?? '正在生成...')
-                                  : '已生成 ${_generatedItems?.length ?? 0} 个知识点',
+                                  : AppLocalizations.of(context)!.addMaterialGeneratedCount(_generatedItems?.length ?? 0),
                               style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -1662,7 +1668,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                   TextButton.icon(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.exit_to_app, size: 18),
-                    label: const Text('暂且离开'),
+                    label: Text(AppLocalizations.of(context)!.addMaterialLeaveForNow),
                     style: TextButton.styleFrom(
                       foregroundColor: accentColor,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1680,7 +1686,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                         _currentCardIndex = null;
                       });
                     },
-                    tooltip: '重新编辑',
+                    tooltip: AppLocalizations.of(context)!.addMaterialReedit,
                   ),
               ],
             ),
@@ -1700,7 +1706,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                           ),
                           const SizedBox(height: 24),
                           Text(
-                            _streamingStatus ?? '正在连接 AI...',
+                            _streamingStatus ?? AppLocalizations.of(context)!.addMaterialConnecting,
                             style: TextStyle(
                               color: secondaryTextColor,
                               fontSize: 16,
@@ -1709,7 +1715,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'AI 正在阅读并分析您的内容\n第一张卡片通常需要 5-10 秒...',
+                            AppLocalizations.of(context)!.addMaterialAiReading,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: secondaryTextColor.withOpacity(0.7),
@@ -1749,7 +1755,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
-                                  '正在生成下一张卡片...',
+                                  AppLocalizations.of(context)!.addMaterialNextCard,
                                   style: TextStyle(
                                     color: secondaryTextColor,
                                     fontSize: 14,
@@ -1886,7 +1892,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                           borderRadius: BorderRadius.circular(16)),
                       foregroundColor: secondaryTextColor,
                     ),
-                    child: const Text('返回修改'),
+                    child: Text(AppLocalizations.of(context)!.addMaterialBackToEdit),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1905,7 +1911,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                           borderRadius: BorderRadius.circular(16)),
                       disabledBackgroundColor: accentColor.withOpacity(0.5),
                     ),
-                    child: Text(_isGenerating ? '生成中...' : '确认并保存'),
+                    child: Text(_isGenerating ? AppLocalizations.of(context)!.addMaterialGenerating : AppLocalizations.of(context)!.addMaterialConfirmSave),
                   ),
                 ),
               ],
@@ -2688,7 +2694,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     final aiSettings = ref.watch(aiSettingsProvider);
     final accentColor = const Color(0xFFee8f4b);
 
-    Widget _buildModeChip(AiDeconstructionMode mode, String label, String sub) {
+    Widget _buildModeChip(BuildContext context, AiDeconstructionMode mode, String label, String sub) {
       final isSelected = aiSettings.mode == mode;
       return Expanded(
         child: GestureDetector(
@@ -2748,13 +2754,13 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
         ),
         Row(
           children: [
-            _buildModeChip(AiDeconstructionMode.standard, '普通', '严谨全面'),
+            _buildModeChip(context, AiDeconstructionMode.standard, AppLocalizations.of(context)!.addMaterialModeStandard, AppLocalizations.of(context)!.addMaterialModeStandardDesc),
             const SizedBox(width: 8),
-            _buildModeChip(AiDeconstructionMode.grandma, '老奶奶', '极其通俗'),
+            _buildModeChip(context, AiDeconstructionMode.grandma, AppLocalizations.of(context)!.addMaterialModeGrandma, AppLocalizations.of(context)!.addMaterialModeGrandmaDesc),
             const SizedBox(width: 8),
-            _buildModeChip(AiDeconstructionMode.phd, '智障博士', '大白话'),
+            _buildModeChip(context, AiDeconstructionMode.phd, AppLocalizations.of(context)!.addMaterialModePhd, AppLocalizations.of(context)!.addMaterialModePhdDesc),
             const SizedBox(width: 8),
-            _buildModeChip(AiDeconstructionMode.podcast, '播客', '两人对谈讲解'),
+            _buildModeChip(context, AiDeconstructionMode.podcast, AppLocalizations.of(context)!.addMaterialModePodcast, AppLocalizations.of(context)!.addMaterialModePodcastDesc),
           ],
         ),
       ],

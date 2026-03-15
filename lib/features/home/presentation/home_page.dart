@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
 import '../../vault/presentation/vault_page.dart';
 import '../../feed/presentation/feed_page.dart';
 import '../../feed/presentation/feed_provider.dart';
@@ -124,21 +125,21 @@ class _HomePageState extends ConsumerState<HomePage> {
         indicatorShape: const CircleBorder(),
         height: 70, // Slightly shorter for a cleaner look
         elevation: 0, // Flat look to match the white design
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home, color: Color(0xFFFF8A65)),
-            label: '主页',
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home, color: Color(0xFFFF8A65)),
+            label: AppLocalizations.of(context)!.home,
           ),
           NavigationDestination(
-            icon: Icon(Icons.school_outlined),
-            selectedIcon: Icon(Icons.school, color: Color(0xFFFF8A65)),
-            label: '学习',
+            icon: const Icon(Icons.school_outlined),
+            selectedIcon: const Icon(Icons.school, color: Color(0xFFFF8A65)),
+            label: AppLocalizations.of(context)!.navStudy,
           ),
           NavigationDestination(
-            icon: Icon(Icons.favorite_border),
-            selectedIcon: Icon(Icons.favorite, color: Color(0xFFFF8A65)),
-            label: '收藏',
+            icon: const Icon(Icons.favorite_border),
+            selectedIcon: const Icon(Icons.favorite, color: Color(0xFFFF8A65)),
+            label: AppLocalizations.of(context)!.navVault,
           ),
         ],
       ),

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/theme_provider.dart' as custom_theme;
 import '../../../core/theme/theme_provider.dart' show themeProvider;
+import '../../../core/locale/locale_provider.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../../models/feed_item.dart';
@@ -30,26 +32,24 @@ class ProfilePage extends ConsumerWidget {
     }
 
     void _showCreditRules(BuildContext context) {
+      final l10n = AppLocalizations.of(context)!;
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('积分规则 💰'),
+          title: Text(l10n.creditsRuleTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildRuleItem(Icons.fiber_new, '新用户注册', '+200 积分'),
-              _buildRuleItem(Icons.calendar_today, '每日签到', '+20 积分/天'),
-              _buildRuleItem(
-                  Icons.chat_bubble_outline, 'AI 聊天 & 陪练', '目前免费 ⚡️'),
-              _buildRuleItem(
-                  Icons.description_outlined, '内容提取 / 解析', '目前免费 ⚡️'),
-              _buildRuleItem(Icons.auto_awesome, 'AI 智能拆解', '10-40 积分/次'),
-              _buildRuleItem(Icons.share, '点击分享按钮', '+10 积分/次'),
-              _buildRuleItem(Icons.person_add, '邀请好友加入', '+50 积分/位'),
+              _buildRuleItem(Icons.fiber_new, l10n.creditsRuleNewUser, l10n.creditsRuleNewUserValue),
+              _buildRuleItem(Icons.calendar_today, l10n.creditsRuleDaily, l10n.creditsRuleDailyValue),
+              _buildRuleItem(Icons.chat_bubble_outline, l10n.creditsRuleAiChat, l10n.creditsRuleAiChatValue),
+              _buildRuleItem(Icons.description_outlined, l10n.creditsRuleExtraction, l10n.creditsRuleExtractionValue),
+              _buildRuleItem(Icons.auto_awesome, l10n.creditsRuleAiDeconstruct, l10n.creditsRuleAiDeconstructValue),
+              _buildRuleItem(Icons.share, l10n.creditsRuleShare, l10n.creditsRuleShareValue),
+              _buildRuleItem(Icons.person_add, l10n.creditsRuleInvite, l10n.creditsRuleInviteValue),
               const SizedBox(height: 16),
-              const Text('💡 积分不足时，只需点击分享您喜欢的知识库即可立即获得奖励！',
-                  style: TextStyle(fontSize: 13, color: Colors.grey)),
+              Text(l10n.creditsTipLow, style: const TextStyle(fontSize: 13, color: Colors.grey)),
               const Divider(height: 24),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -59,9 +59,9 @@ class ProfilePage extends ConsumerWidget {
                   border:
                       Border.all(color: Colors.orangeAccent.withOpacity(0.2)),
                 ),
-                child: const Text(
-                  '⚠️ 系统目前处于内测阶段，暂未开启积分支付与充值功能，敬请期待。',
-                  style: TextStyle(
+                child: Text(
+                  l10n.creditsTipBeta,
+                  style: const TextStyle(
                       fontSize: 12,
                       color: Colors.orangeAccent,
                       fontWeight: FontWeight.bold),
@@ -72,7 +72,7 @@ class ProfilePage extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('我知道了'),
+              child: Text(l10n.creditsGotIt),
             ),
           ],
         ),
@@ -80,23 +80,23 @@ class ProfilePage extends ConsumerWidget {
     }
 
     void _showMasteryInfo(BuildContext context) {
+      final l10n = AppLocalizations.of(context)!;
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('如何算“已掌握”？🎓'),
-          content: const Column(
+          title: Text(l10n.masteredRuleTitle),
+          content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('在沉浸式阅读中，点击底部的【记入收藏】并将卡片标记为：',
-                  style: TextStyle(height: 1.5)),
-              SizedBox(height: 12),
+              Text(l10n.masteredRuleIntro, style: const TextStyle(height: 1.5)),
+              const SizedBox(height: 12),
               Row(
                 children: [
-                  Icon(Icons.sentiment_satisfied_alt,
+                  const Icon(Icons.sentiment_satisfied_alt,
                       color: Colors.green, size: 20),
-                  SizedBox(width: 8),
-                  Text('熟练 (Expert)',
+                  const SizedBox(width: 8),
+                  Text(l10n.masteredExpert,
                       style: TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -105,7 +105,7 @@ class ProfilePage extends ConsumerWidget {
                 children: [
                   Icon(Icons.sentiment_neutral, color: Colors.blue, size: 20),
                   SizedBox(width: 8),
-                  Text('一般 (Medium)',
+                  Text(l10n.masteredMedium,
                       style: TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -115,20 +115,20 @@ class ProfilePage extends ConsumerWidget {
                   Icon(Icons.sentiment_dissatisfied,
                       color: Colors.orange, size: 20),
                   SizedBox(width: 8),
-                  Text('生疏 (Newbie)',
+                  Text(l10n.masteredNewbie,
                       style: TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
               SizedBox(height: 16),
-              Text('系统会将这些标记过的知识点统计为“已掌握”，你可以在【收藏】页面统一进行回顾。',
+              Text(l10n.masteredRuleOutro,
                   style:
-                      TextStyle(fontSize: 13, color: Colors.grey, height: 1.4)),
+                      const TextStyle(fontSize: 13, color: Colors.grey, height: 1.4)),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('了解了'),
+              child: Text(l10n.masteredUnderstood),
             ),
           ],
         ),
@@ -264,7 +264,7 @@ class ProfilePage extends ConsumerWidget {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  user.displayName ?? '设置昵称',
+                                  user.displayName ?? AppLocalizations.of(context)!.profileSetNickname,
                                   style: TextStyle(
                                     fontSize: 24,
                                     fontWeight: FontWeight.bold,
@@ -310,8 +310,8 @@ class ProfilePage extends ConsumerWidget {
                       children: [
                         Expanded(
                             child: _StatCard(
-                          label: '知识点',
-                          value: '$masteredCount 已掌握',
+                          label: AppLocalizations.of(context)!.profileKnowledgePoints,
+                          value: AppLocalizations.of(context)!.profileMasteredCount(masteredCount),
                           icon: Icons.school,
                           color: Colors.blue,
                           isDark: isDark,
@@ -323,7 +323,7 @@ class ProfilePage extends ConsumerWidget {
                             builder: (context, ref, child) {
                               final statsAsync = ref.watch(creditProvider);
                               return _StatCard(
-                                label: '我的积分',
+                                label: AppLocalizations.of(context)!.profileMyCredits,
                                 value: statsAsync.when(
                                   data: (stats) => '${stats.credits}',
                                   loading: () => '...',
@@ -333,7 +333,7 @@ class ProfilePage extends ConsumerWidget {
                                 color: const Color(0xFFFFB300),
                                 isDark: isDark,
                                 subtitle: statsAsync.when(
-                                  data: (stats) => '推广点击: ${stats.shareClicks}',
+                                  data: (stats) => AppLocalizations.of(context)!.profileShareClicks(stats.shareClicks),
                                   loading: () => '',
                                   error: (_, __) => '',
                                 ),
@@ -350,7 +350,7 @@ class ProfilePage extends ConsumerWidget {
                   const SizedBox(height: 16),
 
                   // Settings Section
-                  _SectionHeader(title: '设置', isDark: isDark),
+                  _SectionHeader(title: AppLocalizations.of(context)!.settingsSection, isDark: isDark),
                   const SizedBox(height: 16),
 
                   Consumer(
@@ -358,10 +358,10 @@ class ProfilePage extends ConsumerWidget {
                       final onboardingState = ref.watch(onboardingProvider);
                       return _GlassTile(
                         icon: Icons.school_outlined,
-                        title: '新手引导',
+                        title: AppLocalizations.of(context)!.settingsTutorial,
                         subtitle: onboardingState.isAlwaysShowTutorial
-                            ? '已开启 (每次都显示)'
-                            : '默认 (仅首次显示)',
+                            ? AppLocalizations.of(context)!.settingsTutorialOn
+                            : AppLocalizations.of(context)!.settingsTutorialDefault,
                         isDark: isDark,
                         trailing: Switch(
                           value: onboardingState.isAlwaysShowTutorial,
@@ -386,10 +386,10 @@ class ProfilePage extends ConsumerWidget {
                       return shareNotesAsync.when(
                         data: (shareNotesPublic) => _GlassTile(
                           icon: Icons.menu_book_outlined,
-                          title: '分享时开放我的笔记',
+                          title: AppLocalizations.of(context)!.settingsShareNotes,
                           subtitle: shareNotesPublic
-                              ? '他人通过链接可看到你的笔记'
-                              : '仅展示卡片正文',
+                              ? AppLocalizations.of(context)!.settingsShareNotesOn
+                              : AppLocalizations.of(context)!.settingsShareNotesOff,
                           isDark: isDark,
                           trailing: Switch(
                             value: shareNotesPublic,
@@ -427,8 +427,10 @@ class ProfilePage extends ConsumerWidget {
 
                   _GlassTile(
                     icon: isDark ? Icons.light_mode : Icons.dark_mode,
-                    title: '外观',
-                    subtitle: isDark ? '深色模式' : '浅色模式',
+                    title: AppLocalizations.of(context)!.appearance,
+                    subtitle: isDark
+                        ? AppLocalizations.of(context)!.appearanceDark
+                        : AppLocalizations.of(context)!.appearanceLight,
                     isDark: isDark,
                     trailing: Switch(
                       value: isDark,
@@ -442,12 +444,24 @@ class ProfilePage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  if (FirebaseAuth.instance.currentUser?.email != null &&
+                  _GlassTile(
+                    icon: Icons.language,
+                    title: AppLocalizations.of(context)!.language,
+                    subtitle: ref.watch(localeProvider).outputLocale == 'zh'
+                        ? AppLocalizations.of(context)!.languageChinese
+                        : AppLocalizations.of(context)!.languageEnglish,
+                    isDark: isDark,
+                    onTap: () => _showLanguagePicker(context, ref),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                  ),
+                  const SizedBox(height: 12),
+
+                    if (FirebaseAuth.instance.currentUser?.email != null &&
                       FirebaseAuth.instance.currentUser?.email!.isNotEmpty == true) ...[
                     _GlassTile(
                       icon: Icons.lock_reset_outlined,
-                      title: '密保问题',
-                      subtitle: '忘记密码时可通过密保找回',
+                      title: AppLocalizations.of(context)!.securityQuestion,
+                      subtitle: AppLocalizations.of(context)!.securityQuestionSubtitle,
                       isDark: isDark,
                       onTap: () => _showSecurityQuestionDialog(context),
                       trailing: const Icon(Icons.chevron_right, size: 20),
@@ -460,8 +474,8 @@ class ProfilePage extends ConsumerWidget {
 
                   _GlassTile(
                     icon: Icons.visibility_off_outlined,
-                    title: '隐藏的内容',
-                    subtitle: '恢复被隐藏的知识库或卡片',
+                    title: AppLocalizations.of(context)!.hiddenContent,
+                    subtitle: AppLocalizations.of(context)!.hiddenContentSubtitle,
                     isDark: isDark,
                     onTap: () => context.push('/profile/hidden'),
                     trailing: const Icon(Icons.chevron_right, size: 20),
@@ -470,8 +484,8 @@ class ProfilePage extends ConsumerWidget {
 
                   _GlassTile(
                     icon: Icons.contact_support_outlined,
-                    title: '联系我们 / 反馈',
-                    subtitle: 'Bug 反馈、功能建议或合作',
+                    title: AppLocalizations.of(context)!.contactUs,
+                    subtitle: AppLocalizations.of(context)!.contactSubtitle,
                     isDark: isDark,
                     onTap: () => showDialog(
                         context: context,
@@ -482,8 +496,8 @@ class ProfilePage extends ConsumerWidget {
 
                   _GlassTile(
                     icon: Icons.info_outline,
-                    title: '关于 Reado',
-                    subtitle: '了解功能指南与设计理念',
+                    title: AppLocalizations.of(context)!.aboutReado,
+                    subtitle: AppLocalizations.of(context)!.aboutReadoSubtitle,
                     isDark: isDark,
                     onTap: () => context.push('/profile/about'),
                     trailing: const Icon(Icons.chevron_right, size: 20),
@@ -505,10 +519,10 @@ class ProfilePage extends ConsumerWidget {
                         border: Border.all(
                             color: Colors.red.withOpacity(0.3), width: 1),
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Text(
-                          '退出登录',
-                          style: TextStyle(
+                          AppLocalizations.of(context)!.logout,
+                          style: const TextStyle(
                             color: Colors.red,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -551,8 +565,8 @@ class ProfilePage extends ConsumerWidget {
       children: [
         _GlassTile(
           icon: Icons.psychology_outlined,
-          title: '阅读辅助 (ADHD Focus)',
-          subtitle: adhdSettings.isEnabled ? '已开启三色随机引导' : '未开启',
+          title: AppLocalizations.of(context)!.settingsAdhdTitle,
+          subtitle: adhdSettings.isEnabled ? AppLocalizations.of(context)!.settingsAdhdOn : AppLocalizations.of(context)!.settingsAdhdOff,
           isDark: isDark,
           trailing: Switch(
             value: adhdSettings.isEnabled,
@@ -581,7 +595,7 @@ class ProfilePage extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('辅助模式',
+                    Text(AppLocalizations.of(context)!.settingsAdhdMode,
                         style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
@@ -590,18 +604,18 @@ class ProfilePage extends ConsumerWidget {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        _buildModeChip(ref, '标色', AdhdReadingMode.color,
+                        _buildModeChip(ref, AppLocalizations.of(context)!.settingsAdhdColor, AdhdReadingMode.color,
                             adhdSettings.mode, isDark),
                         const SizedBox(width: 8),
-                        _buildModeChip(ref, '加粗', AdhdReadingMode.bold,
+                        _buildModeChip(ref, AppLocalizations.of(context)!.settingsAdhdBold, AdhdReadingMode.bold,
                             adhdSettings.mode, isDark),
                         const SizedBox(width: 8),
-                        _buildModeChip(ref, '混合', AdhdReadingMode.hybrid,
+                        _buildModeChip(ref, AppLocalizations.of(context)!.settingsAdhdHybrid, AdhdReadingMode.hybrid,
                             adhdSettings.mode, isDark),
                       ],
                     ),
                     const SizedBox(height: 20),
-                    Text('引导强度',
+                    Text(AppLocalizations.of(context)!.settingsAdhdStrength,
                         style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
@@ -618,7 +632,7 @@ class ProfilePage extends ConsumerWidget {
                       }).toList(),
                     ),
                     const SizedBox(height: 12),
-                    Text('💡 采用动态随机算法，在文中分布三色视觉锚点，防止视线漂移。',
+                    Text(AppLocalizations.of(context)!.settingsAdhdTip,
                         style: TextStyle(
                             fontSize: 11,
                             color:
@@ -705,7 +719,7 @@ class ProfilePage extends ConsumerWidget {
 
     // 2. 复制到剪贴板
     Clipboard.setData(
-        ClipboardData(text: '嘿！我正在使用 Reado 学习，这个 AI 工具太强了，快来看看：\n$shareUrl'));
+        ClipboardData(text: AppLocalizations.of(context)!.sharePersonalCopy(shareUrl)));
 
     // 3. 奖励积分 (动作奖励)
     ref.read(creditProvider.notifier).rewardShare(amount: 10);
@@ -717,23 +731,23 @@ class ProfilePage extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.stars, color: Color(0xFFFFB300)),
-                SizedBox(width: 8),
-                Text('分享成功！获得 10 积分动作奖励 🎁',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                const Icon(Icons.stars, color: Color(0xFFFFB300)),
+                const SizedBox(width: 8),
+                Text(AppLocalizations.of(context)!.shareSuccessReward,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               ],
             ),
             const SizedBox(height: 10),
-            const Text('已经为您复制到剪贴板',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+            Text(AppLocalizations.of(context)!.shareCopiedToClipboard,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
             const SizedBox(height: 4),
-            const Text('分享链接已复制到剪贴板，快粘贴给你的朋友使用吧',
-                style: TextStyle(fontSize: 14, color: Colors.white)),
+            Text(AppLocalizations.of(context)!.sharePasteToFriends,
+                style: const TextStyle(fontSize: 14, color: Colors.white)),
             const SizedBox(height: 6),
-            const Text('好友通过您的链接加入时，您将再获得 50 积分',
-                style: TextStyle(fontSize: 12, color: Colors.white70)),
+            Text(AppLocalizations.of(context)!.shareFriendJoinReward,
+                style: const TextStyle(fontSize: 12, color: Colors.white70)),
           ],
         ),
         backgroundColor: const Color(0xFF2E7D32),
@@ -894,7 +908,7 @@ class _DailyCheckInOnEnterState extends ConsumerState<_DailyCheckInOnEnter> {
         final credits = result['credits'] ?? 20;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('已领取每日签到积分，$credits 积分'),
+            content: Text(AppLocalizations.of(context)!.checkInCreditsReceived(credits)),
             backgroundColor: const Color(0xFF2E7D32),
             behavior: SnackBarBehavior.floating,
           ),
@@ -1087,7 +1101,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
     return AlertDialog(
       backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text('编辑资料',
+      title: Text(AppLocalizations.of(context)!.profileEditProfile,
           style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
       content: SizedBox(
         width: double.maxFinite,
@@ -1115,7 +1129,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                 ),
               ),
               const SizedBox(height: 20),
-              Text('选择头像',
+              Text(AppLocalizations.of(context)!.profileChooseAvatar,
                   style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -1154,8 +1168,8 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                 controller: _nameController,
                 style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                 decoration: InputDecoration(
-                  labelText: '昵称',
-                  hintText: '输入你的昵称',
+                  labelText: AppLocalizations.of(context)!.profileNicknameLabel,
+                  hintText: AppLocalizations.of(context)!.profileNicknameHint,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12)),
                   prefixIcon: const Icon(Icons.person_outline),
@@ -1168,7 +1182,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(AppLocalizations.of(context)!.cancel),
         ),
         ElevatedButton(
           onPressed: _isSaving ? null : _saveProfile,
@@ -1184,7 +1198,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                   height: 20,
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: Colors.white))
-              : const Text('保存'),
+              : Text(AppLocalizations.of(context)!.profileSave),
         ),
       ],
     );
@@ -1230,13 +1244,6 @@ class _ContactDialogState extends ConsumerState<_ContactDialog> {
   final _contactController = TextEditingController();
   bool _isSubmitting = false;
 
-  final Map<String, String> _typeLabels = {
-    'bug': '🐛 Bug 反馈',
-    'advice': '💡 功能建议',
-    'cooperation': '🤝 商务合作',
-    'other': '💬 其他',
-  };
-
   @override
   void dispose() {
     _contentController.dispose();
@@ -1244,8 +1251,7 @@ class _ContactDialogState extends ConsumerState<_ContactDialog> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _submit() async {    if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSubmitting = true);
     try {
@@ -1259,13 +1265,13 @@ class _ContactDialogState extends ConsumerState<_ContactDialog> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('感谢您的反馈！我们会尽快处理。')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.feedbackThanks)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('提交失败: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.feedbackSubmitFailed(e.toString()))),
         );
       }
     } finally {
@@ -1276,11 +1282,18 @@ class _ContactDialogState extends ConsumerState<_ContactDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
+    final typeLabels = <String, String>{
+      'bug': l10n.feedbackTypeBug,
+      'advice': l10n.feedbackTypeAdvice,
+      'cooperation': l10n.feedbackTypeCoop,
+      'other': l10n.feedbackTypeOther,
+    };
 
     return AlertDialog(
       backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text('联系我们',
+      title: Text(l10n.contactUsTitle,
           style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
       content: SizedBox(
         width: double.maxFinite,
@@ -1299,7 +1312,7 @@ class _ContactDialogState extends ConsumerState<_ContactDialog> {
                       color: isDark ? Colors.white : Colors.black87,
                       fontSize: 14),
                   decoration: InputDecoration(
-                    labelText: '反馈类型',
+                    labelText: AppLocalizations.of(context)!.feedbackTypeLabel,
                     filled: true,
                     fillColor: isDark
                         ? Colors.white.withOpacity(0.05)
@@ -1308,7 +1321,7 @@ class _ContactDialogState extends ConsumerState<_ContactDialog> {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none),
                   ),
-                  items: _typeLabels.entries.map((e) {
+                  items: typeLabels.entries.map((e) {
                     return DropdownMenuItem(
                       value: e.key,
                       child: Text(e.value),
@@ -1323,12 +1336,12 @@ class _ContactDialogState extends ConsumerState<_ContactDialog> {
                   controller: _contentController,
                   maxLines: 5,
                   validator: (v) =>
-                      v == null || v.trim().isEmpty ? '请输入内容' : null,
+                      v == null || v.trim().isEmpty ? AppLocalizations.of(context)!.feedbackContentRequired : null,
                   style:
                       TextStyle(color: isDark ? Colors.white : Colors.black87),
                   decoration: InputDecoration(
-                    labelText: '详细描述',
-                    hintText: '请详细描述您遇到的问题或建议...',
+                    labelText: AppLocalizations.of(context)!.feedbackDescLabel,
+                    hintText: AppLocalizations.of(context)!.feedbackDescHint,
                     filled: true,
                     fillColor: isDark
                         ? Colors.white.withOpacity(0.05)
@@ -1344,8 +1357,8 @@ class _ContactDialogState extends ConsumerState<_ContactDialog> {
                   style:
                       TextStyle(color: isDark ? Colors.white : Colors.black87),
                   decoration: InputDecoration(
-                    labelText: '联系方式 (选填)',
-                    hintText: '邮箱或微信，方便我们需要时联系您',
+                    labelText: AppLocalizations.of(context)!.feedbackContactLabel,
+                    hintText: AppLocalizations.of(context)!.feedbackContactHint,
                     filled: true,
                     fillColor: isDark
                         ? Colors.white.withOpacity(0.05)
@@ -1364,7 +1377,7 @@ class _ContactDialogState extends ConsumerState<_ContactDialog> {
         TextButton(
           onPressed: _isSubmitting ? null : () => Navigator.pop(context),
           child:
-              Text('取消', style: TextStyle(color: isDark ? Colors.grey : null)),
+              Text(AppLocalizations.of(context)!.cancel, style: TextStyle(color: isDark ? Colors.grey : null)),
         ),
         ElevatedButton(
           onPressed: _isSubmitting ? null : _submit,
@@ -1380,8 +1393,9 @@ class _ContactDialogState extends ConsumerState<_ContactDialog> {
                   height: 16,
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: Colors.white))
-              : const Text('提交',
-                  style: TextStyle(
+              : Text(
+                  AppLocalizations.of(context)!.feedbackSubmit,
+                  style: const TextStyle(
                       color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
@@ -1390,13 +1404,41 @@ class _ContactDialogState extends ConsumerState<_ContactDialog> {
 }
 
 /// 密保问题列表（与 Cloud Functions 一致）
-const List<String> _kSecurityQuestions = [
-  '您母亲的姓名是？',
-  '您出生的城市是？',
-  '您的第一个宠物名字是？',
-  '您的小学名称是？',
-  '您的配偶生日（MMDD，如 0315）是？',
+List<String> _securityQuestions(BuildContext context) => [
+  AppLocalizations.of(context)!.securityQuestions0,
+  AppLocalizations.of(context)!.securityQuestions1,
+  AppLocalizations.of(context)!.securityQuestions2,
+  AppLocalizations.of(context)!.securityQuestions3,
+  AppLocalizations.of(context)!.securityQuestions4,
 ];
+
+void _showLanguagePicker(BuildContext context, WidgetRef ref) {
+  final l10n = AppLocalizations.of(context)!;
+  showModalBottomSheet<void>(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            title: Text(l10n.languageEnglish),
+            onTap: () {
+              ref.read(localeProvider.notifier).setLocaleCode('en');
+              Navigator.pop(ctx);
+            },
+          ),
+          ListTile(
+            title: Text(l10n.languageChinese),
+            onTap: () {
+              ref.read(localeProvider.notifier).setLocaleCode('zh');
+              Navigator.pop(ctx);
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
 void _showSecurityQuestionDialog(BuildContext context) {
   showDialog<void>(
@@ -1427,7 +1469,7 @@ class _SecurityQuestionDialogState extends State<_SecurityQuestionDialog> {
   Future<void> _save() async {
     final answer = _answerController.text.trim();
     if (answer.length < 2) {
-      setState(() => _errorMsg = '答案至少 2 个字符');
+      setState(() => _errorMsg = AppLocalizations.of(context)!.securityAnswerMin);
       return;
     }
     setState(() { _isLoading = true; _errorMsg = null; });
@@ -1439,17 +1481,17 @@ class _SecurityQuestionDialogState extends State<_SecurityQuestionDialog> {
       if (!context.mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('密保已设置，可用于忘记密码时找回'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.securitySetSuccess),
           behavior: SnackBarBehavior.floating,
         ),
       );
     } on FirebaseFunctionsException catch (e) {
       if (!context.mounted) return;
-      setState(() => _errorMsg = e.message ?? '设置失败');
+      setState(() => _errorMsg = e.message ?? AppLocalizations.of(context)!.securitySetFailed);
     } catch (e) {
       if (!context.mounted) return;
-      setState(() => _errorMsg = '网络异常，请稍后重试');
+      setState(() => _errorMsg = AppLocalizations.of(context)!.errorNetwork);
     } finally {
       if (context.mounted) setState(() => _isLoading = false);
     }
@@ -1462,30 +1504,30 @@ class _SecurityQuestionDialogState extends State<_SecurityQuestionDialog> {
     final hintColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
 
     return AlertDialog(
-      title: Text('设置密保问题', style: TextStyle(color: textColor)),
+      title: Text(AppLocalizations.of(context)!.securitySetDialogTitle, style: TextStyle(color: textColor)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('用于忘记密码时找回，请牢记答案。', style: TextStyle(color: hintColor, fontSize: 13)),
+            Text(AppLocalizations.of(context)!.securitySetDialogIntro, style: TextStyle(color: hintColor, fontSize: 13)),
             const SizedBox(height: 16),
             DropdownButtonFormField<int>(
               value: _selectedIndex,
               decoration: InputDecoration(
-                labelText: '选择问题',
+                labelText: AppLocalizations.of(context)!.securitySelectQuestion,
                 border: const OutlineInputBorder(),
               ),
-              items: List.generate(_kSecurityQuestions.length, (i) => DropdownMenuItem(value: i, child: Text(_kSecurityQuestions[i], overflow: TextOverflow.ellipsis))),
+              items: List.generate(_securityQuestions(context).length, (i) => DropdownMenuItem(value: i, child: Text(_securityQuestions(context)[i], overflow: TextOverflow.ellipsis))),
               onChanged: _isLoading ? null : (v) => setState(() => _selectedIndex = v ?? 0),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _answerController,
               obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '答案（至少 2 个字符）',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.securityAnswerLabel,
+                border: const OutlineInputBorder(),
               ),
               onChanged: (_) => setState(() => _errorMsg = null),
             ),
@@ -1499,14 +1541,14 @@ class _SecurityQuestionDialogState extends State<_SecurityQuestionDialog> {
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.pop(context),
-          child: Text('取消', style: TextStyle(color: hintColor)),
+          child: Text(AppLocalizations.of(context)!.cancel, style: TextStyle(color: hintColor)),
         ),
         ElevatedButton(
           onPressed: _isLoading ? null : _save,
           style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
           child: _isLoading
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Text('保存'),
+              : Text(AppLocalizations.of(context)!.profileSave),
         ),
       ],
     );

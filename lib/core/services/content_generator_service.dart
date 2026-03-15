@@ -3,6 +3,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter/foundation.dart';
 import '../../models/feed_item.dart';
 import 'proxy_http_client.dart';
+import '../prompts/app_prompts.dart';
 
 class ContentGeneratorService {
   late final GenerativeModel _jsonModel;
@@ -39,10 +40,9 @@ class ContentGeneratorService {
   }
 
   /// 从用户提供的文本生成知识卡片
-  /// ...
-  Future<List<FeedItem>> generateFromText(String text) async {
-    // ... (Keep existing prompt) ...
-    const prompt = '''
+  Future<List<FeedItem>> generateFromText(String text, {String outputLocale = 'zh'}) async {
+    final langInstr = languageInstruction(outputLocale);
+    final prompt = '''
 你是一位资深的教育内容专家和产品经理导师。你的任务是将用户提供的学习资料转化为易于理解和记忆的知识卡片。
 
 ## 核心要求
@@ -95,6 +95,9 @@ class ContentGeneratorService {
 - 如果是产品管理相关：使用 "产品设计"、"需求分析"、"数据分析"、"用户研究" 等
 - 如果是技术相关：使用 "编程基础"、"算法"、"系统设计" 等
 - 如果不确定：使用 "通识" 或从内容中提取主题
+
+### 6. 语言
+- $langInstr
 
 ## 输出格式
 

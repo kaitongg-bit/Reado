@@ -8,6 +8,7 @@ import '../../../core/router/pending_login_return_path.dart';
 import '../../../core/services/auth_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../profile/presentation/philosophy_vision_section.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
 
 /// 官网页主价值句，便于后续改文案或多语言
 const String _kOnboardingValueProp =
@@ -1071,7 +1072,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  _isSignUpMode ? '创建账号' : '登陆',
+                  _isSignUpMode
+                      ? AppLocalizations.of(context)!.createAccount
+                      : AppLocalizations.of(context)!.login,
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -1080,7 +1083,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _isSignUpMode ? '开始你的知识内化之旅' : '继续你的学习',
+                  _isSignUpMode ? AppLocalizations.of(context)!.createAccountSubtitle : AppLocalizations.of(context)!.continueLearning,
                   style: TextStyle(fontSize: 14, color: hintColor),
                 ),
                 const SizedBox(height: 32),
@@ -1090,7 +1093,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                     controller: _usernameController,
                     style: TextStyle(color: textColor, fontSize: 16),
                     decoration: InputDecoration(
-                      hintText: '用户名',
+                      hintText: AppLocalizations.of(context)!.usernameHint,
                       hintStyle: TextStyle(color: hintColor),
                       prefixIcon: Icon(Icons.person_outline, color: hintColor, size: 22),
                       filled: true,
@@ -1109,7 +1112,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                   keyboardType: TextInputType.emailAddress,
                   style: TextStyle(color: textColor, fontSize: 16),
                   decoration: InputDecoration(
-                    hintText: '电子邮箱',
+                    hintText: AppLocalizations.of(context)!.emailHint,
                     hintStyle: TextStyle(color: hintColor),
                     prefixIcon: Icon(Icons.email_outlined, color: hintColor, size: 22),
                     filled: true,
@@ -1127,7 +1130,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                   obscureText: _obscurePassword,
                   style: TextStyle(color: textColor, fontSize: 16),
                   decoration: InputDecoration(
-                    hintText: '密码',
+                    hintText: AppLocalizations.of(context)!.passwordHint,
                     hintStyle: TextStyle(color: hintColor),
                     prefixIcon: Icon(Icons.lock_outline, color: hintColor, size: 22),
                     suffixIcon: IconButton(
@@ -1168,7 +1171,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
                         : Text(
-                            _isSignUpMode ? '注册' : '登陆',
+                            _isSignUpMode ? AppLocalizations.of(context)!.signUp : AppLocalizations.of(context)!.login,
                             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                           ),
                   ),
@@ -1180,7 +1183,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                     child: TextButton(
                       onPressed: () => context.push('/forgot-password'),
                       child: Text(
-                        '忘记密码？',
+                        AppLocalizations.of(context)!.forgotPassword,
                         style: TextStyle(color: hintColor, fontSize: 14),
                       ),
                     ),
@@ -1188,7 +1191,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                 TextButton(
                   onPressed: () => setState(() => _isSignUpMode = !_isSignUpMode),
                   child: Text(
-                    _isSignUpMode ? '已有账号？登陆' : '没有账号？注册',
+                    _isSignUpMode ? AppLocalizations.of(context)!.alreadyHaveAccount : AppLocalizations.of(context)!.noAccount,
                     style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w500),
                   ),
                 ),
@@ -1198,7 +1201,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                     Expanded(child: Divider(color: inputBorder)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('或', style: TextStyle(fontSize: 13, color: hintColor)),
+                      child: Text(AppLocalizations.of(context)!.orDivider, style: TextStyle(fontSize: 13, color: hintColor)),
                     ),
                     Expanded(child: Divider(color: inputBorder)),
                   ],
@@ -1226,14 +1229,14 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                           errorBuilder: (_, __, ___) => Icon(Icons.login, size: 22, color: textColor),
                         ),
                         const SizedBox(width: 10),
-                        Text('使用 Google 登陆', style: TextStyle(fontSize: 15, color: textColor)),
+                        Text(AppLocalizations.of(context)!.signInWithGoogle, style: TextStyle(fontSize: 15, color: textColor)),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 32),
                 Text(
-                  '登陆即表示同意用户协议与隐私政策',
+                  AppLocalizations.of(context)!.agreeTerms,
                   style: TextStyle(fontSize: 12, color: hintColor),
                   textAlign: TextAlign.center,
                 ),

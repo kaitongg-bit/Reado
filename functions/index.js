@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const prompts = require("./prompts");
 
 admin.initializeApp();
 
@@ -131,7 +132,8 @@ exports.processExtractionJob = onCall(
             const content = jobData.content;
             const moduleId = jobData.moduleId || 'custom';
             const mode = jobData.deconstructionMode || (jobData.isGrandmaMode ? 'grandma' : 'standard');
-            console.log(`📦 Job moduleId: ${moduleId}, Mode: ${mode}`);
+            const outputLocale = (jobData.outputLocale === 'en' ? 'en' : 'zh');
+            console.log(`📦 Job moduleId: ${moduleId}, Mode: ${mode}, outputLocale: ${outputLocale}`);
 
             if (!content || content.length === 0) {
                 await jobRef.update({ status: 'failed', error: '内容为空' });
@@ -159,34 +161,16 @@ exports.processExtractionJob = onCall(
             const maxPoints = contentLen <= 5000 ? 8 : Math.min(30, Math.max(8, Math.ceil(contentLen / 800)));
             const pointRange = `${minPoints}-${maxPoints}`;
 
-            const modeOutlineInstructions = mode === 'grandma'
-                ? "采用“极简大白话”风格：识别出最基础、最通俗的核心知识点，标题要平实直白。"
-                : (mode === 'phd' ? "采用“智障博士生”风格：极简大白话，但逻辑极严密，不要任何花哨类比，直接提取硬核逻辑支柱。" : (mode === 'podcast' ? "识别适合用对话讲解的核心知识点，标题简洁便于作为播客话题。" : ""));
+            const modeOutlineInstructions = prompts.getModeOutlineInstructions(outputLocale, mode);
 
-            const outlinePrompt = `
-你是一位资深的教育内容专家。请快速分析用户提供的学习资料，识别出其中的核心知识点。
-
-${modeOutlineInstructions}
-
-## 任务
-1. 阅读用户的学习资料（当前约 ${contentLen} 字）
-2. **必须至少识别出 ${minPoints} 个、最多 ${maxPoints} 个**独立的核心知识点。内容越长，知识点数量应越多，严禁只输出 3～5 个大块；请按内容密度合理拆分。
-3. 每个知识点用一个简洁的标题概括（10-20字）
-
-## 输出格式
-严格按照以下 JSON 格式输出（只输出 JSON，不要有其他文字）。
-**重要提示：所有输出内容必须使用简体中文，即使原文是英文。**
-
-{
-  "topics": [
-    {"title": "知识点1的标题", "category": "分类", "difficulty": "Easy|Medium|Hard"},
-    {"title": "知识点2的标题", "category": "分类", "difficulty": "Medium"}
-  ]
-}
-
-## 用户的学习资料：
-${content.substring(0, 30000)} 
-`;
+            const outlinePrompt = prompts.getOutlinePrompt(outputLocale, {
+                contentLen,
+                minPoints,
+                maxPoints,
+                pointRange,
+                modeOutlineInstructions,
+                content,
+            });
 
             console.log(`📝 Generating outline for job ${jobId}...`);
             const outlineResult = await model.generateContent(outlinePrompt);
@@ -216,94 +200,16 @@ ${content.substring(0, 30000)}
                     progress: 0.2 + (0.7 * (i / topics.length))
                 });
 
-                let modeInstructions = '';
-                if (mode === 'grandma') {
-                    modeInstructions = `
-## 🚨 重要：采用“极简大白话”风格 🚨
-- **语言风格**：严禁使用专业术语。如果必须使用，必须通过“生活化类比”进行降维解释。
-- **类比要求**：必须包含一个极其生活化、接地气的类比（如：买菜、做饭、点外卖等）。
-- **讲解要求**：亲切直白。禁止任何寒暄，直接开始讲解知识点本身。
-`;
-                } else if (mode === 'phd') {
-                    modeInstructions = `
-## 🚨 重要：采用“智障博士生”级别拆解 🚨
-- **目标**：像是在给逻辑非常严密、但认知极简的人解释。
-- **语言风格**：必须使用**极简的大白话**，傻子都能听懂的语言。严禁堆砌专业术语，严禁使用长句。**严禁在文字之间添加任何多余的空格或空格占位**。
-- **逻辑要求**：禁止任何感性类比（如：买菜、带孩子）。必须通过严密的逻辑推导、事实陈述、因果链条来拆解核心。
-- **语气**：直白。禁止任何寒暄，直接开始讲解知识点本身。
-`;
-                } else if (mode === 'podcast') {
-                    modeInstructions = `
-## 🚨 播客对话稿：通俗好学 + B 必须追问质疑 🚨
-- **格式**：正文 content 只能是「主持人A:」「主持人B:」交替的纯文本，禁止 Markdown。每段对白前写「主持人A:」或「主持人B:」，换行写内容，段与段之间两个换行。
-- **主持人B 的人设**：B 代表「听得不太懂、想搞明白」的听众。B **必须**经常：问「为什么？」、问「能举个生活中的例子吗？」、说「这里我没懂，能再说简单点吗？」、问「那和 XXX 有啥区别？」。禁止 B 只会「好的」「然后呢」「明白了」敷衍附和；至少 2/3 的 B 的发言要带疑问或追问。
-- **通俗易懂**：假设听众零基础、记不住复杂东西。用**极简大白话**，少用术语，必要时用生活类比（买菜、做饭、日常事）。A 要拆成小步讲，重复重点，被 B 问到时再讲透。
-- **轮数**：6-12 轮对白，有问有答、有来有回。称呼固定「主持人A」「主持人B」。
-`;
-                }
-
+                const modeInstructions = prompts.getModeInstructions(outputLocale, mode);
                 const isPodcast = mode === 'podcast';
-                const cardPrompt = isPodcast ? `
-你是一位**通俗播客**内容专家：用对话形式把知识点讲给「零基础、记性一般、希望一听就懂」的听众。假设听众不够聪明，需要多问、多举例、多重复重点。
-
-${modeInstructions}
-
-## 知识点标题
-${title}
-
-## 参考资料（从中提取相关内容）
-${content.substring(0, 30000)}
-
-## 硬性要求
-1. **主持人B**：不能只会说「好的」「然后呢」。B 要替听众问出「为什么？」「能举个生活中的例子吗？」「这里我没懂，能再说简单点？」「和 XXX 有啥区别？」。B 的发言里至少一半以上要是**疑问或追问**，这样对话才好学。
-2. **主持人A**：用极简大白话回答，必要时用生活类比（买菜、做饭、日常事）。遇到术语先解释再继续。被 B 问到时再展开，不要一口气倒完。
-3. **content 字段**：纯对话稿。每句对白前写「主持人A:」或「主持人B:」，换行写内容；段与段之间两个换行。禁止 #、**、列表等 Markdown。
-4. **Flashcard**：question 与 answer 各 100-200 字，简体中文。
-5. 输出只包含一个 JSON 对象，不要其他文字。
-
-## 输出格式（只输出 JSON）
-{
-  "title": "${title}",
-  "category": "${topic.category || 'AI Generated'}",
-  "difficulty": "${topic.difficulty || 'Medium'}",
-  "content": "主持人A:\\n[第一段对白]\\n\\n主持人B:\\n[追问或疑问]\\n\\n主持人A:\\n[用大白话/举例回答]\\n\\n主持人B:\\n[再问或确认]\\n\\n...",
-  "flashcard": {
-    "question": "具体的测试问题",
-    "answer": "简洁但完整的答案"
-  }
-}
-` : `
-你是一位资深的教育内容专家。请针对以下知识点，生成一张详细的知识卡片。
-
-${modeInstructions}
-
-## 知识点标题
-${title}
-
-## 参考资料（从中提取相关内容）
-${content.substring(0, 30000)}
-
-## 要求
-1. **正文内容**：必须生成 300-800 字的详细解释。${mode === 'grandma' ? "采用极简大白话和生活类比。" : (mode === 'phd' ? "采用极简大白话，严密逻辑拆解，禁止类比。" : "采用\"是什么 → 为什么 → 怎么做\"的结构。")}
-2. **Flashcard**：一个具体的测试问题 + 简洁但完整的答案（100-200字）
-3. 使用 Markdown 格式。
-4. **语言要求**：输出的所有内容必须使用简体中文。
-
-## 输出格式
-严格按照以下 JSON 格式输出：
-
-{
-  "title": "${title}",
-  "category": "${topic.category || 'AI Generated'}",
-  "difficulty": "${topic.difficulty || 'Medium'}",
-  "content": "# 标题\\n\\n[在此处填写详细的知识点正文内容，不少于300字]",
-  "flashcard": {
-    "question": "具体的测试问题",
-    "answer": "简洁但完整的答案"
-  }
-}
-`;
-
+                const cardPrompt = prompts.getCardPrompt(outputLocale, {
+                    mode,
+                    modeInstructions,
+                    title,
+                    content,
+                    topic,
+                    isPodcast,
+                });
                 let cardJson = null;
                 let retries = 2;
 

@@ -2,6 +2,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
 import '../../../core/services/auth_service.dart';
 
 /// 忘记密码：支持「发送重置邮件」与「密保找回」两种方式
@@ -44,9 +45,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   Future<void> _sendResetEmail() async {
+    final l10n = AppLocalizations.of(context)!;
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      setState(() => _errorMsg = '请填写邮箱');
+      setState(() => _errorMsg = l10n.errorFillEmail);
       return;
     }
     setState(() { _isLoading = true; _errorMsg = null; });
@@ -54,24 +56,25 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       await _authService.sendPasswordResetEmail(email);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('重置邮件已发送，请查收。未收到可查看垃圾邮件或使用密保找回。'),
+        SnackBar(
+          content: Text(l10n.successResetEmail),
           behavior: SnackBarBehavior.floating,
         ),
       );
       context.pop();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _errorMsg = e is Exception ? e.toString().replaceFirst('Exception: ', '') : '发送失败，请稍后重试');
+      setState(() => _errorMsg = e is Exception ? e.toString().replaceFirst('Exception: ', '') : l10n.errorSendFailed);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _goToSecurityStep() async {
+    final l10n = AppLocalizations.of(context)!;
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      setState(() => _errorMsg = '请先填写邮箱');
+      setState(() => _errorMsg = l10n.errorFillEmailFirst);
       return;
     }
     setState(() { _isLoading = true; _errorMsg = null; });
@@ -82,7 +85,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       final id = data?['questionId'] as int?;
       final text = data?['questionText'] as String?;
       if (id == null || text == null) {
-        setState(() => _errorMsg = '未设置密保，请使用邮件重置');
+        setState(() => _errorMsg = l10n.errorNoSecurity);
         return;
       }
       setState(() {
@@ -94,33 +97,34 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     } on FirebaseFunctionsException catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMsg = e.message ?? '获取密保问题失败';
+        _errorMsg = e.message ?? l10n.errorGetSecurity;
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMsg = '网络异常，请稍后重试';
+        _errorMsg = l10n.errorNetwork;
         _isLoading = false;
       });
     }
   }
 
   Future<void> _submitSecurityReset() async {
+    final l10n = AppLocalizations.of(context)!;
     final email = _emailController.text.trim();
     final answer = _answerController.text.trim();
     final newPwd = _newPasswordController.text.trim();
     final confirm = _confirmPasswordController.text.trim();
     if (answer.isEmpty) {
-      setState(() => _errorMsg = '请填写密保答案');
+      setState(() => _errorMsg = l10n.errorSecurityAnswer);
       return;
     }
     if (newPwd.length < 6) {
-      setState(() => _errorMsg = '新密码至少 6 位');
+      setState(() => _errorMsg = l10n.errorPasswordMin);
       return;
     }
     if (newPwd != confirm) {
-      setState(() => _errorMsg = '两次输入的密码不一致');
+      setState(() => _errorMsg = l10n.errorPasswordMismatch);
       return;
     }
     setState(() { _isLoading = true; _errorMsg = null; });
@@ -132,15 +136,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('密码已重置，请使用新密码登录'), behavior: SnackBarBehavior.floating),
+        SnackBar(content: Text(l10n.successPasswordReset), behavior: SnackBarBehavior.floating),
       );
       context.pop();
     } on FirebaseFunctionsException catch (e) {
       if (!mounted) return;
-      setState(() => _errorMsg = e.message ?? '重置失败');
+      setState(() => _errorMsg = e.message ?? l10n.errorResetFailed);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _errorMsg = '网络异常，请稍后重试');
+      setState(() => _errorMsg = l10n.errorNetwork);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -157,7 +161,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('忘记密码', style: TextStyle(color: textColor, fontSize: 18)),
+        title: Text(AppLocalizations.of(context)!.forgotPasswordTitle, style: TextStyle(color: textColor, fontSize: 18)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
@@ -175,7 +179,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               children: [
                 const SizedBox(height: 24),
                 if (_stepEmail) ...[
-                  Text('输入注册邮箱，可选择以下任一方式找回密码：', style: TextStyle(color: hintColor, fontSize: 14)),
+                  Text(AppLocalizations.of(context)!.forgotPasswordIntro, style: TextStyle(color: hintColor, fontSize: 14)),
                   const SizedBox(height: 20),
                   TextField(
                     controller: _emailController,
@@ -183,7 +187,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     onChanged: (_) => _clearError(),
                     style: TextStyle(color: textColor, fontSize: 16),
                     decoration: InputDecoration(
-                      hintText: '电子邮箱',
+                      hintText: AppLocalizations.of(context)!.emailHint,
                       hintStyle: TextStyle(color: hintColor),
                       prefixIcon: Icon(Icons.email_outlined, color: hintColor, size: 22),
                       filled: true,
@@ -210,11 +214,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       ),
                       child: _isLoading
                           ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Text('发送重置邮件', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                          : Text(AppLocalizations.of(context)!.sendResetEmail, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Text('若收不到邮件（如国内邮箱），可使用密保找回', style: TextStyle(color: hintColor, fontSize: 12)),
+                  Text(AppLocalizations.of(context)!.useSecurityIfNoEmail, style: TextStyle(color: hintColor, fontSize: 12)),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
@@ -226,7 +230,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         side: BorderSide(color: inputBorder),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: const Text('通过密保找回', style: TextStyle(fontSize: 16)),
+                      child: Text(AppLocalizations.of(context)!.securityRecover, style: const TextStyle(fontSize: 16)),
                     ),
                   ),
                 ] else ...[
@@ -237,7 +241,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     onChanged: (_) => _clearError(),
                     style: TextStyle(color: textColor, fontSize: 16),
                     decoration: InputDecoration(
-                      hintText: '密保答案',
+                      hintText: AppLocalizations.of(context)!.securityAnswerHint,
                       hintStyle: TextStyle(color: hintColor),
                       filled: true,
                       fillColor: inputFill,
@@ -252,7 +256,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     onChanged: (_) => _clearError(),
                     style: TextStyle(color: textColor, fontSize: 16),
                     decoration: InputDecoration(
-                      hintText: '新密码（至少 6 位）',
+                      hintText: AppLocalizations.of(context)!.newPasswordHint,
                       hintStyle: TextStyle(color: hintColor),
                       suffixIcon: IconButton(
                         icon: Icon(_obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: hintColor, size: 22),
@@ -271,7 +275,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     onChanged: (_) => _clearError(),
                     style: TextStyle(color: textColor, fontSize: 16),
                     decoration: InputDecoration(
-                      hintText: '再次输入新密码',
+                      hintText: AppLocalizations.of(context)!.confirmPasswordHint,
                       hintStyle: TextStyle(color: hintColor),
                       suffixIcon: IconButton(
                         icon: Icon(_obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: hintColor, size: 22),
@@ -301,7 +305,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       ),
                       child: _isLoading
                           ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Text('确认重置密码', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                          : Text(AppLocalizations.of(context)!.confirmResetPassword, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],

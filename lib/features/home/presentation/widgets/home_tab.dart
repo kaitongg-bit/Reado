@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:async'; // Add async import for StreamSubscription
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
 import '../../../feed/presentation/feed_provider.dart';
 import '../../../../models/feed_item.dart';
 import '../../../../models/knowledge_module.dart';
@@ -42,6 +43,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
   final GlobalKey _starModuleKey = GlobalKey();
 
   String? _tutorialText;
+  String? _tutorialStepType;
   GlobalKey? _tutorialTargetKey;
   User? _currentUser;
   StreamSubscription<User?>? _userSubscription;
@@ -68,23 +70,24 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     super.dispose();
   }
 
-  void _startTutorialStep(String type) {
+  void _startTutorialStep(BuildContext context, String type) {
+    final l10n = AppLocalizations.of(context)!;
     setState(() {
+      _tutorialStepType = type;
       if (type == 'text') {
-        _tutorialText = '点击 [AI 拆解] 按钮开启智能学习之旅';
+        _tutorialText = l10n.tutorialTextAiDeconstruct;
         _tutorialTargetKey = _aiDeconstructKey;
       } else if (type == 'task_center') {
-        _tutorialText =
-            '可以在这里看到正在后台进行的任务。等待任务生成好后，可以回到你刚刚所在的知识库（例如：个人 > 默认知识库），点击进去即可学习。';
+        _tutorialText = l10n.tutorialTextTaskCenter;
         _tutorialTargetKey = _taskCenterKey;
       } else if (type == 'multimodal') {
-        _tutorialText = '多模态解析也从这里开始，点击 [AI 拆解] 并切换标签页';
+        _tutorialText = l10n.tutorialTextMultimodal;
         _tutorialTargetKey = _aiDeconstructKey;
       } else if (type == 'all_cards') {
-        _tutorialText = '点击一个知识库，跳转到学习页面，点击右上角的【全部】按钮即可查看该知识库的全部知识卡片。';
+        _tutorialText = l10n.tutorialTextAllCards;
         _tutorialTargetKey = _starModuleKey;
       } else if (type == 'ai_notes') {
-        _tutorialText = '点击 [AI 笔记] 查看所有聚合笔记。';
+        _tutorialText = l10n.tutorialTextAiNotes;
         _tutorialTargetKey = _aiNotesKey;
       }
     });
@@ -171,19 +174,19 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _FilterTabItem(
-                            label: '官方',
+                            label: AppLocalizations.of(context)!.tabOfficial,
                             isSelected: filterIndex == 0,
                             onTap: () => ref
                                 .read(_homeModuleFilterProvider.notifier)
                                 .state = 0),
                         _FilterTabItem(
-                            label: '个人',
+                            label: AppLocalizations.of(context)!.tabPersonal,
                             isSelected: filterIndex == 1,
                             onTap: () => ref
                                 .read(_homeModuleFilterProvider.notifier)
                                 .state = 1),
                         _FilterTabItem(
-                            label: '最近在学',
+                            label: AppLocalizations.of(context)!.tabRecent,
                             isSelected: filterIndex == 2,
                             onTap: () => ref
                                 .read(_homeModuleFilterProvider.notifier)
@@ -202,7 +205,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                 Icon(Icons.folder_open,
                                     size: 48, color: Colors.grey[400]),
                                 const SizedBox(height: 16),
-                                Text('这里空空如也',
+                                Text(AppLocalizations.of(context)!.emptyHere,
                                     style: TextStyle(color: Colors.grey[600])),
                               ],
                             ),
@@ -295,7 +298,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _getGreeting(),
+                              _getGreeting(context),
                               style: TextStyle(
                                 color: isDark
                                     ? Colors.white70
@@ -320,7 +323,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            _buildSimpleQuote(isDark, feedItems.length),
+                            _buildSimpleQuote(context, isDark, feedItems.length),
                           ],
                         ),
                       ),
@@ -389,7 +392,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                       Expanded(
                         child: _ElegantMenuButton(
                           key: _aiDeconstructKey,
-                          title: 'AI 拆解',
+                          title: AppLocalizations.of(context)!.aiDeconstruct,
                           icon: Icons.auto_awesome,
                           color: const Color(0xFFFF5252),
                           bgColor: const Color(0xFFFFEBEE),
@@ -401,7 +404,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                     onboardingState.isTutorialActive,
                                 tutorialStep: _tutorialTargetKey ==
                                         _aiDeconstructKey
-                                    ? (_tutorialText?.contains('多模态') ?? false
+                                    ? (_tutorialStepType == 'multimodal'
                                         ? 'multimodal'
                                         : 'text')
                                     : null,
@@ -410,6 +413,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                               if (mounted && _tutorialText != null) {
                                 setState(() {
                                   _tutorialText = null;
+                                  _tutorialStepType = null;
                                   _tutorialTargetKey = null;
                                 });
                               }
@@ -421,7 +425,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                       Expanded(
                         child: _ElegantMenuButton(
                           key: _aiNotesKey,
-                          title: 'AI 笔记',
+                          title: AppLocalizations.of(context)!.aiNotes,
                           icon: Icons.menu_book,
                           color: const Color(0xFF1976D2),
                           bgColor: const Color(0xFFE3F2FD),
@@ -447,7 +451,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                             isActive: highlight,
                             child: _ElegantMenuButton(
                               key: _taskCenterKey,
-                              title: '任务中心',
+                              title: AppLocalizations.of(context)!.taskCenter,
                               icon: Icons.task_alt,
                               color: const Color(0xFF009688),
                               bgColor: const Color(0xFFE0F2F1),
@@ -493,7 +497,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                             },
                             style: const TextStyle(fontSize: 14, height: 1.0),
                             decoration: InputDecoration(
-                              hintText: '搜索知识...',
+                              hintText: AppLocalizations.of(context)!.searchKnowledgeHint,
                               hintStyle: TextStyle(
                                 color:
                                     isDark ? Colors.white54 : Colors.grey[600],
@@ -550,16 +554,16 @@ class _HomeTabState extends ConsumerState<HomeTab> {
               text: _tutorialText!,
               onDismiss: () => setState(() {
                 _tutorialText = null;
+                _tutorialStepType = null;
                 _tutorialTargetKey = null;
               }),
             ),
           OnboardingChecklist(
-            onStartTextTutorial: () => _startTutorialStep('text'),
-            onStartTaskCenterTutorial: () => _startTutorialStep('task_center'),
-            onStartMultiTutorial: () => _startTutorialStep('multimodal'),
-            onStartAllCardsTutorial: () => _startTutorialStep('all_cards'),
-            onStartAiNotesTutorial: () =>
-                _startTutorialStep('ai_notes'), // Added this line
+            onStartTextTutorial: () => _startTutorialStep(context, 'text'),
+            onStartTaskCenterTutorial: () => _startTutorialStep(context, 'task_center'),
+            onStartMultiTutorial: () => _startTutorialStep(context, 'multimodal'),
+            onStartAllCardsTutorial: () => _startTutorialStep(context, 'all_cards'),
+            onStartAiNotesTutorial: () => _startTutorialStep(context, 'ai_notes'),
           ),
         ],
       ),
@@ -610,15 +614,16 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     );
   }
 
-  Widget _buildSimpleQuote(bool isDark, int totalItems) {
+  Widget _buildSimpleQuote(BuildContext context, bool isDark, int totalItems) {
+    final l10n = AppLocalizations.of(context)!;
     final quotes = [
-      '今天学了吗？你这个囤囤鼠 🐹',
-      '卷又卷不赢，躺又躺不平？那就学一点点吧 📖',
-      '你的大脑正在渴望新的知识，快喂喂它 💡',
-      '现在的努力，是为了以后能理直气壮地摸鱼 🐟',
-      '碎片时间也是时间，哪怕入脑一个点也是赚到 ✨',
-      '知识入脑带来的多巴胺，比短视频香多了 🧠',
-      '先去电脑端批量拆解，再躺在床上刷知识 🛏️',
+      l10n.quote1,
+      l10n.quote2,
+      l10n.quote3,
+      l10n.quote4,
+      l10n.quote5,
+      l10n.quote6,
+      l10n.quote7,
     ];
     final index = DateTime.now().minute % quotes.length;
 
@@ -633,16 +638,17 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     );
   }
 
-  String _getGreeting() {
+  String _getGreeting(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final hour = DateTime.now().hour;
     if (hour >= 5 && hour < 12) {
-      return '早上好';
+      return l10n.goodMorning;
     } else if (hour >= 12 && hour < 18) {
-      return '下午好';
+      return l10n.goodAfternoon;
     } else if (hour >= 18 && hour < 22) {
-      return '晚上好';
+      return l10n.goodEvening;
     } else {
-      return '夜深了';
+      return l10n.lateNight;
     }
   }
 
@@ -687,26 +693,26 @@ class _HomeTabState extends ConsumerState<HomeTab> {
         backgroundColor: Theme.of(context).brightness == Brightness.dark
             ? const Color(0xFF1E1E1E)
             : Colors.white,
-        title: const Text('创建知识库'),
+        title: Text(AppLocalizations.of(context)!.createModule),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: titleController,
               autofocus: true,
-              decoration: const InputDecoration(
-                labelText: '标题',
-                hintText: '例如：面试准备',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.moduleTitle,
+                hintText: AppLocalizations.of(context)!.moduleTitleHint,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: descController,
-              decoration: const InputDecoration(
-                labelText: '描述（可选）',
-                hintText: '这个知识库是关于什么的？',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.moduleDesc,
+                hintText: AppLocalizations.of(context)!.moduleDescHint,
+                border: const OutlineInputBorder(),
               ),
               maxLines: 2,
             ),
@@ -715,17 +721,18 @@ class _HomeTabState extends ConsumerState<HomeTab> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(AppLocalizations.of(context)!.cancel),
           ),
           ElevatedButton(
             onPressed: () async {
+              final l10n = AppLocalizations.of(context)!;
               final title = titleController.text.trim();
               if (title.isNotEmpty) {
                 Navigator.pop(context); // Close dialog
                 try {
                   final user = FirebaseAuth.instance.currentUser;
                   if (user == null) {
-                    throw Exception('请先登录以创建您的专属知识库');
+                    throw Exception(l10n.errorLoginToCreate);
                   }
 
                   await ref.read(moduleProvider.notifier).createModule(
@@ -735,7 +742,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('✨ 知识库 "$title" 已准备就绪!'),
+                        content: Text('✨ ${l10n.successModuleCreated(title)}'),
                         behavior: SnackBarBehavior.floating,
                         backgroundColor: Colors.green,
                       ),
@@ -745,7 +752,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('❌ 创建失败: $e'),
+                        content: Text('❌ ${l10n.errorCreateFailed}: $e'),
                         backgroundColor: Colors.red,
                       ),
                     );
@@ -757,7 +764,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
               backgroundColor: const Color(0xFFFF8A65),
               foregroundColor: Colors.white,
             ),
-            child: const Text('创建'),
+            child: Text(AppLocalizations.of(context)!.create),
           ),
         ],
       ),
@@ -1067,7 +1074,7 @@ class _WideKnowledgeCard extends StatelessWidget {
                           shareStats!.likeCount > 0)) ...[
                     const SizedBox(height: 6),
                     Text(
-                      '${shareStats!.viewCount} 人浏览 · ${shareStats!.saveCount} 人保存 · ${shareStats!.likeCount} 人点赞',
+                      AppLocalizations.of(context)!.shareStatsFormat(shareStats!.viewCount, shareStats!.saveCount, shareStats!.likeCount),
                       style: TextStyle(
                         fontSize: 11,
                         color: isDark

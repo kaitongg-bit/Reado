@@ -6,7 +6,10 @@ import 'package:flutter/gestures.dart';
 import 'firebase_options.dart';
 import 'core/theme/theme_provider.dart' as core;
 import 'core/theme/theme_provider.dart' show AppTheme;
+import 'core/locale/locale_provider.dart';
 import 'package:flutter/material.dart' as flutter;
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
 import 'core/router/router_provider.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -36,9 +39,13 @@ class QuickPMApp extends ConsumerWidget {
     final themeMode = ref.watch(core.themeProvider);
     final isDark = themeMode == core.ThemeMode.dark;
     final router = ref.watch(routerProvider);
+    final localeState = ref.watch(localeProvider);
 
     return MaterialApp.router(
-      title: '抖书',
+      title: 'Reado',
+      locale: localeState.locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: isDark ? flutter.ThemeMode.dark : flutter.ThemeMode.light,

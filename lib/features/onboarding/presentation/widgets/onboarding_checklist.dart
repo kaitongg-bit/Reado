@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../../../core/providers/credit_provider.dart';
 import 'package:flutter/services.dart';
@@ -33,16 +34,16 @@ class OnboardingChecklist extends ConsumerWidget {
       bottom: 16,
       child: state.isChecklistVisible
           ? _buildPanel(context, ref, state)
-          : _buildFab(ref),
+          : _buildFab(context, ref),
     );
   }
 
-  Widget _buildFab(WidgetRef ref) {
+  Widget _buildFab(BuildContext context, WidgetRef ref) {
     return FloatingActionButton.extended(
       onPressed: () =>
           ref.read(onboardingProvider.notifier).setChecklistVisible(true),
       backgroundColor: const Color(0xFF1A237E),
-      label: const Text('入门指南', style: TextStyle(color: Colors.white)),
+      label: Text(AppLocalizations.of(context)!.onboardingGuideFab, style: const TextStyle(color: Colors.white)),
       icon: const Icon(Icons.list_alt, color: Colors.white),
     );
   }
@@ -57,7 +58,7 @@ class OnboardingChecklist extends ConsumerWidget {
 
     // 2. 复制到剪贴板
     Clipboard.setData(
-        ClipboardData(text: '嘿！我正在使用 Reado 学习，这个 AI 工具太强了，快来看看：\n$shareUrl'));
+        ClipboardData(text: AppLocalizations.of(context)!.sharePersonalCopy(shareUrl)));
 
     // 3. 奖励积分 (动作奖励)
     ref.read(creditProvider.notifier).rewardShare(amount: 10);
@@ -72,23 +73,23 @@ class OnboardingChecklist extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.stars, color: Color(0xFFFFB300)),
-                SizedBox(width: 8),
-                Text('分享成功！获得 10 积分动作奖励 🎁',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                const Icon(Icons.stars, color: Color(0xFFFFB300)),
+                const SizedBox(width: 8),
+                Text(AppLocalizations.of(context)!.onboardingShareSnackbarTitle,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               ],
             ),
             const SizedBox(height: 10),
-            const Text('已经为您复制到剪贴板',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+            Text(AppLocalizations.of(context)!.onboardingShareSnackbarCopied,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
             const SizedBox(height: 4),
-            const Text('分享链接已复制到剪贴板，快粘贴给你的朋友使用吧',
-                style: TextStyle(fontSize: 14, color: Colors.white)),
+            Text(AppLocalizations.of(context)!.onboardingShareSnackbarPaste,
+                style: const TextStyle(fontSize: 14, color: Colors.white)),
             const SizedBox(height: 6),
-            const Text('好友通过您的链接加入时，您将再获得 50 积分',
-                style: TextStyle(fontSize: 12, color: Colors.white70)),
+            Text(AppLocalizations.of(context)!.onboardingShareSnackbarFriend,
+                style: const TextStyle(fontSize: 12, color: Colors.white70)),
           ],
         ),
         backgroundColor: const Color(0xFF2E7D32),
@@ -121,8 +122,8 @@ class OnboardingChecklist extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                '🎓 新手任务清单',
+              Text(
+                AppLocalizations.of(context)!.onboardingChecklistTitle,
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -151,7 +152,7 @@ class OnboardingChecklist extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _ChecklistItem(
-                    title: '1. AI 文本拆解',
+                    title: AppLocalizations.of(context)!.onboardingItem1,
                     isDone: state.hasSeenTextDeconstruction,
                     onTap: () {
                       ref
@@ -164,7 +165,7 @@ class OnboardingChecklist extends ConsumerWidget {
                         .toggleStep('text'),
                   ),
                   _ChecklistItem(
-                    title: '2. 查看后台任务',
+                    title: AppLocalizations.of(context)!.onboardingItem2,
                     isDone: state.hasSeenTaskCenter,
                     onTap: () {
                       ref
@@ -177,7 +178,7 @@ class OnboardingChecklist extends ConsumerWidget {
                         .toggleStep('task_center'),
                   ),
                   _ChecklistItem(
-                    title: '3. 多模态链接解析',
+                    title: AppLocalizations.of(context)!.onboardingItem3,
                     isDone: state.hasSeenMultimodalDeconstruction,
                     onTap: () {
                       ref
@@ -190,7 +191,7 @@ class OnboardingChecklist extends ConsumerWidget {
                         .toggleStep('multimodal'),
                   ),
                   _ChecklistItem(
-                    title: '4. 查看全部知识卡',
+                    title: AppLocalizations.of(context)!.onboardingItem4,
                     isDone: state.hasSeenAllCards,
                     onTap: () {
                       ref
@@ -203,7 +204,7 @@ class OnboardingChecklist extends ConsumerWidget {
                         .toggleStep('all_cards_p2'),
                   ),
                   _ChecklistItem(
-                    title: '5. 查看 AI 笔记',
+                    title: AppLocalizations.of(context)!.onboardingItem5,
                     isDone: state.hasSeenAiNotesTutorial,
                     onTap: () {
                       ref
@@ -216,7 +217,7 @@ class OnboardingChecklist extends ConsumerWidget {
                         .toggleStep('ai_notes'),
                   ),
                   _ChecklistItem(
-                    title: '6. 分享以获得积分',
+                    title: AppLocalizations.of(context)!.onboardingItem6,
                     isDone: state.hasSharedForPoints,
                     onTap: () => _handleShare(context, ref),
                     onToggle: () => ref
@@ -228,8 +229,8 @@ class OnboardingChecklist extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          const Text(
-            '🎉 太棒了！你已顺利上手 Reado',
+          Text(
+            AppLocalizations.of(context)!.onboardingDone,
             style: TextStyle(
               color: Color(0xFFFF8A65),
               fontWeight: FontWeight.bold,
@@ -243,7 +244,7 @@ class OnboardingChecklist extends ConsumerWidget {
                 _showExitConfirmDialog(context, ref);
               },
               child: Text(
-                '不再显示教程',
+                AppLocalizations.of(context)!.onboardingHideList,
                 style: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 12,
@@ -261,12 +262,12 @@ class OnboardingChecklist extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('暂时关闭入门指南？'),
-        content: const Text('如果您已经掌握了基本操作，可以关闭此清单。您之后可以随时在“个人中心 - 设置”中重新开启。'),
+        title: Text(AppLocalizations.of(context)!.onboardingExitDialogTitle),
+        content: Text(AppLocalizations.of(context)!.onboardingExitDialogContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('继续学习'),
+            child: Text(AppLocalizations.of(context)!.onboardingContinueLearn),
           ),
           ElevatedButton(
             onPressed: () {
@@ -277,7 +278,7 @@ class OnboardingChecklist extends ConsumerWidget {
               backgroundColor: Colors.red[400],
               foregroundColor: Colors.white,
             ),
-            child: const Text('结束教程'),
+            child: Text(AppLocalizations.of(context)!.onboardingEndTutorial),
           ),
         ],
       ),

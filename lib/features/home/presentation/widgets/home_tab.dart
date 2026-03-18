@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'dart:async'; // Add async import for StreamSubscription
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:quick_pm/l10n/app_localizations.dart';
+import 'package:quick_pm/l10n/l10n_numeric_strings.dart';
 import '../../../feed/presentation/feed_provider.dart';
 import '../../../../models/feed_item.dart';
 import '../../../../models/knowledge_module.dart';
@@ -1074,7 +1075,8 @@ class _WideKnowledgeCard extends StatelessWidget {
                           shareStats!.likeCount > 0)) ...[
                     const SizedBox(height: 6),
                     Text(
-                      AppLocalizations.of(context)!.shareStatsFormat(shareStats!.viewCount, shareStats!.saveCount, shareStats!.likeCount),
+                      L10nNumbers.shareStatsFormat(context, shareStats!.viewCount,
+                          shareStats!.saveCount, shareStats!.likeCount),
                       style: TextStyle(
                         fontSize: 11,
                         color: isDark

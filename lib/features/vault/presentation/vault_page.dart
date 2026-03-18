@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
 import '../../../../core/widgets/app_background.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../feed/presentation/feed_provider.dart';
@@ -59,7 +60,7 @@ class _VaultPageState extends ConsumerState<VaultPage> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('收藏', // Changed from "Your Vault" to "Favorites"
+        title: Text(AppLocalizations.of(context)!.vaultTitle,
             style: TextStyle(
                 color: isDark ? Colors.white : Colors.black87,
                 fontWeight: FontWeight.bold)),
@@ -107,7 +108,7 @@ class _VaultPageState extends ConsumerState<VaultPage> {
                           style: TextStyle(
                               color: isDark ? Colors.white : Colors.black87),
                           decoration: InputDecoration(
-                            hintText: '搜索收藏的卡片...',
+                            hintText: AppLocalizations.of(context)!.vaultSearchHint,
                             hintStyle: TextStyle(
                                 color: isDark
                                     ? Colors.grey[600]
@@ -150,13 +151,13 @@ class _VaultPageState extends ConsumerState<VaultPage> {
                           child: Row(
                             children: [
                               _FilterChip(
-                                  label: '全部',
+                                  label: AppLocalizations.of(context)!.vaultFilterAll,
                                   isSelected: _libraryFilter == null,
                                   isDark: isDark,
                                   onTap: () => _updateLibraryFilter(null)),
                               const SizedBox(width: 8),
                               _FilterChip(
-                                  label: '生疏',
+                                  label: AppLocalizations.of(context)!.vaultFilterNewbie,
                                   isSelected:
                                       _libraryFilter == FeedItemMastery.hard,
                                   color: Colors.redAccent,
@@ -165,7 +166,7 @@ class _VaultPageState extends ConsumerState<VaultPage> {
                                       FeedItemMastery.hard)),
                               const SizedBox(width: 8),
                               _FilterChip(
-                                  label: '一般',
+                                  label: AppLocalizations.of(context)!.vaultFilterMedium,
                                   isSelected:
                                       _libraryFilter == FeedItemMastery.medium,
                                   color: Colors.orangeAccent,
@@ -174,7 +175,7 @@ class _VaultPageState extends ConsumerState<VaultPage> {
                                       FeedItemMastery.medium)),
                               const SizedBox(width: 8),
                               _FilterChip(
-                                  label: '熟练',
+                                  label: AppLocalizations.of(context)!.vaultFilterExpert,
                                   isSelected:
                                       _libraryFilter == FeedItemMastery.easy,
                                   color: Colors.green,
@@ -224,14 +225,14 @@ class _VaultPageState extends ConsumerState<VaultPage> {
                   : Colors.black.withOpacity(0.1)),
           const SizedBox(height: 16),
           Text(
-            '还没有收藏任何卡片', // Changed from "No cards found"
+            AppLocalizations.of(context)!.vaultEmpty,
             style: TextStyle(
                 color: isDark ? Colors.grey[400] : Colors.grey[500],
                 fontSize: 16),
           ),
           const SizedBox(height: 8),
           Text(
-            '在“学习”中点击❤️来收藏内容', // Hint text
+            AppLocalizations.of(context)!.vaultEmptyHint,
             style: TextStyle(
                 color: isDark ? Colors.grey[600] : Colors.grey[400],
                 fontSize: 14),
@@ -395,19 +396,19 @@ class _MasteryBadge extends StatelessWidget {
     switch (level) {
       case FeedItemMastery.hard:
         color = Colors.red;
-        text = '生疏';
+        text = AppLocalizations.of(context)!.vaultFilterNewbie;
         break;
       case FeedItemMastery.medium:
         color = Colors.orange;
-        text = '一般';
+        text = AppLocalizations.of(context)!.vaultFilterMedium;
         break;
       case FeedItemMastery.easy:
         color = Colors.green;
-        text = '熟练';
+        text = AppLocalizations.of(context)!.vaultFilterExpert;
         break;
       default:
         color = Colors.grey;
-        text = '新';
+        text = AppLocalizations.of(context)!.vaultFilterNew;
     }
 
     return Container(

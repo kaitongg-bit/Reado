@@ -6,6 +6,7 @@ import '../../../core/theme/theme_provider.dart' as custom_theme;
 import '../../../core/theme/theme_provider.dart' show themeProvider;
 import '../../../core/locale/locale_provider.dart';
 import 'package:quick_pm/l10n/app_localizations.dart';
+import 'package:quick_pm/l10n/l10n_numeric_strings.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../../models/feed_item.dart';
@@ -311,7 +312,7 @@ class ProfilePage extends ConsumerWidget {
                         Expanded(
                             child: _StatCard(
                           label: AppLocalizations.of(context)!.profileKnowledgePoints,
-                          value: AppLocalizations.of(context)!.profileMasteredCount(masteredCount),
+                          value: L10nNumbers.profileMasteredCount(context, masteredCount),
                           icon: Icons.school,
                           color: Colors.blue,
                           isDark: isDark,
@@ -908,7 +909,7 @@ class _DailyCheckInOnEnterState extends ConsumerState<_DailyCheckInOnEnter> {
         final credits = result['credits'] ?? 20;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.checkInCreditsReceived(credits)),
+            content: Text(L10nNumbers.checkInCreditsReceived(context, credits)),
             backgroundColor: const Color(0xFF2E7D32),
             behavior: SnackBarBehavior.floating,
           ),

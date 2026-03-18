@@ -539,7 +539,7 @@ abstract class AppLocalizations {
   /// No description provided for @moduleDescHint.
   ///
   /// In en, this message translates to:
-  /// **'What is this knowledge base about?'**
+  /// **'Enter description'**
   String get moduleDescHint;
 
   /// No description provided for @cancel.
@@ -1867,6 +1867,684 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Two-person dialogue'**
   String get addMaterialModePodcastDesc;
+
+  /// No description provided for @studyTitleAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All knowledge'**
+  String get studyTitleAll;
+
+  /// No description provided for @studyTitleAiNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'AI notes'**
+  String get studyTitleAiNotes;
+
+  /// No description provided for @studyTitleSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search results'**
+  String get studyTitleSearch;
+
+  /// No description provided for @studyTitleModule.
+  ///
+  /// In en, this message translates to:
+  /// **'Knowledge module'**
+  String get studyTitleModule;
+
+  /// No description provided for @studySingleColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'Single column'**
+  String get studySingleColumn;
+
+  /// No description provided for @studyMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'\$n min'**
+  String studyMinutes(int n);
+
+  /// No description provided for @studyAllButton.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get studyAllButton;
+
+  /// No description provided for @studyBodySaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Content saved'**
+  String get studyBodySaved;
+
+  /// No description provided for @studySaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Save failed'**
+  String get studySaveFailed;
+
+  /// No description provided for @studyAllTutorialHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap \"All\" to view all cards or switch between cards.'**
+  String get studyAllTutorialHint;
+
+  /// No description provided for @studyNextSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get studyNextSection;
+
+  /// No description provided for @studyEditBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit content'**
+  String get studyEditBody;
+
+  /// No description provided for @studyViewing.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewing'**
+  String get studyViewing;
+
+  /// No description provided for @studyDeleteCardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this card?'**
+  String get studyDeleteCardTitle;
+
+  /// No description provided for @studyDeleteCardContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot be recovered. Delete anyway?'**
+  String get studyDeleteCardContent;
+
+  /// No description provided for @moduleLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Load failed'**
+  String get moduleLoadFailed;
+
+  /// No description provided for @moduleGoLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to login'**
+  String get moduleGoLogin;
+
+  /// No description provided for @moduleSharedLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared knowledge base'**
+  String get moduleSharedLibrary;
+
+  /// No description provided for @moduleCardCount.
+  ///
+  /// In en, this message translates to:
+  /// **'\$count cards'**
+  String moduleCardCount(int count);
+
+  /// No description provided for @moduleSaveToMyLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to my library'**
+  String get moduleSaveToMyLibrary;
+
+  /// No description provided for @moduleStartReading.
+  ///
+  /// In en, this message translates to:
+  /// **'Start reading'**
+  String get moduleStartReading;
+
+  /// No description provided for @moduleSavingToLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving to your library…'**
+  String get moduleSavingToLibrary;
+
+  /// No description provided for @moduleAddedGoHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Added. Go to Home to start learning.'**
+  String get moduleAddedGoHome;
+
+  /// No description provided for @moduleSavedToLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to your library'**
+  String get moduleSavedToLibrary;
+
+  /// No description provided for @moduleViews.
+  ///
+  /// In en, this message translates to:
+  /// **'\$n views'**
+  String moduleViews(int n);
+
+  /// No description provided for @moduleSaves.
+  ///
+  /// In en, this message translates to:
+  /// **'\$n saves'**
+  String moduleSaves(int n);
+
+  /// No description provided for @moduleLikes.
+  ///
+  /// In en, this message translates to:
+  /// **'\$n likes'**
+  String moduleLikes(int n);
+
+  /// No description provided for @moduleThanksLike.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks for the like!'**
+  String get moduleThanksLike;
+
+  /// No description provided for @moduleAlreadyLiked.
+  ///
+  /// In en, this message translates to:
+  /// **'You already liked this'**
+  String get moduleAlreadyLiked;
+
+  /// No description provided for @moduleShareData.
+  ///
+  /// In en, this message translates to:
+  /// **'Share: \$views views · \$saves saves · \$likes likes'**
+  String moduleShareData(int views, int saves, int likes);
+
+  /// No description provided for @moduleAllKnowledge.
+  ///
+  /// In en, this message translates to:
+  /// **'All knowledge'**
+  String get moduleAllKnowledge;
+
+  /// No description provided for @moduleAllKnowledgeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'All your knowledge cards are here'**
+  String get moduleAllKnowledgeDesc;
+
+  /// No description provided for @moduleUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown library'**
+  String get moduleUnknown;
+
+  /// No description provided for @moduleNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Library not found'**
+  String get moduleNotFound;
+
+  /// No description provided for @moduleShareLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Share library'**
+  String get moduleShareLibrary;
+
+  /// No description provided for @moduleShareWithNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Share notes with viewers?'**
+  String get moduleShareWithNotes;
+
+  /// No description provided for @moduleShareLibraryOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Share library only'**
+  String get moduleShareLibraryOnly;
+
+  /// No description provided for @moduleShareLibraryAndNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Share library & notes'**
+  String get moduleShareLibraryAndNotes;
+
+  /// No description provided for @moduleRenameLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename library'**
+  String get moduleRenameLibrary;
+
+  /// No description provided for @moduleNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get moduleNameLabel;
+
+  /// No description provided for @moduleNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter library name'**
+  String get moduleNameHint;
+
+  /// No description provided for @moduleUpdatedName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name updated'**
+  String get moduleUpdatedName;
+
+  /// No description provided for @moduleUpdatedDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Details updated'**
+  String get moduleUpdatedDetails;
+
+  /// No description provided for @moduleEditDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit details'**
+  String get moduleEditDetails;
+
+  /// No description provided for @moduleDescLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get moduleDescLabel;
+
+  /// No description provided for @moduleHideLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide this library?'**
+  String get moduleHideLibrary;
+
+  /// No description provided for @moduleDeleteLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this library?'**
+  String get moduleDeleteLibrary;
+
+  /// No description provided for @moduleHideLibraryDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'It will be hidden. You can restore it in Profile → Hidden content.'**
+  String get moduleHideLibraryDesc;
+
+  /// No description provided for @moduleDeleteLibraryDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'This cannot be undone. All cards will be removed.'**
+  String get moduleDeleteLibraryDesc;
+
+  /// No description provided for @moduleHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get moduleHide;
+
+  /// No description provided for @moduleDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get moduleDelete;
+
+  /// No description provided for @moduleLibraryHidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Library hidden'**
+  String get moduleLibraryHidden;
+
+  /// No description provided for @moduleLibraryDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Library deleted'**
+  String get moduleLibraryDeleted;
+
+  /// No description provided for @moduleRename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get moduleRename;
+
+  /// No description provided for @modulePermanentDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanent delete'**
+  String get modulePermanentDelete;
+
+  /// No description provided for @moduleCardsTag.
+  ///
+  /// In en, this message translates to:
+  /// **'\$count cards'**
+  String moduleCardsTag(int count);
+
+  /// No description provided for @moduleOfficial.
+  ///
+  /// In en, this message translates to:
+  /// **'Official'**
+  String get moduleOfficial;
+
+  /// No description provided for @modulePrivate.
+  ///
+  /// In en, this message translates to:
+  /// **'Private'**
+  String get modulePrivate;
+
+  /// No description provided for @moduleMasteredPct.
+  ///
+  /// In en, this message translates to:
+  /// **'\$pct% mastered'**
+  String moduleMasteredPct(int pct);
+
+  /// No description provided for @moduleStartLearning.
+  ///
+  /// In en, this message translates to:
+  /// **'Start learning'**
+  String get moduleStartLearning;
+
+  /// No description provided for @moduleMovePrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Create another library first to move cards.'**
+  String get moduleMovePrompt;
+
+  /// No description provided for @moduleMoveToLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to library'**
+  String get moduleMoveToLibrary;
+
+  /// No description provided for @moduleMoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved to target library'**
+  String get moduleMoved;
+
+  /// No description provided for @moduleHideCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide this card?'**
+  String get moduleHideCard;
+
+  /// No description provided for @moduleDeleteCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this card?'**
+  String get moduleDeleteCard;
+
+  /// No description provided for @moduleHideCardDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'You can restore it in settings.'**
+  String get moduleHideCardDesc;
+
+  /// No description provided for @moduleDeleteCardDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot be recovered.'**
+  String get moduleDeleteCardDesc;
+
+  /// No description provided for @moduleCardHidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Card hidden'**
+  String get moduleCardHidden;
+
+  /// No description provided for @moduleCardRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Card removed'**
+  String get moduleCardRemoved;
+
+  /// No description provided for @moduleMove.
+  ///
+  /// In en, this message translates to:
+  /// **'Move'**
+  String get moduleMove;
+
+  /// No description provided for @dialogConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get dialogConfirm;
+
+  /// No description provided for @aiHoarderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI assistant'**
+  String get aiHoarderTitle;
+
+  /// No description provided for @aiHoarderHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask the assistant…'**
+  String get aiHoarderHint;
+
+  /// No description provided for @notePinnedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Note pinned!'**
+  String get notePinnedSuccess;
+
+  /// No description provided for @noteShareNoSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot save note to this card from shared content'**
+  String get noteShareNoSave;
+
+  /// No description provided for @noteLoginToSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to save notes'**
+  String get noteLoginToSave;
+
+  /// No description provided for @noteLoginToSaveDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to save notes to your library.'**
+  String get noteLoginToSaveDesc;
+
+  /// No description provided for @noteDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this note?'**
+  String get noteDeleteConfirm;
+
+  /// No description provided for @noteDeleteConfirmDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'This pinned note will be removed.'**
+  String get noteDeleteConfirmDesc;
+
+  /// No description provided for @noteEditNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit note'**
+  String get noteEditNote;
+
+  /// No description provided for @noteContentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Note content'**
+  String get noteContentLabel;
+
+  /// No description provided for @noteAiGuide.
+  ///
+  /// In en, this message translates to:
+  /// **'Official guide'**
+  String get noteAiGuide;
+
+  /// No description provided for @noteAiNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'AI notes'**
+  String get noteAiNotes;
+
+  /// No description provided for @noteTooltipEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit note'**
+  String get noteTooltipEdit;
+
+  /// No description provided for @noteTooltipDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete note'**
+  String get noteTooltipDelete;
+
+  /// No description provided for @aiNotesPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI notes'**
+  String get aiNotesPageTitle;
+
+  /// No description provided for @aiNotesSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search notes…'**
+  String get aiNotesSearchHint;
+
+  /// No description provided for @aiNotesEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No AI notes yet'**
+  String get aiNotesEmpty;
+
+  /// No description provided for @aiNotesEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap \"Add note\" while learning and AI will summarize key points.'**
+  String get aiNotesEmptyHint;
+
+  /// No description provided for @noteReviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Note review \$current/\$total'**
+  String noteReviewTitle(int current, int total);
+
+  /// No description provided for @vaultFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get vaultFilterAll;
+
+  /// No description provided for @vaultFilterNewbie.
+  ///
+  /// In en, this message translates to:
+  /// **'Newbie'**
+  String get vaultFilterNewbie;
+
+  /// No description provided for @vaultFilterMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get vaultFilterMedium;
+
+  /// No description provided for @vaultFilterExpert.
+  ///
+  /// In en, this message translates to:
+  /// **'Expert'**
+  String get vaultFilterExpert;
+
+  /// No description provided for @vaultFilterNew.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get vaultFilterNew;
+
+  /// No description provided for @aiNotesNoteCount.
+  ///
+  /// In en, this message translates to:
+  /// **'\$count notes'**
+  String aiNotesNoteCount(int count);
+
+  /// No description provided for @notNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get notNow;
+
+  /// No description provided for @collectLoginTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to save'**
+  String get collectLoginTitle;
+
+  /// No description provided for @collectLoginContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to sign in?'**
+  String get collectLoginContent;
+
+  /// No description provided for @shareNoCollect.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot save to vault from shared content'**
+  String get shareNoCollect;
+
+  /// No description provided for @favoritedSnackbar.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to vault'**
+  String get favoritedSnackbar;
+
+  /// No description provided for @unfavoritedSnackbar.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed from vault'**
+  String get unfavoritedSnackbar;
+
+  /// No description provided for @markedAsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Marked as \$label'**
+  String markedAsLabel(String label);
+
+  /// No description provided for @delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get delete;
+
+  /// No description provided for @vaultTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault'**
+  String get vaultTitle;
+
+  /// No description provided for @vaultSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search saved cards…'**
+  String get vaultSearchHint;
+
+  /// No description provided for @vaultEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved cards yet'**
+  String get vaultEmpty;
+
+  /// No description provided for @vaultEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap ❤️ in Study to save content'**
+  String get vaultEmptyHint;
+
+  /// No description provided for @noteReviewReleasePrev.
+  ///
+  /// In en, this message translates to:
+  /// **'Release to switch to previous'**
+  String get noteReviewReleasePrev;
+
+  /// No description provided for @noteReviewPullPrev.
+  ///
+  /// In en, this message translates to:
+  /// **'Pull down to continue'**
+  String get noteReviewPullPrev;
+
+  /// No description provided for @noteReviewReleaseNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Release to switch to next'**
+  String get noteReviewReleaseNext;
+
+  /// No description provided for @noteReviewPullNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Pull up to continue'**
+  String get noteReviewPullNext;
+
+  /// No description provided for @moduleShareCopyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Hey! I\'m learning this library with Reado. Check it out:\n\$url\n\nThis is my library \"\$title\". You can save it to yours.'**
+  String moduleShareCopyBody(String url, String title);
 }
 
 class _AppLocalizationsDelegate

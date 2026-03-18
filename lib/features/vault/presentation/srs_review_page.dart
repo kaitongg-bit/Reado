@@ -2,6 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../l10n/app_localizations.dart';
+import 'package:quick_pm/l10n/l10n_numeric_strings.dart';
 import '../../feed/presentation/widgets/feed_item_view.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../../models/feed_item.dart';
@@ -264,7 +266,8 @@ class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '${widget.items[_currentIndex].readingTimeMinutes} 分钟',
+                          L10nNumbers.studyMinutes(context,
+                              widget.items[_currentIndex].readingTimeMinutes),
                           style: TextStyle(
                               color:
                                   isDark ? Colors.grey[400] : Colors.grey[600],

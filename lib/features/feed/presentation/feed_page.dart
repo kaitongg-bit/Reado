@@ -1,5 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/services.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
+import 'package:quick_pm/l10n/l10n_numeric_strings.dart';
 import '../../../../core/widgets/app_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -368,12 +370,12 @@ class _FeedPageState extends ConsumerState<FeedPage> {
               ),
               title: Text(
                 widget.moduleId == 'ALL'
-                    ? '全部知识'
+                    ? AppLocalizations.of(context)!.studyTitleAll
                     : widget.moduleId == 'AI_NOTES'
-                        ? 'AI 笔记'
+                        ? AppLocalizations.of(context)!.studyTitleAiNotes
                         : widget.moduleId == 'SEARCH'
-                            ? '搜索结果'
-                            : '知识模块',
+                            ? AppLocalizations.of(context)!.studyTitleSearch
+                            : AppLocalizations.of(context)!.studyTitleModule,
                 style: TextStyle(
                   color: isDark ? Colors.white : Colors.black87,
                   fontWeight: FontWeight.bold,
@@ -397,7 +399,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                           horizontal: 16, vertical: 8),
                     ),
                     child: Text(
-                      '单列',
+                      AppLocalizations.of(context)!.studySingleColumn,
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -458,7 +460,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                           .withOpacity(0.4)),
                                 ),
                                 child: Text(
-                                  _getModuleName(
+                                  _getModuleName(context,
                                       feedItems[_focusedItemIndex].moduleId),
                                   style: TextStyle(
                                       fontSize: 11,
@@ -470,7 +472,10 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                               ),
                               const SizedBox(width: 10),
                               Text(
-                                '${feedItems[_focusedItemIndex].readingTimeMinutes} 分钟',
+                                L10nNumbers.studyMinutes(
+                                    context,
+                                    feedItems[_focusedItemIndex]
+                                        .readingTimeMinutes),
                                 style: TextStyle(
                                     color: isDark
                                         ? Colors.grey[300]
@@ -506,19 +511,19 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                             _editingPageIndex = null;
                                           });
                                           ScaffoldMessenger.of(context)
-                                              .showSnackBar(const SnackBar(
-                                                  content: Text('正文已保存')));
+                                          .showSnackBar(SnackBar(
+                                              content: Text(AppLocalizations.of(context)!.studyBodySaved)));
                                         }
                                       } catch (e) {
                                         if (mounted) {
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(SnackBar(
                                                   content: Text(
-                                                      '保存失败: $e')));
+                                                      '${AppLocalizations.of(context)!.studySaveFailed}: $e')));
                                         }
                                       }
                                     },
-                                    child: const Text('保存'),
+                                    child: Text(AppLocalizations.of(context)!.profileSave),
                                   ),
                                   TextButton(
                                     onPressed: () {
@@ -527,7 +532,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                         _editingPageIndex = null;
                                       });
                                     },
-                                    child: const Text('取消'),
+                                    child: Text(AppLocalizations.of(context)!.cancel),
                                   ),
                                 ],
                               )
@@ -565,7 +570,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                     ),
                                   ),
                                   child: Text(
-                                    '全部',
+                                    AppLocalizations.of(context)!.studyAllButton,
                                     style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.bold,
@@ -608,16 +613,16 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                   if (modules.isEmpty) {
                                     if (mounted) {
                                       ScaffoldMessenger.of(context)
-                                          .showSnackBar(const SnackBar(
+                                          .showSnackBar(SnackBar(
                                               content: Text(
-                                                  '请先创建其他知识库后再移动')));
+                                                  AppLocalizations.of(context)!.moduleMovePrompt)));
                                     }
                                     return;
                                   }
                                   final target = await showDialog<String>(
                                     context: context,
                                     builder: (ctx) => AlertDialog(
-                                      title: const Text('移动到知识库'),
+                                      title: Text(AppLocalizations.of(context)!.moduleMoveToLibrary),
                                       content: SingleChildScrollView(
                                         child: Column(
                                           mainAxisSize: MainAxisSize.min,
@@ -642,7 +647,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                         TextButton(
                                             onPressed: () =>
                                                 Navigator.pop(ctx),
-                                            child: const Text('取消')),
+                                            child: Text(AppLocalizations.of(context)!.cancel)),
                                       ],
                                     ),
                                   );
@@ -666,31 +671,32 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                       }
                                     }
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                            content: Text('已移动到目标知识库')));
+                                        SnackBar(
+                                            content: Text(AppLocalizations.of(context)!.moduleMoved)));
                                   }
                                   return;
                                 }
                                 if (value == 'delete' || value == 'hide') {
                                   final isHide = value == 'hide';
+                                  final l10n = AppLocalizations.of(context)!;
                                   final confirmed = await showDialog<bool>(
                                     context: context,
                                     builder: (context) => AlertDialog(
                                       title:
-                                          Text(isHide ? '隐藏此知识卡？' : '彻底删除知识卡？'),
+                                          Text(isHide ? l10n.moduleHideCard : l10n.moduleDeleteCard),
                                       content: Text(isHide
-                                          ? '知识卡将被隐藏，您可以在“个人中心 - 隐藏的内容”中恢复。'
-                                          : '警告：此操作不可逆！该知识卡将永久从云端移除。'),
+                                          ? l10n.moduleHideCardDesc
+                                          : l10n.moduleDeleteCardDesc),
                                       actions: [
                                         TextButton(
                                           onPressed: () =>
                                               Navigator.pop(context, false),
-                                          child: const Text('取消'),
+                                          child: Text(l10n.cancel),
                                         ),
                                         TextButton(
                                           onPressed: () =>
                                               Navigator.pop(context, true),
-                                          child: Text(isHide ? '隐藏' : '彻底删除',
+                                          child: Text(isHide ? l10n.moduleHide : l10n.moduleDelete,
                                               style: const TextStyle(
                                                   color: Colors.red)),
                                         ),
@@ -729,7 +735,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                           content: Text(
-                                              isHide ? '已隐藏知识卡' : '已移除知识卡')),
+                                              isHide ? l10n.moduleCardHidden : l10n.moduleCardRemoved)),
                                     );
                                   }
                                 }
@@ -745,58 +751,59 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                 final hasBodyPage = item != null &&
                                     item.pages
                                         .any((p) => p is OfficialPage);
+                                final l10n = AppLocalizations.of(context)!;
                                 final list = <PopupMenuItem<String>>[
                                   if (isCustom && hasBodyPage)
-                                    const PopupMenuItem(
+                                    PopupMenuItem(
                                       value: 'edit_body',
                                       child: Row(
                                         children: [
-                                          Icon(Icons.edit_note,
+                                          const Icon(Icons.edit_note,
                                               color: Colors.green, size: 20),
-                                          SizedBox(width: 8),
-                                          Text('编辑正文',
-                                              style: TextStyle(
+                                          const SizedBox(width: 8),
+                                          Text(l10n.studyEditBody,
+                                              style: const TextStyle(
                                                   color: Colors.green)),
                                         ],
                                       ),
                                     ),
                                   if (isCustom)
-                                    const PopupMenuItem(
+                                    PopupMenuItem(
                                       value: 'move',
                                       child: Row(
                                         children: [
-                                          Icon(
+                                          const Icon(
                                               Icons.drive_file_move_outline,
                                               color: Colors.blue,
                                               size: 20),
-                                          SizedBox(width: 8),
-                                          Text('移动',
-                                              style: TextStyle(color: Colors.blue)),
+                                          const SizedBox(width: 8),
+                                          Text(l10n.moduleMove,
+                                              style: const TextStyle(color: Colors.blue)),
                                         ],
                                       ),
                                     ),
-                                  const PopupMenuItem(
+                                  PopupMenuItem(
                                     value: 'hide',
                                     child: Row(
                                       children: [
-                                        Icon(Icons.visibility_off_outlined,
+                                        const Icon(Icons.visibility_off_outlined,
                                             color: Colors.orange, size: 20),
-                                        SizedBox(width: 8),
-                                        Text('隐藏',
+                                        const SizedBox(width: 8),
+                                        Text(l10n.moduleHide,
                                             style:
-                                                TextStyle(color: Colors.orange)),
+                                                const TextStyle(color: Colors.orange)),
                                       ],
                                     ),
                                   ),
-                                  const PopupMenuItem(
+                                  PopupMenuItem(
                                     value: 'delete',
                                     child: Row(
                                       children: [
-                                        Icon(Icons.delete_outline,
+                                        const Icon(Icons.delete_outline,
                                             color: Colors.red, size: 20),
-                                        SizedBox(width: 8),
-                                        Text('永久删除',
-                                            style: TextStyle(color: Colors.red)),
+                                        const SizedBox(width: 8),
+                                        Text(l10n.modulePermanentDelete,
+                                            style: const TextStyle(color: Colors.red)),
                                       ],
                                     ),
                                   ),
@@ -818,7 +825,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
               !onboardingState.hasSeenAllCardsPhase2)
             TutorialOverlay(
               targetKey: _allCardsKey,
-              text: '如果要查看全部知识卡或者切换知识卡，就需要点击“全部”。',
+              text: AppLocalizations.of(context)!.studyAllTutorialHint,
               onDismiss: () {
                 ref
                     .read(onboardingProvider.notifier)
@@ -1056,7 +1063,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                                             4),
                                                   ),
                                                   child: Text(
-                                                    _getModuleName(
+                                                    _getModuleName(context,
                                                         item.moduleId),
                                                     style: TextStyle(
                                                         fontSize: 10,
@@ -1105,11 +1112,12 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                                       }
                                                     },
                                                     itemBuilder: (context) => [
-                                                      const PopupMenuItem(
+                                                      PopupMenuItem(
                                                         value: 'delete',
                                                         height: 32,
-                                                        child: Text('删除',
-                                                            style: TextStyle(
+                                                        child: Text(
+                                                            AppLocalizations.of(context)!.delete,
+                                                            style: const TextStyle(
                                                                 fontSize: 13,
                                                                 color: Colors
                                                                     .red)),
@@ -1209,8 +1217,9 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                             offset: Offset(0, 2))
                                       ],
                                     ),
-                                    child: const Text("在看",
-                                        style: TextStyle(
+                                    child: Text(
+                                        AppLocalizations.of(context)!.studyViewing,
+                                        style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 10,
                                             fontWeight: FontWeight.bold)),
@@ -1252,22 +1261,23 @@ class _FeedPageState extends ConsumerState<FeedPage> {
   }
 
   void _showDeleteDialog(FeedItem item) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除知识卡片？'),
-        content: const Text('删除后无法恢复，确定要删除吗？'),
+        title: Text(l10n.studyDeleteCardTitle),
+        content: Text(l10n.studyDeleteCardContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () {
               ref.read(feedProvider.notifier).deleteFeedItem(item.id);
               Navigator.pop(context);
             },
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
+            child: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1325,7 +1335,10 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     }
   }
 
-  String _getModuleName(String moduleId) {
+  String _getModuleName(BuildContext context, String moduleId) {
+    if (moduleId == 'ALL') return AppLocalizations.of(context)!.studyTitleAll;
+    if (moduleId == 'AI_NOTES') return AppLocalizations.of(context)!.studyTitleAiNotes;
+    if (moduleId == 'SEARCH') return AppLocalizations.of(context)!.studyTitleSearch;
     // 1. Try to find in loaded modules (Official + Custom)
     final allModules = ref.read(moduleProvider).all;
     final module = allModules.where((m) => m.id == moduleId).firstOrNull;
@@ -1342,7 +1355,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
       case 'D':
         return '面经军火库';
       default:
-        return '知识库';
+        return AppLocalizations.of(context)!.studyTitleModule;
     }
   }
 }

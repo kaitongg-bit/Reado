@@ -1,5 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
+import 'package:quick_pm/l10n/l10n_numeric_strings.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../feed/presentation/widgets/feed_item_view.dart';
@@ -199,7 +201,8 @@ class _NoteReviewPageState extends ConsumerState<NoteReviewPage> {
                                 color: Colors.amber.withOpacity(0.3)),
                           ),
                           child: Text(
-                            '笔记回顾 ${_currentIndex + 1}/${widget.items.length}',
+                            L10nNumbers.noteReviewTitle(
+                                context, _currentIndex + 1, widget.items.length),
                             style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
@@ -334,11 +337,11 @@ class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
 
     if (_dragOffset.dy > 0 && widget.hasPrev) {
       progress = (_dragOffset.dy.abs() / threshold).clamp(0.0, 1.0);
-      textAlert = progress >= 1.0 ? "释放切换到上一个" : "继续下拉";
+      textAlert = progress >= 1.0 ? AppLocalizations.of(context)!.noteReviewReleasePrev : AppLocalizations.of(context)!.noteReviewPullPrev;
       icon = Icons.arrow_upward;
     } else if (_dragOffset.dy < 0 && widget.hasNext) {
       progress = (_dragOffset.dy.abs() / threshold).clamp(0.0, 1.0);
-      textAlert = progress >= 1.0 ? "释放切换到下一个" : "继续上拉";
+      textAlert = progress >= 1.0 ? AppLocalizations.of(context)!.noteReviewReleaseNext : AppLocalizations.of(context)!.noteReviewPullNext;
       icon = Icons.arrow_downward;
     }
 

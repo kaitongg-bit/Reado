@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
+import 'package:quick_pm/l10n/l10n_numeric_strings.dart';
 import 'dart:html' as html;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -82,14 +84,14 @@ class ModuleDetailPage extends ConsumerWidget {
               children: [
                 Icon(Icons.error_outline, size: 48, color: Colors.grey[600]),
                 const SizedBox(height: 16),
-                Text('加载失败：$e',
+                Text('${AppLocalizations.of(context)!.moduleLoadFailed}: $e',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.grey[700])),
                 const SizedBox(height: 24),
                 TextButton.icon(
                   onPressed: () => context.go('/onboarding'),
                   icon: const Icon(Icons.login),
-                  label: const Text('去登录'),
+                  label: Text(AppLocalizations.of(context)!.moduleGoLogin),
                 ),
               ],
             ),
@@ -129,7 +131,7 @@ class ModuleDetailPage extends ConsumerWidget {
                   ),
                   Expanded(
                     child: Text(
-                      '分享的知识库',
+                      AppLocalizations.of(context)!.moduleSharedLibrary,
                       style: Theme.of(context).textTheme.titleMedium,
                       textAlign: TextAlign.center,
                     ),
@@ -154,7 +156,7 @@ class ModuleDetailPage extends ConsumerWidget {
                             fontSize: 14,
                             color: isDark ? Colors.white70 : Colors.black54)),
                     const SizedBox(height: 8),
-                    Text('共 $cardCount 张卡片',
+                    Text(L10nNumbers.moduleCardCount(context, cardCount),
                         style: TextStyle(
                             fontSize: 12,
                             color: isDark ? Colors.white54 : Colors.black45)),
@@ -168,7 +170,7 @@ class ModuleDetailPage extends ConsumerWidget {
                             onPressed: () => _onSaveToMyLibrary(
                                 context, ref, shared, returnPath),
                             icon: const Icon(Icons.bookmark_add_outlined),
-                            label: const Text('保存到我的知识库'),
+                            label: Text(AppLocalizations.of(context)!.moduleSaveToMyLibrary),
                             style: OutlinedButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(vertical: 14)),
                           ),
@@ -181,7 +183,7 @@ class ModuleDetailPage extends ConsumerWidget {
                                   '/shared-feed/$moduleId?ref=$ownerId');
                             },
                             icon: const Icon(Icons.menu_book),
-                            label: const Text('开始阅读'),
+                            label: Text(AppLocalizations.of(context)!.moduleStartReading),
                             style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
                                 foregroundColor: Colors.white,
@@ -232,7 +234,7 @@ class ModuleDetailPage extends ConsumerWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
             const SizedBox(width: 20),
-            const Text('正在保存到你的知识库…'),
+            Text(AppLocalizations.of(context)!.moduleSavingToLibrary),
           ],
         ),
       ),
@@ -245,8 +247,8 @@ class ModuleDetailPage extends ConsumerWidget {
         if (context.mounted) context.go('/');
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('已加入学习，去首页开始吧'),
+            SnackBar(
+                content: Text(AppLocalizations.of(context)!.moduleAddedGoHome),
                 behavior: SnackBarBehavior.floating),
           );
         }
@@ -268,8 +270,8 @@ class ModuleDetailPage extends ConsumerWidget {
         Navigator.of(context).pop();
         context.go('/module/$newId');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('已保存到你的知识库'),
+          SnackBar(
+              content: Text(AppLocalizations.of(context)!.moduleSavedToLibrary),
               behavior: SnackBarBehavior.floating),
         );
       }
@@ -300,15 +302,15 @@ class ModuleDetailPage extends ConsumerWidget {
           children: [
             Icon(Icons.visibility_outlined, size: 14, color: subColor),
             const SizedBox(width: 4),
-            Text('$v 人浏览', style: TextStyle(fontSize: 12, color: subColor)),
+            Text(L10nNumbers.moduleViews(context, v), style: TextStyle(fontSize: 12, color: subColor)),
             const SizedBox(width: 12),
             Icon(Icons.bookmark_outline, size: 14, color: subColor),
             const SizedBox(width: 4),
-            Text('$s 人保存', style: TextStyle(fontSize: 12, color: subColor)),
+            Text(L10nNumbers.moduleSaves(context, s), style: TextStyle(fontSize: 12, color: subColor)),
             const SizedBox(width: 12),
             Icon(Icons.thumb_up_outlined, size: 14, color: subColor),
             const SizedBox(width: 4),
-            Text('$l 人点赞', style: TextStyle(fontSize: 12, color: subColor)),
+            Text(L10nNumbers.moduleLikes(context, l), style: TextStyle(fontSize: 12, color: subColor)),
             const Spacer(),
             IconButton(
               icon: Icon(
@@ -326,7 +328,7 @@ class ModuleDetailPage extends ConsumerWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(isNewLike ? '感谢点赞～' : '您已点过赞啦'),
+                      content: Text(isNewLike ? AppLocalizations.of(context)!.moduleThanksLike : AppLocalizations.of(context)!.moduleAlreadyLiked),
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
@@ -359,7 +361,8 @@ class ModuleDetailPage extends ConsumerWidget {
             Icon(Icons.bar_chart_outlined, size: 16, color: subColor),
             const SizedBox(width: 6),
             Text(
-              '分享数据：${stats.viewCount} 人浏览 · ${stats.saveCount} 人保存 · ${stats.likeCount} 人点赞',
+              L10nNumbers.moduleShareData(context, stats.viewCount,
+                  stats.saveCount, stats.likeCount),
               style: TextStyle(fontSize: 13, color: subColor),
             ),
           ],
@@ -401,8 +404,8 @@ class ModuleDetailPage extends ConsumerWidget {
     if (moduleId == 'ALL') {
       module = KnowledgeModule(
         id: 'ALL',
-        title: '全部知识',
-        description: '您所有的知识卡片都在这里',
+        title: AppLocalizations.of(context)!.moduleAllKnowledge,
+        description: AppLocalizations.of(context)!.moduleAllKnowledgeDesc,
         ownerId: 'official',
         isOfficial: true,
         // cardCount will be calculated below
@@ -420,8 +423,8 @@ class ModuleDetailPage extends ConsumerWidget {
                   '❌ ModuleDetailPage: Module $moduleId not found in STATIC officials either!');
               return KnowledgeModule(
                 id: moduleId,
-                title: '未知知识库 ($moduleId)', // Show ID to debug
-                description: '无法找到该知识库信息',
+                title: '${AppLocalizations.of(context)!.moduleUnknown} ($moduleId)',
+                description: AppLocalizations.of(context)!.moduleNotFound,
                 ownerId: 'unknown',
                 isOfficial: false,
               );
@@ -481,19 +484,19 @@ class ModuleDetailPage extends ConsumerWidget {
                       final includeNotes = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          title: const Text('分享知识库'),
-                          content: const Text(
-                              '是否将笔记一并分享给查看者？'),
+                          title: Text(AppLocalizations.of(context)!.moduleShareLibrary),
+                          content: Text(
+                              AppLocalizations.of(context)!.moduleShareWithNotes),
                           actions: [
                             TextButton(
                               onPressed: () =>
                                   Navigator.pop(ctx, false),
-                              child: const Text('仅分享知识库'),
+                              child: Text(AppLocalizations.of(context)!.moduleShareLibraryOnly),
                             ),
                             TextButton(
                               onPressed: () =>
                                   Navigator.pop(ctx, true),
-                              child: const Text('分享知识库与笔记'),
+                              child: Text(AppLocalizations.of(context)!.moduleShareLibraryAndNotes),
                             ),
                           ],
                         ),
@@ -509,8 +512,8 @@ class ModuleDetailPage extends ConsumerWidget {
                           '$baseUrl/#/module/$moduleId?ref=${user.uid}';
 
                       Clipboard.setData(ClipboardData(
-                          text:
-                              '嘿！我正在使用 Reado 学习这个超棒的知识库，快来看看：\n$shareUrl\n\n这是我创建的名叫「${module.title}」的知识库，欢迎你保存到自己的知识库中。'));
+                          text: L10nNumbers.moduleShareCopyBody(
+                          context, shareUrl, module.title)));
 
                       ref.read(creditProvider.notifier).rewardShare(amount: 10);
 
@@ -521,34 +524,34 @@ class ModuleDetailPage extends ConsumerWidget {
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Row(
+                                Row(
                                   children: [
-                                    Icon(Icons.stars,
+                                    const Icon(Icons.stars,
                                         color: Color(0xFFFFB300)),
-                                    SizedBox(width: 8),
+                                    const SizedBox(width: 8),
                                     Text(
-                                        '分享成功！获得 10 积分动作奖励 🎁',
-                                        style: TextStyle(
+                                        AppLocalizations.of(context)!.shareSuccessReward,
+                                        style: const TextStyle(
                                             fontSize: 15,
                                             fontWeight: FontWeight.w600)),
                                   ],
                                 ),
                                 const SizedBox(height: 10),
-                                const Text('已经为您复制到剪贴板',
+                                Text(AppLocalizations.of(context)!.shareCopiedToClipboard,
                                     style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.white)),
                                 const SizedBox(height: 4),
-                                const Text(
-                                    '分享链接已复制到剪贴板，快粘贴给你的朋友使用吧',
-                                    style: TextStyle(
+                                Text(
+                                    AppLocalizations.of(context)!.sharePasteToFriends,
+                                    style: const TextStyle(
                                         fontSize: 14,
                                         color: Colors.white)),
                                 const SizedBox(height: 6),
-                                const Text(
-                                    '好友通过您的链接加入时，您将再获得 50 积分',
-                                    style: TextStyle(
+                                Text(
+                                    AppLocalizations.of(context)!.shareFriendJoinReward,
+                                    style: const TextStyle(
                                         fontSize: 12,
                                         color: Colors.white70)),
                               ],
@@ -568,12 +571,13 @@ class ModuleDetailPage extends ConsumerWidget {
                         final newTitle = await showDialog<String>(
                           context: context,
                           builder: (ctx) => AlertDialog(
-                            title: const Text('重命名知识库'),
+                            title: Text(AppLocalizations.of(context)!.moduleRenameLibrary),
                             content: TextField(
                               controller: controller,
-                              decoration: const InputDecoration(
-                                labelText: '名称',
-                                hintText: '输入知识库名称',
+                              decoration: InputDecoration(
+                                labelText: AppLocalizations.of(context)!.moduleNameLabel,
+                                hintText: AppLocalizations.of(context)!.moduleNameHint,
+                                border: const OutlineInputBorder(),
                               ),
                               autofocus: true,
                               onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
@@ -581,11 +585,11 @@ class ModuleDetailPage extends ConsumerWidget {
                             actions: [
                               TextButton(
                                   onPressed: () => Navigator.pop(ctx),
-                                  child: const Text('取消')),
+                                  child: Text(AppLocalizations.of(context)!.cancel)),
                               TextButton(
                                   onPressed: () =>
                                       Navigator.pop(ctx, controller.text.trim()),
-                                  child: const Text('确定')),
+                                  child: Text(AppLocalizations.of(context)!.dialogConfirm)),
                             ],
                           ),
                         );
@@ -595,7 +599,7 @@ class ModuleDetailPage extends ConsumerWidget {
                               .updateModule(moduleId, newTitle, null);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('已更新名称')));
+                                SnackBar(content: Text(AppLocalizations.of(context)!.moduleUpdatedName)));
                           }
                         }
                         return;
@@ -605,12 +609,12 @@ class ModuleDetailPage extends ConsumerWidget {
                         final newDesc = await showDialog<String>(
                           context: context,
                           builder: (ctx) => AlertDialog(
-                            title: const Text('编辑详情'),
+                            title: Text(AppLocalizations.of(context)!.moduleEditDetails),
                             content: TextField(
                               controller: controller,
-                              decoration: const InputDecoration(
-                                labelText: '简介',
-                                hintText: '输入知识库简介',
+                              decoration: InputDecoration(
+                                labelText: AppLocalizations.of(context)!.moduleDescLabel,
+                                hintText: AppLocalizations.of(context)!.moduleDescHint,
                                 alignLabelWithHint: true,
                               ),
                               maxLines: 4,
@@ -619,11 +623,11 @@ class ModuleDetailPage extends ConsumerWidget {
                             actions: [
                               TextButton(
                                   onPressed: () => Navigator.pop(ctx),
-                                  child: const Text('取消')),
+                                  child: Text(AppLocalizations.of(context)!.cancel)),
                               TextButton(
                                   onPressed: () =>
                                       Navigator.pop(ctx, controller.text.trim()),
-                                  child: const Text('确定')),
+                                  child: Text(AppLocalizations.of(context)!.dialogConfirm)),
                             ],
                           ),
                         );
@@ -633,7 +637,7 @@ class ModuleDetailPage extends ConsumerWidget {
                               .updateModule(moduleId, null, newDesc);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('已更新详情')));
+                                SnackBar(content: Text(AppLocalizations.of(context)!.moduleUpdatedDetails)));
                           }
                         }
                         return;
@@ -643,18 +647,18 @@ class ModuleDetailPage extends ConsumerWidget {
                         final confirmed = await showDialog<bool>(
                           context: context,
                           builder: (context) => AlertDialog(
-                            title: Text(isHide ? '隐藏此知识库？' : '彻底删除知识库？'),
+                            title: Text(isHide ? AppLocalizations.of(context)!.moduleHideLibrary : AppLocalizations.of(context)!.moduleDeleteLibrary),
                             content: Text(isHide
-                                ? '知识库将被隐藏，您可以在“个人中心 - 隐藏的内容”中恢复。'
-                                : '警告：此操作不可逆！该知识库及其包含的所有知识点将永久移除。'),
+                                ? AppLocalizations.of(context)!.moduleHideLibraryDesc
+                                : AppLocalizations.of(context)!.moduleDeleteLibraryDesc),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(context, false),
-                                child: const Text('取消'),
+                                child: Text(AppLocalizations.of(context)!.cancel),
                               ),
                               TextButton(
                                 onPressed: () => Navigator.pop(context, true),
-                                child: Text(isHide ? '隐藏' : '彻底删除',
+                                child: Text(isHide ? AppLocalizations.of(context)!.moduleHide : AppLocalizations.of(context)!.moduleDelete,
                                     style: const TextStyle(color: Colors.red)),
                               ),
                             ],
@@ -678,7 +682,7 @@ class ModuleDetailPage extends ConsumerWidget {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                  content: Text(isHide ? '已隐藏知识库' : '已删除知识库')),
+                                  content: Text(isHide ? AppLocalizations.of(context)!.moduleLibraryHidden : AppLocalizations.of(context)!.moduleLibraryDeleted)),
                             );
                             context.pop();
                           }
@@ -689,48 +693,48 @@ class ModuleDetailPage extends ConsumerWidget {
                       final items = <PopupMenuItem<String>>[];
                       if (!module.isOfficial) {
                         items.addAll([
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'rename',
                             child: Row(
                               children: [
-                                Icon(Icons.edit_outlined, size: 20),
-                                SizedBox(width: 8),
-                                Text('重命名'),
+                                const Icon(Icons.edit_outlined, size: 20),
+                                const SizedBox(width: 8),
+                                Text(AppLocalizations.of(context)!.moduleRename),
                               ],
                             ),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'edit_details',
                             child: Row(
                               children: [
-                                Icon(Icons.info_outline, size: 20),
-                                SizedBox(width: 8),
-                                Text('编辑详情'),
+                                const Icon(Icons.info_outline, size: 20),
+                                const SizedBox(width: 8),
+                                Text(AppLocalizations.of(context)!.moduleEditDetails),
                               ],
                             ),
                           ),
                         ]);
                       }
                       items.addAll([
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'hide',
                           child: Row(
                             children: [
-                              Icon(Icons.visibility_off_outlined,
+                              const Icon(Icons.visibility_off_outlined,
                                   color: Colors.orange, size: 20),
-                              SizedBox(width: 8),
-                              Text('隐藏', style: TextStyle(color: Colors.orange)),
+                              const SizedBox(width: 8),
+                              Text(AppLocalizations.of(context)!.moduleHide, style: TextStyle(color: Colors.orange)),
                             ],
                           ),
                         ),
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'delete',
                           child: Row(
                             children: [
-                              Icon(Icons.delete_outline,
+                              const Icon(Icons.delete_outline,
                                   color: Colors.red, size: 20),
-                              SizedBox(width: 8),
-                              Text('永久删除', style: TextStyle(color: Colors.red)),
+                              const SizedBox(width: 8),
+                              Text(AppLocalizations.of(context)!.modulePermanentDelete, style: TextStyle(color: Colors.red)),
                             ],
                           ),
                         ),
@@ -771,9 +775,12 @@ class ModuleDetailPage extends ConsumerWidget {
                   Wrap(
                     spacing: 8,
                     children: [
-                      _buildTag('$cardCount 张卡片', isDark),
-                      _buildTag(module.isOfficial ? '官方' : '私有', isDark),
-                      _buildTag('${(progress * 100).toInt()}% 已掌握', isDark),
+                      _buildTag(L10nNumbers.moduleCardsTag(context, cardCount), isDark),
+                      _buildTag(module.isOfficial ? AppLocalizations.of(context)!.moduleOfficial : AppLocalizations.of(context)!.modulePrivate, isDark),
+                      _buildTag(
+                          L10nNumbers.moduleMasteredPct(
+                              context, (progress * 100).toInt()),
+                          isDark),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -816,7 +823,7 @@ class ModuleDetailPage extends ConsumerWidget {
                             context.pop();
                           },
                           icon: const Icon(Icons.play_arrow),
-                          label: const Text('开始学习',
+                          label: Text(AppLocalizations.of(context)!.moduleStartLearning,
                               style: TextStyle(
                                   fontSize: 16, fontWeight: FontWeight.w600)),
                           style: ElevatedButton.styleFrom(
@@ -1058,15 +1065,15 @@ class ModuleDetailPage extends ConsumerWidget {
                     if (modules.isEmpty) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('请先创建其他知识库后再移动')));
+                            SnackBar(
+                                content: Text(AppLocalizations.of(context)!.moduleMovePrompt)));
                       }
                       return;
                     }
                     final target = await showDialog<String>(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title: const Text('移动到知识库'),
+                        title: Text(AppLocalizations.of(context)!.moduleMoveToLibrary),
                         content: SingleChildScrollView(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -1087,7 +1094,7 @@ class ModuleDetailPage extends ConsumerWidget {
                         actions: [
                           TextButton(
                               onPressed: () => Navigator.pop(ctx),
-                              child: const Text('取消')),
+                              child: Text(AppLocalizations.of(context)!.cancel)),
                         ],
                       ),
                     );
@@ -1097,7 +1104,7 @@ class ModuleDetailPage extends ConsumerWidget {
                           .moveFeedItem(item.id, target);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('已移动到目标知识库')));
+                            SnackBar(content: Text(AppLocalizations.of(context)!.moduleMoved)));
                       }
                     }
                     return;
@@ -1107,17 +1114,17 @@ class ModuleDetailPage extends ConsumerWidget {
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: Text(isHide ? '隐藏此知识卡？' : '删除知识卡？'),
+                        title: Text(isHide ? AppLocalizations.of(context)!.moduleHideCard : AppLocalizations.of(context)!.moduleDeleteCard),
                         content:
-                            Text(isHide ? '知识卡将被隐藏，可以在设置中恢复。' : '删除后无法恢复。'),
+                            Text(isHide ? AppLocalizations.of(context)!.moduleHideCardDesc : AppLocalizations.of(context)!.moduleDeleteCardDesc),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context, false),
-                            child: const Text('取消'),
+                            child: Text(AppLocalizations.of(context)!.cancel),
                           ),
                           TextButton(
                             onPressed: () => Navigator.pop(context, true),
-                            child: Text(isHide ? '隐藏' : '删除',
+                            child: Text(isHide ? AppLocalizations.of(context)!.moduleHide : AppLocalizations.of(context)!.moduleDelete,
                                 style: const TextStyle(color: Colors.red)),
                           ),
                         ],
@@ -1135,7 +1142,7 @@ class ModuleDetailPage extends ConsumerWidget {
                             .deleteFeedItem(item.id);
                       }
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(isHide ? '已隐藏知识卡' : '已移除知识卡')),
+                        SnackBar(content: Text(isHide ? AppLocalizations.of(context)!.moduleCardHidden : AppLocalizations.of(context)!.moduleCardRemoved)),
                       );
                     }
                   }
@@ -1143,25 +1150,25 @@ class ModuleDetailPage extends ConsumerWidget {
                 itemBuilder: (context) {
                   final list = <PopupMenuItem<String>>[];
                   if (item.isCustom && !isGuestShared) {
-                    list.add(const PopupMenuItem(
+                    list.add(PopupMenuItem(
                       value: 'move',
                       height: 32,
-                      child: Text('移动',
-                          style: TextStyle(fontSize: 13, color: Colors.blue)),
+                      child: Text(AppLocalizations.of(context)!.moduleMove,
+                          style: const TextStyle(fontSize: 13, color: Colors.blue)),
                     ));
                   }
                   list.addAll([
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'hide',
                       height: 32,
-                      child: Text('隐藏',
-                          style: TextStyle(fontSize: 13, color: Colors.orange)),
+                      child: Text(AppLocalizations.of(context)!.moduleHide,
+                          style: const TextStyle(fontSize: 13, color: Colors.orange)),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'delete',
                       height: 32,
-                      child: Text('永久删除',
-                          style: TextStyle(fontSize: 13, color: Colors.red)),
+                      child: Text(AppLocalizations.of(context)!.modulePermanentDelete,
+                          style: const TextStyle(fontSize: 13, color: Colors.red)),
                     ),
                   ]);
                   return list;

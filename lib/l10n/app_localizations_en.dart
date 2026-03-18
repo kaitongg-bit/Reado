@@ -234,7 +234,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get moduleDesc => 'Description (optional)';
 
   @override
-  String get moduleDescHint => 'What is this knowledge base about?';
+  String get moduleDescHint => 'Enter description';
 
   @override
   String get cancel => 'Cancel';
@@ -965,4 +965,372 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addMaterialModePodcastDesc => 'Two-person dialogue';
+
+  @override
+  String get studyTitleAll => 'All knowledge';
+
+  @override
+  String get studyTitleAiNotes => 'AI notes';
+
+  @override
+  String get studyTitleSearch => 'Search results';
+
+  @override
+  String get studyTitleModule => 'Knowledge module';
+
+  @override
+  String get studySingleColumn => 'Single column';
+
+  @override
+  String studyMinutes(int n) {
+    return '\$n min';
+  }
+
+  @override
+  String get studyAllButton => 'All';
+
+  @override
+  String get studyBodySaved => 'Content saved';
+
+  @override
+  String get studySaveFailed => 'Save failed';
+
+  @override
+  String get studyAllTutorialHint =>
+      'Tap \"All\" to view all cards or switch between cards.';
+
+  @override
+  String get studyNextSection => 'Next';
+
+  @override
+  String get studyEditBody => 'Edit content';
+
+  @override
+  String get studyViewing => 'Viewing';
+
+  @override
+  String get studyDeleteCardTitle => 'Delete this card?';
+
+  @override
+  String get studyDeleteCardContent => 'Cannot be recovered. Delete anyway?';
+
+  @override
+  String get moduleLoadFailed => 'Load failed';
+
+  @override
+  String get moduleGoLogin => 'Go to login';
+
+  @override
+  String get moduleSharedLibrary => 'Shared knowledge base';
+
+  @override
+  String moduleCardCount(int count) {
+    return '\$count cards';
+  }
+
+  @override
+  String get moduleSaveToMyLibrary => 'Save to my library';
+
+  @override
+  String get moduleStartReading => 'Start reading';
+
+  @override
+  String get moduleSavingToLibrary => 'Saving to your library…';
+
+  @override
+  String get moduleAddedGoHome => 'Added. Go to Home to start learning.';
+
+  @override
+  String get moduleSavedToLibrary => 'Saved to your library';
+
+  @override
+  String moduleViews(int n) {
+    return '\$n views';
+  }
+
+  @override
+  String moduleSaves(int n) {
+    return '\$n saves';
+  }
+
+  @override
+  String moduleLikes(int n) {
+    return '\$n likes';
+  }
+
+  @override
+  String get moduleThanksLike => 'Thanks for the like!';
+
+  @override
+  String get moduleAlreadyLiked => 'You already liked this';
+
+  @override
+  String moduleShareData(int views, int saves, int likes) {
+    return 'Share: \$views views · \$saves saves · \$likes likes';
+  }
+
+  @override
+  String get moduleAllKnowledge => 'All knowledge';
+
+  @override
+  String get moduleAllKnowledgeDesc => 'All your knowledge cards are here';
+
+  @override
+  String get moduleUnknown => 'Unknown library';
+
+  @override
+  String get moduleNotFound => 'Library not found';
+
+  @override
+  String get moduleShareLibrary => 'Share library';
+
+  @override
+  String get moduleShareWithNotes => 'Share notes with viewers?';
+
+  @override
+  String get moduleShareLibraryOnly => 'Share library only';
+
+  @override
+  String get moduleShareLibraryAndNotes => 'Share library & notes';
+
+  @override
+  String get moduleRenameLibrary => 'Rename library';
+
+  @override
+  String get moduleNameLabel => 'Name';
+
+  @override
+  String get moduleNameHint => 'Enter library name';
+
+  @override
+  String get moduleUpdatedName => 'Name updated';
+
+  @override
+  String get moduleUpdatedDetails => 'Details updated';
+
+  @override
+  String get moduleEditDetails => 'Edit details';
+
+  @override
+  String get moduleDescLabel => 'Description';
+
+  @override
+  String get moduleHideLibrary => 'Hide this library?';
+
+  @override
+  String get moduleDeleteLibrary => 'Delete this library?';
+
+  @override
+  String get moduleHideLibraryDesc =>
+      'It will be hidden. You can restore it in Profile → Hidden content.';
+
+  @override
+  String get moduleDeleteLibraryDesc =>
+      'This cannot be undone. All cards will be removed.';
+
+  @override
+  String get moduleHide => 'Hide';
+
+  @override
+  String get moduleDelete => 'Delete';
+
+  @override
+  String get moduleLibraryHidden => 'Library hidden';
+
+  @override
+  String get moduleLibraryDeleted => 'Library deleted';
+
+  @override
+  String get moduleRename => 'Rename';
+
+  @override
+  String get modulePermanentDelete => 'Permanent delete';
+
+  @override
+  String moduleCardsTag(int count) {
+    return '\$count cards';
+  }
+
+  @override
+  String get moduleOfficial => 'Official';
+
+  @override
+  String get modulePrivate => 'Private';
+
+  @override
+  String moduleMasteredPct(int pct) {
+    return '\$pct% mastered';
+  }
+
+  @override
+  String get moduleStartLearning => 'Start learning';
+
+  @override
+  String get moduleMovePrompt => 'Create another library first to move cards.';
+
+  @override
+  String get moduleMoveToLibrary => 'Move to library';
+
+  @override
+  String get moduleMoved => 'Moved to target library';
+
+  @override
+  String get moduleHideCard => 'Hide this card?';
+
+  @override
+  String get moduleDeleteCard => 'Delete this card?';
+
+  @override
+  String get moduleHideCardDesc => 'You can restore it in settings.';
+
+  @override
+  String get moduleDeleteCardDesc => 'Cannot be recovered.';
+
+  @override
+  String get moduleCardHidden => 'Card hidden';
+
+  @override
+  String get moduleCardRemoved => 'Card removed';
+
+  @override
+  String get moduleMove => 'Move';
+
+  @override
+  String get dialogConfirm => 'OK';
+
+  @override
+  String get aiHoarderTitle => 'AI assistant';
+
+  @override
+  String get aiHoarderHint => 'Ask the assistant…';
+
+  @override
+  String get notePinnedSuccess => 'Note pinned!';
+
+  @override
+  String get noteShareNoSave =>
+      'Cannot save note to this card from shared content';
+
+  @override
+  String get noteLoginToSave => 'Sign in to save notes';
+
+  @override
+  String get noteLoginToSaveDesc => 'Sign in to save notes to your library.';
+
+  @override
+  String get noteDeleteConfirm => 'Delete this note?';
+
+  @override
+  String get noteDeleteConfirmDesc => 'This pinned note will be removed.';
+
+  @override
+  String get noteEditNote => 'Edit note';
+
+  @override
+  String get noteContentLabel => 'Note content';
+
+  @override
+  String get noteAiGuide => 'Official guide';
+
+  @override
+  String get noteAiNotes => 'AI notes';
+
+  @override
+  String get noteTooltipEdit => 'Edit note';
+
+  @override
+  String get noteTooltipDelete => 'Delete note';
+
+  @override
+  String get aiNotesPageTitle => 'AI notes';
+
+  @override
+  String get aiNotesSearchHint => 'Search notes…';
+
+  @override
+  String get aiNotesEmpty => 'No AI notes yet';
+
+  @override
+  String get aiNotesEmptyHint =>
+      'Tap \"Add note\" while learning and AI will summarize key points.';
+
+  @override
+  String noteReviewTitle(int current, int total) {
+    return 'Note review \$current/\$total';
+  }
+
+  @override
+  String get vaultFilterAll => 'All';
+
+  @override
+  String get vaultFilterNewbie => 'Newbie';
+
+  @override
+  String get vaultFilterMedium => 'Medium';
+
+  @override
+  String get vaultFilterExpert => 'Expert';
+
+  @override
+  String get vaultFilterNew => 'New';
+
+  @override
+  String aiNotesNoteCount(int count) {
+    return '\$count notes';
+  }
+
+  @override
+  String get notNow => 'Not now';
+
+  @override
+  String get collectLoginTitle => 'Sign in to save';
+
+  @override
+  String get collectLoginContent => 'Go to sign in?';
+
+  @override
+  String get shareNoCollect => 'Cannot save to vault from shared content';
+
+  @override
+  String get favoritedSnackbar => 'Saved to vault';
+
+  @override
+  String get unfavoritedSnackbar => 'Removed from vault';
+
+  @override
+  String markedAsLabel(String label) {
+    return 'Marked as \$label';
+  }
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get vaultTitle => 'Vault';
+
+  @override
+  String get vaultSearchHint => 'Search saved cards…';
+
+  @override
+  String get vaultEmpty => 'No saved cards yet';
+
+  @override
+  String get vaultEmptyHint => 'Tap ❤️ in Study to save content';
+
+  @override
+  String get noteReviewReleasePrev => 'Release to switch to previous';
+
+  @override
+  String get noteReviewPullPrev => 'Pull down to continue';
+
+  @override
+  String get noteReviewReleaseNext => 'Release to switch to next';
+
+  @override
+  String get noteReviewPullNext => 'Pull up to continue';
+
+  @override
+  String moduleShareCopyBody(String url, String title) {
+    return 'Hey! I\'m learning this library with Reado. Check it out:\n\$url\n\nThis is my library \"\$title\". You can save it to yours.';
+  }
 }

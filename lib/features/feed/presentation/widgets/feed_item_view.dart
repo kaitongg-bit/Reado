@@ -7,8 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
+import 'package:quick_pm/l10n/l10n_numeric_strings.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
 import '../../../../models/feed_item.dart';
 import '../feed_provider.dart';
 import '../../../../core/providers/adhd_provider.dart';
@@ -40,7 +43,7 @@ void _debugLogPodcast({
           'hypothesisId': 'podcast_display',
         }),
       )
-      .catchError((_) {});
+      .catchError((_, __) => Future.value(http.Response('', 500)));
 }
 
 /// 解析「原味保存」的对话记录："我: ...\n\n囤囤鼠: ..." -> [{isUser, text}, ...]
@@ -247,7 +250,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('✨ 笔记已置顶成功！'),
+              content: Text(AppLocalizations.of(context)!.notePinnedSuccess),
               behavior: SnackBarBehavior.floating,
               backgroundColor: Colors.green[600],
             ),
@@ -274,8 +277,8 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
             return;
           }
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('分享内容暂不支持保存笔记到当前卡片'),
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.noteShareNoSave),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -288,20 +291,20 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('保存笔记需要登录'),
-        content: const Text(
-            '登录后可将笔记保存到自己的知识库。'),
+        title: Text(AppLocalizations.of(context)!.noteLoginToSave),
+            content: Text(
+                AppLocalizations.of(context)!.noteLoginToSaveDesc),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('暂不'),
+            child: Text(AppLocalizations.of(context)!.notNow),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               context.go('/onboarding');
             },
-            child: const Text('去登录'),
+            child: Text(AppLocalizations.of(context)!.moduleGoLogin),
           ),
         ],
       ),
@@ -312,19 +315,19 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('收藏需要登录'),
-        content: const Text('是否前往登录？'),
+        title: Text(AppLocalizations.of(context)!.collectLoginTitle),
+        content: Text(AppLocalizations.of(context)!.collectLoginContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('暂不'),
+            child: Text(AppLocalizations.of(context)!.notNow),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               context.go('/onboarding');
             },
-            child: const Text('去登录'),
+            child: Text(AppLocalizations.of(context)!.moduleGoLogin),
           ),
         ],
       ),
@@ -339,8 +342,8 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('分享内容暂不支持收藏到复习区'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.shareNoCollect),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -356,7 +359,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     setState(() => _showMasteryQuickPick = isFavorited);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(isFavorited ? '✨ 已收藏到复习区' : '已取消收藏'),
+        content: Text(isFavorited ? AppLocalizations.of(context)!.favoritedSnackbar : AppLocalizations.of(context)!.unfavoritedSnackbar),
         duration: const Duration(seconds: 1),
         backgroundColor: isFavorited ? Colors.green[600] : Colors.grey[600],
       ),
@@ -368,11 +371,11 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     ref.read(feedProvider.notifier).updateMastery(widget.feedItem.id, levelStr);
     setState(() => _showMasteryQuickPick = false);
     final label = level == FeedItemMastery.easy
-        ? '熟练'
-        : (level == FeedItemMastery.medium ? '一般' : '生疏');
+        ? AppLocalizations.of(context)!.vaultFilterExpert
+        : (level == FeedItemMastery.medium ? AppLocalizations.of(context)!.vaultFilterMedium : AppLocalizations.of(context)!.vaultFilterNewbie);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('已标记为 $label'),
+        content: Text(L10nNumbers.markedAsLabel(context, label)),
         duration: const Duration(seconds: 1),
         backgroundColor: Colors.green[600],
       ),
@@ -383,12 +386,12 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除笔记？'),
-        content: const Text('确定要删除这个置顶笔记吗？'),
+        title: Text(AppLocalizations.of(context)!.noteDeleteConfirm),
+        content: Text(AppLocalizations.of(context)!.noteDeleteConfirmDesc),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(AppLocalizations.of(context)!.cancel),
           ),
           TextButton(
             onPressed: () {
@@ -398,7 +401,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
               Navigator.pop(context);
               // Scroll back if needed? PageView count changes automatically
             },
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
+            child: Text(AppLocalizations.of(context)!.delete, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -558,11 +561,11 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _masteryChip('熟练', FeedItemMastery.easy),
+                      _masteryChip(AppLocalizations.of(context)!.vaultFilterExpert, FeedItemMastery.easy),
                       const SizedBox(width: 6),
-                      _masteryChip('一般', FeedItemMastery.medium),
+                      _masteryChip(AppLocalizations.of(context)!.vaultFilterMedium, FeedItemMastery.medium),
                       const SizedBox(width: 6),
-                      _masteryChip('生疏', FeedItemMastery.hard),
+                      _masteryChip(AppLocalizations.of(context)!.vaultFilterNewbie, FeedItemMastery.hard),
                     ],
                   ),
                 ),
@@ -596,10 +599,16 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
               ],
               _buildActionButton(
                 customChild: Padding(
-                  padding: const EdgeInsets.all(
-                      8.0),
-                  child: SvgPicture.asset(
-                    'assets/images/reado_traced.svg',
+                  padding: const EdgeInsets.all(8.0),
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: SvgPicture.asset(
+                      'assets/images/reado_traced.svg',
+                      fit: BoxFit.contain,
+                      width: 40,
+                      height: 40,
+                    ),
                   ),
                 ),
                 isPrimary: true,
@@ -628,17 +637,17 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                           color: Colors.white.withOpacity(0.15), width: 1)),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('下一节',
-                          style: TextStyle(
+                      Text(AppLocalizations.of(context)!.studyNextSection,
+                          style: const TextStyle(
                               color: Colors.white,
                               fontSize: 13,
                               fontWeight: FontWeight.w600)),
-                      SizedBox(width: 6),
-                      Icon(Icons.keyboard_arrow_down,
+                      const SizedBox(width: 6),
+                      const Icon(Icons.keyboard_arrow_down,
                           color: Colors.white, size: 16),
                     ],
                   ),
@@ -990,7 +999,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('编辑笔记',
+              Text(AppLocalizations.of(context)!.noteEditNote,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               TextField(
@@ -1018,9 +1027,9 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                     fontFamily: 'JinghuaSong',
                     color: Theme.of(context).colorScheme.onSurface,
                   ),
-                  decoration: const InputDecoration(
-                    labelText: '笔记内容',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: AppLocalizations.of(context)!.noteContentLabel,
+                    border: const OutlineInputBorder(),
                     alignLabelWithHint: true,
                   ),
                   maxLines: null,
@@ -1034,7 +1043,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                 children: [
                   TextButton(
                     onPressed: _cancelEditNote,
-                    child: const Text('取消'),
+                    child: Text(AppLocalizations.of(context)!.cancel),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
@@ -1088,7 +1097,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                             color: Colors.amber,
                             size: 14),
                         const SizedBox(width: 6),
-                        Text(widget.feedItem.id == 'b002' ? 'AI 官方指南' : 'AI 笔记',
+                        Text(widget.feedItem.id == 'b002' ? AppLocalizations.of(context)!.noteAiGuide : AppLocalizations.of(context)!.noteAiNotes,
                             style: TextStyle(
                                 color: Colors.amber[700],
                                 fontWeight: FontWeight.w600,
@@ -1106,13 +1115,13 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                         IconButton(
                           icon: const Icon(Icons.edit,
                               size: 20, color: Colors.grey),
-                          tooltip: '编辑笔记',
+                          tooltip: AppLocalizations.of(context)!.noteTooltipEdit,
                           onPressed: () => _handleEditNote(content),
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete,
                               size: 20, color: Colors.redAccent),
-                          tooltip: '删除笔记',
+                          tooltip: AppLocalizations.of(context)!.noteTooltipDelete,
                           onPressed: () => _handleDeleteNote(content),
                         ),
                       ],
@@ -1724,7 +1733,7 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('AI 囤囤鼠',
+                          Text(AppLocalizations.of(context)!.aiHoarderTitle,
                               style: TextStyle(
                                   fontSize: 16, fontWeight: FontWeight.bold)),
                           if (_isSelectionMode)
@@ -1774,7 +1783,7 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                             _isPinMode = false;
                             _selectedMessageIndices.clear();
                           }),
-                          child: const Text('取消'),
+                          child: Text(AppLocalizations.of(context)!.cancel),
                         ),
                       ],
                     )
@@ -1915,7 +1924,7 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                       child: TextField(
                         controller: _controller,
                         decoration: InputDecoration(
-                          hintText: '问问囤囤鼠...',
+                          hintText: AppLocalizations.of(context)!.aiHoarderHint,
                           filled: true,
                           fillColor:
                               Theme.of(context).brightness == Brightness.dark

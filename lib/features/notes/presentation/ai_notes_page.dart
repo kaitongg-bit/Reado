@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/app_background.dart';
 import '../../feed/presentation/feed_provider.dart';
@@ -48,7 +49,7 @@ class _AiNotesPageState extends ConsumerState<AiNotesPage> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('AI 笔记',
+        title: Text(AppLocalizations.of(context)!.aiNotesPageTitle,
             style: TextStyle(
                 color: isDark ? Colors.white : Colors.black87,
                 fontWeight: FontWeight.bold)),
@@ -96,7 +97,7 @@ class _AiNotesPageState extends ConsumerState<AiNotesPage> {
                       style: TextStyle(
                           color: isDark ? Colors.white : Colors.black87),
                       decoration: InputDecoration(
-                        hintText: '搜索笔记内容...',
+                        hintText: AppLocalizations.of(context)!.aiNotesSearchHint,
                         hintStyle: TextStyle(
                             color: isDark ? Colors.grey[600] : Colors.grey[400],
                             fontSize: 14),
@@ -176,7 +177,7 @@ class _AiNotesPageState extends ConsumerState<AiNotesPage> {
                   : Colors.black.withOpacity(0.05)),
           const SizedBox(height: 16),
           Text(
-            '暂无 AI 笔记',
+            AppLocalizations.of(context)!.aiNotesEmpty,
             style: TextStyle(
                 color: isDark ? Colors.grey[400] : Colors.grey[500],
                 fontSize: 16),
@@ -185,7 +186,7 @@ class _AiNotesPageState extends ConsumerState<AiNotesPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(
-              '在学习过程中点击“添加笔记”，AI 会为你生成精准的知识点总结。',
+              AppLocalizations.of(context)!.aiNotesEmptyHint,
               textAlign: TextAlign.center,
               style: TextStyle(
                   color: isDark ? Colors.grey[600] : Colors.grey[400],
@@ -273,7 +274,7 @@ class _NoteCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          item.id == 'b002' ? '官方指南' : '个人笔记',
+                          item.id == 'b002' ? AppLocalizations.of(context)!.noteAiGuide : AppLocalizations.of(context)!.noteAiNotes,
                           style: const TextStyle(
                             fontSize: 10,
                             color: Colors.blueAccent,
@@ -284,7 +285,7 @@ class _NoteCard extends StatelessWidget {
                       if (noteCount > 0) ...[
                         const SizedBox(width: 8),
                         Text(
-                          '$noteCount 条笔记',
+                          AppLocalizations.of(context)!.aiNotesNoteCount(noteCount),
                           style: TextStyle(
                             fontSize: 11,
                             color: isDark ? Colors.white54 : Colors.grey[600],

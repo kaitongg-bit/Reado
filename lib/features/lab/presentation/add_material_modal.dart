@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:quick_pm/l10n/app_localizations.dart';
+import 'package:quick_pm/l10n/l10n_numeric_strings.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../models/feed_item.dart';
@@ -1641,7 +1642,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                             child: Text(
                               _isGenerating
                                   ? (_streamingStatus ?? '正在生成...')
-                                  : AppLocalizations.of(context)!.addMaterialGeneratedCount(_generatedItems?.length ?? 0),
+                                  : L10nNumbers.addMaterialGeneratedCount(
+                                      context, _generatedItems?.length ?? 0),
                               style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,

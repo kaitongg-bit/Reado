@@ -228,7 +228,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get moduleDesc => '描述（可选）';
 
   @override
-  String get moduleDescHint => '这个知识库是关于什么的？';
+  String get moduleDescHint => '输入知识库简介';
 
   @override
   String get cancel => '取消';
@@ -934,4 +934,367 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get addMaterialModePodcastDesc => '两人对谈讲解';
+
+  @override
+  String get studyTitleAll => '全部知识';
+
+  @override
+  String get studyTitleAiNotes => 'AI 笔记';
+
+  @override
+  String get studyTitleSearch => '搜索结果';
+
+  @override
+  String get studyTitleModule => '知识模块';
+
+  @override
+  String get studySingleColumn => '单列';
+
+  @override
+  String studyMinutes(int n) {
+    return '\$n 分钟';
+  }
+
+  @override
+  String get studyAllButton => '全部';
+
+  @override
+  String get studyBodySaved => '正文已保存';
+
+  @override
+  String get studySaveFailed => '保存失败';
+
+  @override
+  String get studyAllTutorialHint => '如果要查看全部知识卡或者切换知识卡，就需要点击「全部」。';
+
+  @override
+  String get studyNextSection => '下一节';
+
+  @override
+  String get studyEditBody => '编辑正文';
+
+  @override
+  String get studyViewing => '在看';
+
+  @override
+  String get studyDeleteCardTitle => '删除知识卡片？';
+
+  @override
+  String get studyDeleteCardContent => '删除后无法恢复，确定要删除吗？';
+
+  @override
+  String get moduleLoadFailed => '加载失败';
+
+  @override
+  String get moduleGoLogin => '去登录';
+
+  @override
+  String get moduleSharedLibrary => '分享的知识库';
+
+  @override
+  String moduleCardCount(int count) {
+    return '共 \$count 张卡片';
+  }
+
+  @override
+  String get moduleSaveToMyLibrary => '保存到我的知识库';
+
+  @override
+  String get moduleStartReading => '开始阅读';
+
+  @override
+  String get moduleSavingToLibrary => '正在保存到你的知识库…';
+
+  @override
+  String get moduleAddedGoHome => '已加入学习，去首页开始吧';
+
+  @override
+  String get moduleSavedToLibrary => '已保存到你的知识库';
+
+  @override
+  String moduleViews(int n) {
+    return '\$n 人浏览';
+  }
+
+  @override
+  String moduleSaves(int n) {
+    return '\$n 人保存';
+  }
+
+  @override
+  String moduleLikes(int n) {
+    return '\$n 人点赞';
+  }
+
+  @override
+  String get moduleThanksLike => '感谢点赞～';
+
+  @override
+  String get moduleAlreadyLiked => '您已点过赞啦';
+
+  @override
+  String moduleShareData(int views, int saves, int likes) {
+    return '分享数据：\$views 人浏览 · \$saves 人保存 · \$likes 人点赞';
+  }
+
+  @override
+  String get moduleAllKnowledge => '全部知识';
+
+  @override
+  String get moduleAllKnowledgeDesc => '您所有的知识卡片都在这里';
+
+  @override
+  String get moduleUnknown => '未知知识库';
+
+  @override
+  String get moduleNotFound => '无法找到该知识库信息';
+
+  @override
+  String get moduleShareLibrary => '分享知识库';
+
+  @override
+  String get moduleShareWithNotes => '是否将笔记一并分享给查看者？';
+
+  @override
+  String get moduleShareLibraryOnly => '仅分享知识库';
+
+  @override
+  String get moduleShareLibraryAndNotes => '分享知识库与笔记';
+
+  @override
+  String get moduleRenameLibrary => '重命名知识库';
+
+  @override
+  String get moduleNameLabel => '名称';
+
+  @override
+  String get moduleNameHint => '输入知识库名称';
+
+  @override
+  String get moduleUpdatedName => '已更新名称';
+
+  @override
+  String get moduleUpdatedDetails => '已更新详情';
+
+  @override
+  String get moduleEditDetails => '编辑详情';
+
+  @override
+  String get moduleDescLabel => '简介';
+
+  @override
+  String get moduleHideLibrary => '隐藏此知识库？';
+
+  @override
+  String get moduleDeleteLibrary => '彻底删除知识库？';
+
+  @override
+  String get moduleHideLibraryDesc => '知识库将被隐藏，您可以在「个人中心 - 隐藏的内容」中恢复。';
+
+  @override
+  String get moduleDeleteLibraryDesc => '警告：此操作不可逆！该知识库及其包含的所有知识点将永久移除。';
+
+  @override
+  String get moduleHide => '隐藏';
+
+  @override
+  String get moduleDelete => '彻底删除';
+
+  @override
+  String get moduleLibraryHidden => '已隐藏知识库';
+
+  @override
+  String get moduleLibraryDeleted => '已删除知识库';
+
+  @override
+  String get moduleRename => '重命名';
+
+  @override
+  String get modulePermanentDelete => '永久删除';
+
+  @override
+  String moduleCardsTag(int count) {
+    return '\$count 张卡片';
+  }
+
+  @override
+  String get moduleOfficial => '官方';
+
+  @override
+  String get modulePrivate => '私有';
+
+  @override
+  String moduleMasteredPct(int pct) {
+    return '\$pct% 已掌握';
+  }
+
+  @override
+  String get moduleStartLearning => '开始学习';
+
+  @override
+  String get moduleMovePrompt => '请先创建其他知识库后再移动';
+
+  @override
+  String get moduleMoveToLibrary => '移动到知识库';
+
+  @override
+  String get moduleMoved => '已移动到目标知识库';
+
+  @override
+  String get moduleHideCard => '隐藏此知识卡？';
+
+  @override
+  String get moduleDeleteCard => '删除此知识卡？';
+
+  @override
+  String get moduleHideCardDesc => '知识卡将被隐藏，可以在设置中恢复。';
+
+  @override
+  String get moduleDeleteCardDesc => '删除后无法恢复。';
+
+  @override
+  String get moduleCardHidden => '已隐藏知识卡';
+
+  @override
+  String get moduleCardRemoved => '已移除知识卡';
+
+  @override
+  String get moduleMove => '移动';
+
+  @override
+  String get dialogConfirm => '确定';
+
+  @override
+  String get aiHoarderTitle => 'AI 囤囤鼠';
+
+  @override
+  String get aiHoarderHint => '问问囤囤鼠…';
+
+  @override
+  String get notePinnedSuccess => '✨ 笔记已置顶成功！';
+
+  @override
+  String get noteShareNoSave => '分享内容暂不支持保存笔记到当前卡片';
+
+  @override
+  String get noteLoginToSave => '保存笔记需要登录';
+
+  @override
+  String get noteLoginToSaveDesc => '登录后可将笔记保存到自己的知识库。';
+
+  @override
+  String get noteDeleteConfirm => '删除笔记？';
+
+  @override
+  String get noteDeleteConfirmDesc => '确定要删除这个置顶笔记吗？';
+
+  @override
+  String get noteEditNote => '编辑笔记';
+
+  @override
+  String get noteContentLabel => '笔记内容';
+
+  @override
+  String get noteAiGuide => 'AI 官方指南';
+
+  @override
+  String get noteAiNotes => 'AI 笔记';
+
+  @override
+  String get noteTooltipEdit => '编辑笔记';
+
+  @override
+  String get noteTooltipDelete => '删除笔记';
+
+  @override
+  String get aiNotesPageTitle => 'AI 笔记';
+
+  @override
+  String get aiNotesSearchHint => '搜索笔记内容…';
+
+  @override
+  String get aiNotesEmpty => '暂无 AI 笔记';
+
+  @override
+  String get aiNotesEmptyHint => '在学习过程中点击「添加笔记」，AI 会为你生成精准的知识点总结。';
+
+  @override
+  String noteReviewTitle(int current, int total) {
+    return '笔记回顾 \$current/\$total';
+  }
+
+  @override
+  String get vaultFilterAll => '全部';
+
+  @override
+  String get vaultFilterNewbie => '生疏';
+
+  @override
+  String get vaultFilterMedium => '一般';
+
+  @override
+  String get vaultFilterExpert => '熟练';
+
+  @override
+  String get vaultFilterNew => '新';
+
+  @override
+  String aiNotesNoteCount(int count) {
+    return '\$count 条笔记';
+  }
+
+  @override
+  String get notNow => '暂不';
+
+  @override
+  String get collectLoginTitle => '收藏需要登录';
+
+  @override
+  String get collectLoginContent => '是否前往登录？';
+
+  @override
+  String get shareNoCollect => '分享内容暂不支持收藏到复习区';
+
+  @override
+  String get favoritedSnackbar => '✨ 已收藏到复习区';
+
+  @override
+  String get unfavoritedSnackbar => '已取消收藏';
+
+  @override
+  String markedAsLabel(String label) {
+    return '已标记为 \$label';
+  }
+
+  @override
+  String get delete => '删除';
+
+  @override
+  String get vaultTitle => '收藏';
+
+  @override
+  String get vaultSearchHint => '搜索收藏的卡片…';
+
+  @override
+  String get vaultEmpty => '还没有收藏任何卡片';
+
+  @override
+  String get vaultEmptyHint => '在「学习」中点击❤️来收藏内容';
+
+  @override
+  String get noteReviewReleasePrev => '释放切换到上一个';
+
+  @override
+  String get noteReviewPullPrev => '继续下拉';
+
+  @override
+  String get noteReviewReleaseNext => '释放切换到下一个';
+
+  @override
+  String get noteReviewPullNext => '继续上拉';
+
+  @override
+  String moduleShareCopyBody(String url, String title) {
+    return '嘿！我正在使用 Reado 学习这个超棒的知识库，快来看看：\n\$url\n\n这是我创建的名叫「\$title」的知识库，欢迎你保存到自己的知识库中。';
+  }
 }

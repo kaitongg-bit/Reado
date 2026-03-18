@@ -20,6 +20,10 @@ cd QuickPM
 flutter pub get
 ```
 
+**带数字的文案**（阅读时长、浏览/点赞数、分享统计等）已放在 `lib/l10n/l10n_numeric_strings.dart` 的 `L10nNumbers` 中拼接，**不再依赖** gen-l10n 占位符，避免界面出现 `$n`。
+
+其它 ARB 若执行 `flutter gen-l10n` 后仍出现 `$变量`，可运行：`dart run tool/fix_l10n_placeholders.dart`。
+
 ### 2. 本地运行（Web）
 
 在项目根目录执行：

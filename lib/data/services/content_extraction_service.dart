@@ -809,8 +809,9 @@ $chunkContent
       // 不 await 这个调用，让它在后台运行
       callable.call({'jobId': jobId}).then((_) {
         if (kDebugMode) print('✅ Cloud function completed for $jobId');
-      }).catchError((e) {
+      }).catchError((e, st) {
         if (kDebugMode) print('⚠️ Cloud function error (may be handled): $e');
+        return Future<void>.value();
       });
 
       // 3. 监听 Firestore 获取实时更新
@@ -868,8 +869,9 @@ $chunkContent
     // 不 await，让它在后台运行
     callable.call({'jobId': jobId}).then((_) {
       if (kDebugMode) print('✅ Cloud function completed for $jobId');
-    }).catchError((e) {
+    }).catchError((e, st) {
       if (kDebugMode) print('⚠️ Cloud function error (may be handled): $e');
+      return Future<void>.value();
     });
 
     return jobId;
@@ -940,7 +942,7 @@ $chunkContent
                     'hypothesisId': 'podcast_parse',
                   }),
                 )
-                .catchError((_) {});
+                .catchError((_, __) => Future.value(http.Response('', 500)));
             // #endregion
             // Pass jobModuleId to parser
             final item =

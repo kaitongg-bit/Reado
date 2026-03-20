@@ -60,7 +60,12 @@ abstract class DataService {
   Future<void> unhideOfficialFeedItem(String userId, String itemId);
   Future<Set<String>> fetchHiddenModuleIds(String userId);
   Future<List<FeedItem>> fetchHiddenFeedItems(String userId);
-  Future<void> submitFeedback(String type, String content, String? contact);
+  Future<void> submitFeedback(
+    String type,
+    String content,
+    String? contact, {
+    String? source,
+  });
 
   /// 获取某知识点的 AI 囤囤鼠聊天记录
   Future<List<Map<String, dynamic>>> fetchAiChatHistory(
@@ -72,6 +77,10 @@ abstract class DataService {
 
   /// 获取共享知识库只读数据（游客或复制用）；ownerId 即分享链接中的 ref
   Future<SharedModuleData> fetchSharedModule(String ownerId, String moduleId);
+
+  /// 是否分享时开放笔记 + 分享者公开界面语言（供访客页 Localizations）
+  Future<({bool shareNotesPublic, String appLocale})> getShareSettingsPublic(
+      String userId);
 
   /// 是否分享时开放笔记
   Future<bool> getShareNotesPublic(String userId);
@@ -1117,10 +1126,14 @@ class FirestoreService implements DataService {
 
   @override
   Future<void> submitFeedback(
-      String type, String content, String? contact) async {
+    String type,
+    String content,
+    String? contact, {
+    String? source,
+  }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      await _db.collection('feedback').add({
+      final data = <String, dynamic>{
         'type': type,
         'content': content,
         'contact': contact,
@@ -1129,7 +1142,11 @@ class FirestoreService implements DataService {
         'createdAt': FieldValue.serverTimestamp(),
         'platform': 'web',
         'status': 'pending',
-      });
+      };
+      if (source != null && source.isNotEmpty) {
+        data['source'] = source;
+      }
+      await _db.collection('feedback').add(data);
       print('✅ Feedback submitted successfully');
     } catch (e) {
       print('❌ Error submitting feedback: $e');
@@ -1205,7 +1222,8 @@ class FirestoreService implements DataService {
       return data;
     }).toList();
 
-    final shareNotesPublic = await getShareNotesPublic(ownerId);
+    final pub = await getShareSettingsPublic(ownerId);
+    final shareNotesPublic = pub.shareNotesPublic;
     if (shareNotesPublic && items.isNotEmpty) {
       const chunkSize = 5;
       for (var i = 0; i < items.length; i += chunkSize) {
@@ -1244,7 +1262,8 @@ class FirestoreService implements DataService {
             ownerId: 'official',
             isOfficial: true,
           );
-    return SharedModuleData(module: module, items: feedItems);
+    return SharedModuleData(
+        module: module, items: feedItems, ownerUiLocale: pub.appLocale);
   }
 
   Future<SharedModuleData> _fetchSharedCustomModule(
@@ -1271,23 +1290,40 @@ class FirestoreService implements DataService {
       return FeedItem.fromJson(data);
     }).toList();
 
-    return SharedModuleData(module: module, items: items);
+    final pub = await getShareSettingsPublic(ownerId);
+    return SharedModuleData(
+        module: module, items: items, ownerUiLocale: pub.appLocale);
   }
 
   @override
-  Future<bool> getShareNotesPublic(String userId) async {
+  Future<({bool shareNotesPublic, String appLocale})> getShareSettingsPublic(
+      String userId) async {
     try {
       final doc = await _usersRef
           .doc(userId)
           .collection('share_settings')
           .doc('settings')
           .get();
-      if (!doc.exists) return false;
-      return doc.data()?['shareNotesPublic'] as bool? ?? false;
+      if (!doc.exists) {
+        return (shareNotesPublic: false, appLocale: 'en');
+      }
+      final d = doc.data()!;
+      final loc = d['appLocale'] as String?;
+      final code = (loc == 'zh') ? 'zh' : 'en';
+      return (
+        shareNotesPublic: d['shareNotesPublic'] as bool? ?? false,
+        appLocale: code
+      );
     } catch (e) {
-      if (kDebugMode) print('getShareNotesPublic: $e');
-      return false;
+      if (kDebugMode) print('getShareSettingsPublic: $e');
+      return (shareNotesPublic: false, appLocale: 'en');
     }
+  }
+
+  @override
+  Future<bool> getShareNotesPublic(String userId) async {
+    final s = await getShareSettingsPublic(userId);
+    return s.shareNotesPublic;
   }
 
   @override

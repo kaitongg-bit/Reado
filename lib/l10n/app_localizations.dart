@@ -446,6 +446,12 @@ abstract class AppLocalizations {
   /// **'Official'**
   String get tabOfficial;
 
+  /// No description provided for @officialCurated.
+  ///
+  /// In en, this message translates to:
+  /// **'Official picks'**
+  String get officialCurated;
+
   /// No description provided for @tabPersonal.
   ///
   /// In en, this message translates to:
@@ -920,6 +926,24 @@ abstract class AppLocalizations {
   /// **'Strength'**
   String get settingsAdhdStrength;
 
+  /// No description provided for @settingsAdhdIntensityLow.
+  ///
+  /// In en, this message translates to:
+  /// **'Low'**
+  String get settingsAdhdIntensityLow;
+
+  /// No description provided for @settingsAdhdIntensityMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get settingsAdhdIntensityMedium;
+
+  /// No description provided for @settingsAdhdIntensityHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'High'**
+  String get settingsAdhdIntensityHigh;
+
   /// No description provided for @settingsAdhdTip.
   ///
   /// In en, this message translates to:
@@ -1087,6 +1111,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Submit'**
   String get feedbackSubmit;
+
+  /// No description provided for @feedbackGuestHint.
+  ///
+  /// In en, this message translates to:
+  /// **'You can submit without signing in. Add email or WeChat in Contact if you want a reply.'**
+  String get feedbackGuestHint;
 
   /// No description provided for @securityAnswerMin.
   ///
@@ -1867,6 +1897,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Two-person dialogue'**
   String get addMaterialModePodcastDesc;
+
+  /// No description provided for @feedSwipeBackToBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Swipe left for article'**
+  String get feedSwipeBackToBody;
+
+  /// No description provided for @feedSwipeReleaseBackList.
+  ///
+  /// In en, this message translates to:
+  /// **'Release to return to feed'**
+  String get feedSwipeReleaseBackList;
+
+  /// No description provided for @feedSwipeLeftBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Swipe left to go back'**
+  String get feedSwipeLeftBack;
+
+  /// No description provided for @feedSwipeReleasePrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'Release for previous'**
+  String get feedSwipeReleasePrevious;
+
+  /// No description provided for @feedSwipePullDownMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Pull down'**
+  String get feedSwipePullDownMore;
+
+  /// No description provided for @feedSwipeReleaseNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Release for next'**
+  String get feedSwipeReleaseNext;
+
+  /// No description provided for @feedSwipePullUpMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Pull up'**
+  String get feedSwipePullUpMore;
 
   /// No description provided for @studyTitleAll.
   ///

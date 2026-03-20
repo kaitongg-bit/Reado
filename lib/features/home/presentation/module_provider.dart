@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../models/knowledge_module.dart';
+import '../../../l10n/module_display_strings.dart';
 import '../../../models/shared_module_data.dart';
 import '../../../models/share_stats.dart';
 import '../../../data/services/firestore_service.dart';
@@ -67,16 +69,19 @@ class ModuleNotifier extends StateNotifier<ModuleState> {
         custom: custom,
       );
 
-      // 3. Auto-create "Default Knowledge Base" if missing (and user is logged in)
-      if (user != null && !custom.any((m) => m.title == '默认知识库')) {
+      // 3. Auto-create default library if missing (and user is logged in)
+      if (user != null &&
+          !custom.any((m) => ModuleDisplayStrings.isDefaultModuleTitle(m.title))) {
         try {
-          // We initiate creation but don't await to block UI,
-          // but we DO want to update state when done.
-          // However, since we are inside _loadInitialData which is async, we can await.
+          final prefs = await SharedPreferences.getInstance();
+          final code = prefs.getString('app_locale_code') ?? 'en';
+          final isZh = code == 'zh';
+          final defaultTitle = isZh ? '默认知识库' : 'default';
+          final defaultDesc = isZh ? '系统预设的默认知识库' : 'Your default library';
           final defaultModule = await _dataService.createModule(
             user.uid,
-            '默认知识库',
-            '系统预设的默认知识库',
+            defaultTitle,
+            defaultDesc,
           );
           // Update state again with the new module
           state = state.copyWith(

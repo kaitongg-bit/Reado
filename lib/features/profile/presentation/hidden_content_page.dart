@@ -6,6 +6,8 @@ import '../../../models/knowledge_module.dart';
 import '../../../models/feed_item.dart';
 import '../../home/presentation/module_provider.dart';
 import '../../feed/presentation/feed_provider.dart';
+import '../../../core/locale/locale_provider.dart';
+import '../../../l10n/module_display_strings.dart';
 
 class HiddenContentPage extends ConsumerStatefulWidget {
   const HiddenContentPage({super.key});
@@ -162,9 +164,10 @@ class _HiddenContentPageState extends ConsumerState<HiddenContentPage>
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final module = _hiddenModules[index];
+        final loc = ref.watch(localeProvider).outputLocale;
         return _buildTile(
-          title: module.title,
-          subtitle: module.description,
+          title: ModuleDisplayStrings.moduleTitle(module, loc),
+          subtitle: ModuleDisplayStrings.moduleDescription(module, loc),
           icon: Icons.auto_stories,
           onRestore: () => _unhideModule(module),
           isDark: isDark,

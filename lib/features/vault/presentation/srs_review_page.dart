@@ -2,8 +2,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../l10n/app_localizations.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
 import 'package:quick_pm/l10n/l10n_numeric_strings.dart';
+import 'package:quick_pm/l10n/vault_task_strings.dart';
 import '../../feed/presentation/widgets/feed_item_view.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../../models/feed_item.dart';
@@ -82,10 +83,13 @@ class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
 
     // 4. Feedback
     if (mounted) {
+      final l10n = AppLocalizations.of(context)!;
+      final masteryLabel = intervalDays == 0
+          ? l10n.vaultFilterNewbie
+          : (intervalDays == 1 ? l10n.vaultFilterMedium : l10n.vaultFilterExpert);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-              '标记为 ${intervalDays == 0 ? "生疏" : (intervalDays == 1 ? "一般" : "熟练")}'),
+          content: Text(L10nNumbers.markedAsLabel(context, masteryLabel)),
           duration: const Duration(milliseconds: 500),
           behavior: SnackBarBehavior.floating,
           backgroundColor: const Color(0xFF1E1E1E).withOpacity(0.9),
@@ -257,7 +261,8 @@ class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            '复习 ${_currentIndex + 1}/${widget.items.length}',
+                            VaultTaskL10n.vaultReviewProgress(context,
+                                _currentIndex + 1, widget.items.length),
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -314,11 +319,12 @@ class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
                         ));
                         final currentMastery = currentItem.masteryLevel;
 
+                        final l10n = AppLocalizations.of(context)!;
                         return Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             _SRSButton(
-                              label: '生疏',
+                              label: l10n.vaultFilterNewbie,
                               color: const Color(0xFFEF4444),
                               icon: Icons.refresh,
                               isDark: isDark,
@@ -328,7 +334,7 @@ class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
                                   currentItem, 0, FeedItemMastery.hard),
                             ),
                             _SRSButton(
-                              label: '一般',
+                              label: l10n.vaultFilterMedium,
                               color: const Color(0xFFF59E0B),
                               icon: Icons.sentiment_neutral,
                               isDark: isDark,
@@ -338,7 +344,7 @@ class _SRSReviewPageState extends ConsumerState<SRSReviewPage> {
                                   currentItem, 1, FeedItemMastery.medium),
                             ),
                             _SRSButton(
-                              label: '熟练',
+                              label: l10n.vaultFilterExpert,
                               color: const Color(0xFF10B981),
                               icon: Icons.check_circle,
                               isDark: isDark,
@@ -557,11 +563,15 @@ class _OverscrollNavigatableState extends State<_OverscrollNavigatable>
 
     if (_dragOffset.dy > 0 && widget.hasPrev) {
       progress = (_dragOffset.dy.abs() / prevThreshold).clamp(0.0, 1.0);
-      textAlert = progress >= 1.0 ? "释放切换到上一个" : "继续下拉";
+      textAlert = progress >= 1.0
+          ? AppLocalizations.of(context)!.noteReviewReleasePrev
+          : AppLocalizations.of(context)!.noteReviewPullPrev;
       icon = Icons.arrow_upward;
     } else if (_dragOffset.dy < 0 && widget.hasNext) {
       progress = (_dragOffset.dy.abs() / nextThreshold).clamp(0.0, 1.0);
-      textAlert = progress >= 1.0 ? "释放切换到下一个" : "继续上拉";
+      textAlert = progress >= 1.0
+          ? AppLocalizations.of(context)!.noteReviewReleaseNext
+          : AppLocalizations.of(context)!.noteReviewPullNext;
       icon = Icons.arrow_downward;
     }
 

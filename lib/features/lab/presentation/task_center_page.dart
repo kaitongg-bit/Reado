@@ -7,6 +7,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
 import 'dart:html' as html; // Assuming Web target as per ProfilePage usage
 
+import 'package:quick_pm/l10n/app_localizations.dart';
+import 'package:quick_pm/l10n/vault_task_strings.dart';
 import '../../../../core/providers/credit_provider.dart';
 
 /// 任务状态
@@ -144,8 +146,8 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
     final String shareUrl = "$baseUrl/#/onboarding?ref=${user.uid}";
 
     // 2. 复制到剪贴板
-    Clipboard.setData(
-        ClipboardData(text: '嘿！我正在使用 Reado 学习，这个 AI 工具太强了，快来看看：\n$shareUrl'));
+    Clipboard.setData(ClipboardData(
+        text: VaultTaskL10n.shareInviteClipboard(context, shareUrl)));
 
     // 3. 奖励积分 (动作奖励)
     ref.read(creditProvider.notifier).rewardShare(amount: 10);
@@ -157,23 +159,27 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.stars, color: Color(0xFFFFB300)),
-                SizedBox(width: 8),
-                Text('分享成功！获得 10 积分动作奖励 🎁',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                const Icon(Icons.stars, color: Color(0xFFFFB300)),
+                const SizedBox(width: 8),
+                Text(VaultTaskL10n.shareSuccessTitle(context),
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600)),
               ],
             ),
             const SizedBox(height: 10),
-            const Text('已经为您复制到剪贴板',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+            Text(VaultTaskL10n.shareCopiedLine1(context),
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white)),
             const SizedBox(height: 4),
-            const Text('分享链接已复制到剪贴板，快粘贴给你的朋友使用吧',
-                style: TextStyle(fontSize: 14, color: Colors.white)),
+            Text(VaultTaskL10n.shareCopiedLine2(context),
+                style: const TextStyle(fontSize: 14, color: Colors.white)),
             const SizedBox(height: 6),
-            const Text('好友通过您的链接加入时，您将再获得 50 积分',
-                style: TextStyle(fontSize: 12, color: Colors.white70)),
+            Text(VaultTaskL10n.shareFriendReward(context),
+                style: const TextStyle(fontSize: 12, color: Colors.white70)),
           ],
         ),
         backgroundColor: const Color(0xFF2E7D32),
@@ -190,11 +196,11 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('任务中心'),
+        title: Text(VaultTaskL10n.taskCenterTitle(context)),
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_sweep_outlined),
-            tooltip: '清理已完成任务',
+            tooltip: VaultTaskL10n.taskCenterClearTooltip(context),
             onPressed: () => _showCleanupDialog(context),
           ),
         ],
@@ -217,7 +223,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          '暂无任务',
+                          VaultTaskL10n.taskCenterEmpty(context),
                           style: TextStyle(
                             color: isDark ? Colors.white54 : Colors.black54,
                             fontSize: 16,
@@ -225,7 +231,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '使用 AI 生成知识卡片后，任务会显示在这里',
+                          VaultTaskL10n.taskCenterEmptyHint(context),
                           style: TextStyle(
                             color: isDark ? Colors.white38 : Colors.black38,
                             fontSize: 14,
@@ -244,6 +250,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                     final isExpanded = _expandedTaskId == task.id;
 
                     return _TaskCard(
+                      context: context,
                       task: task,
                       isExpanded: isExpanded,
                       onTap: () {
@@ -263,7 +270,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                     const Icon(Icons.error_outline,
                         size: 48, color: Colors.red),
                     const SizedBox(height: 16),
-                    Text('加载失败: $e'),
+                    Text(VaultTaskL10n.taskCenterLoadFailed(context, e)),
                   ],
                 ),
               ),
@@ -315,7 +322,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '我的积分',
+                  AppLocalizations.of(context)!.profileMyCredits,
                   style: TextStyle(
                     color: isDark ? Colors.white70 : Colors.brown[700],
                     fontSize: 14,
@@ -335,7 +342,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
           ElevatedButton.icon(
             onPressed: _handleShare, // Use the proper handler
             icon: const Icon(Icons.share, size: 18),
-            label: const Text('分享赚积分'),
+            label: Text(VaultTaskL10n.taskCenterShareEarn(context)),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: Colors.orange[800],
@@ -351,22 +358,23 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
   }
 
   void _showCleanupDialog(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('清理任务'),
-        content: const Text('确定要删除所有已完成和失败的任务记录吗？\n（生成的内容不会被删除）'),
+        title: Text(VaultTaskL10n.taskCenterCleanupTitle(context)),
+        content: Text(VaultTaskL10n.taskCenterCleanupBody(context)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               _cleanupTasks();
             },
-            child: const Text('确定'),
+            child: Text(l10n.dialogConfirm),
           ),
         ],
       ),
@@ -396,13 +404,17 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已清理 ${snapshot.docs.length} 条任务记录')),
+          SnackBar(
+              content: Text(VaultTaskL10n.taskCenterCleanedCount(
+                  context, snapshot.docs.length))),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('清理失败: $e')),
+          SnackBar(
+              content: Text(
+                  VaultTaskL10n.taskCenterCleanupFailed(context, e))),
         );
       }
     }
@@ -411,11 +423,13 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
 
 /// 单个任务卡片
 class _TaskCard extends StatelessWidget {
+  final BuildContext context;
   final ExtractionTask task;
   final bool isExpanded;
   final VoidCallback onTap;
 
   const _TaskCard({
+    required this.context,
     required this.task,
     required this.isExpanded,
     required this.onTap,
@@ -425,6 +439,7 @@ class _TaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final ctx = this.context;
 
     // 状态颜色和图标
     Color statusColor;
@@ -475,7 +490,7 @@ class _TaskCard extends StatelessWidget {
                         Text(
                           task.message.isNotEmpty
                               ? task.message
-                              : _getStatusText(),
+                              : _getStatusText(ctx),
                           style: TextStyle(
                             fontWeight: FontWeight.w500,
                             color: isDark ? Colors.white : Colors.black87,
@@ -483,7 +498,7 @@ class _TaskCard extends StatelessWidget {
                         ),
                         if (task.createdAt != null)
                           Text(
-                            _formatTime(task.createdAt!),
+                            _formatTime(ctx, task.createdAt!),
                             style: TextStyle(
                               fontSize: 12,
                               color: isDark ? Colors.white54 : Colors.black54,
@@ -545,7 +560,7 @@ class _TaskCard extends StatelessWidget {
                 const Divider(),
                 const SizedBox(height: 8),
                 Text(
-                  '生成的知识点',
+                  VaultTaskL10n.taskGeneratedCards(ctx),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white70 : Colors.black87,
@@ -554,12 +569,12 @@ class _TaskCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 ...task.cards
                     .take(10)
-                    .map((cardData) => _buildCardPreview(context, cardData)),
+                    .map((cardData) => _buildCardPreview(ctx, cardData)),
                 if (task.cards.length > 10)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      '还有 ${task.cards.length - 10} 个...',
+                      VaultTaskL10n.taskMoreCards(ctx, task.cards.length - 10),
                       style: TextStyle(
                         color: isDark ? Colors.white54 : Colors.black54,
                         fontStyle: FontStyle.italic,
@@ -582,7 +597,7 @@ class _TaskCard extends StatelessWidget {
                         Icon(Icons.check, color: Colors.green, size: 16),
                         const SizedBox(width: 8),
                         Text(
-                          '已自动保存到你的知识库',
+                          VaultTaskL10n.taskAutoSaved(ctx),
                           style: TextStyle(color: Colors.green, fontSize: 12),
                         ),
                       ],
@@ -611,33 +626,38 @@ class _TaskCard extends StatelessWidget {
     return Icon(icon, color: color, size: 24);
   }
 
-  String _getStatusText() {
+  String _getStatusText(BuildContext ctx) {
     switch (task.status) {
       case TaskStatus.pending:
-        return '等待处理...';
+        return VaultTaskL10n.taskStatusPending(ctx);
       case TaskStatus.processing:
-        return 'AI 正在生成...';
+        return VaultTaskL10n.taskStatusProcessing(ctx);
       case TaskStatus.completed:
-        return '生成完成';
+        return VaultTaskL10n.taskStatusCompleted(ctx);
       case TaskStatus.failed:
-        return '生成失败';
+        return VaultTaskL10n.taskStatusFailed(ctx);
     }
   }
 
-  String _formatTime(DateTime time) {
+  String _formatTime(BuildContext ctx, DateTime time) {
     final now = DateTime.now();
     final diff = now.difference(time);
 
-    if (diff.inMinutes < 1) return '刚刚';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} 分钟前';
-    if (diff.inHours < 24) return '${diff.inHours} 小时前';
-    return '${diff.inDays} 天前';
+    if (diff.inMinutes < 1) return VaultTaskL10n.timeJustNow(ctx);
+    if (diff.inMinutes < 60) {
+      return VaultTaskL10n.timeMinutesAgo(ctx, diff.inMinutes);
+    }
+    if (diff.inHours < 24) {
+      return VaultTaskL10n.timeHoursAgo(ctx, diff.inHours);
+    }
+    return VaultTaskL10n.timeDaysAgo(ctx, diff.inDays);
   }
 
   Widget _buildCardPreview(
-      BuildContext context, Map<String, dynamic> cardData) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final title = cardData['title'] as String? ?? '未命名';
+      BuildContext ctx, Map<String, dynamic> cardData) {
+    final isDark = Theme.of(ctx).brightness == Brightness.dark;
+    final title = cardData['title'] as String? ??
+        VaultTaskL10n.taskUnnamed(ctx);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),

@@ -230,10 +230,16 @@ class ContentGeneratorService {
 
   /// 与卡片内容进行对话（一次性返回，兼容旧逻辑）
   Future<String> chatWithContent(
-      String contextContent, List<Map<String, String>> history) async {
+    String contextContent,
+    List<Map<String, String>> history, {
+    String outputLocale = 'zh',
+  }) async {
     final buffer = StringBuffer();
-    await for (final chunk
-        in chatWithContentStream(contextContent, history)) {
+    await for (final chunk in chatWithContentStream(
+      contextContent,
+      history,
+      outputLocale: outputLocale,
+    )) {
       buffer.write(chunk);
     }
     return buffer.toString();
@@ -241,9 +247,15 @@ class ContentGeneratorService {
 
   /// 与卡片内容进行对话（流式返回，用于打字机效果）
   Stream<String> chatWithContentStream(
-      String contextContent, List<Map<String, String>> history) async* {
+    String contextContent,
+    List<Map<String, String>> history, {
+    String outputLocale = 'zh',
+  }) async* {
     final historyText = history.map((msg) {
-      final role = msg['role'] == 'user' ? '用户' : 'AI Mentor';
+      final isUser = msg['role'] == 'user';
+      final role = outputLocale == 'en'
+          ? (isUser ? 'User' : 'AI Mentor')
+          : (isUser ? '用户' : 'AI Mentor');
       return '$role: ${msg['content']}';
     }).join('\n');
 
@@ -253,25 +265,12 @@ class ContentGeneratorService {
 
     if (lastUserMessage!.isEmpty) return;
 
-    final prompt = '''
-你是一位资深的教育导师。用户正在学习以下内容。你需要基于这些内容回答用户的问题。
-背景内容：
-"""
-$contextContent
-"""
-
-以下是对话记录：
-$historyText
-
-请回答用户最新的问题（"$lastUserMessage"）。
-要求：
-1. **直接回答**：不要使用 JSON 格式，直接输出纯文本（Markdown）。
-2. **结合上下文**：解答必须基于背景内容，保持准确。
-3. **通俗易懂**：用简洁、鼓励性的语言。
-4. **追问**：在回答结束时，必须提出一个相关的、能引发思考的追问，引导用户更深一层。
-
-请直接输出回答内容。
-''';
+    final prompt = aiTutorChatPrompt(
+      contextContent: contextContent,
+      historyText: historyText,
+      lastUserMessage: lastUserMessage,
+      outputLocale: outputLocale,
+    );
 
     final content = [Content.text(prompt)];
 
@@ -283,47 +282,38 @@ $historyText
       }
     } catch (e) {
       debugPrint('❌ Chat API Error: $e');
+      if (outputLocale == 'en') {
+        throw Exception('Could not reach AI mentor');
+      }
       throw Exception('无法连接 AI Mentor');
     }
   }
 
   /// 整理并 Pin 笔记
   Future<String> summarizeForPin(
-      String contextContent, String selectedChatContent) async {
-    final prompt = '''
-你是一个智能笔记助手。用户的目标是将一段有价值的对话整理成精炼的知识点笔记。
-背景内容（参考用）：
-"""
-$contextContent
-"""
-
-重点对话内容（需整理）：
-"""
-$selectedChatContent
-"""
-
-任务：
-请仅基于"重点对话内容"中的信息，整理出一个结构化的知识点。背景内容仅用于帮助你理解上下文，不要大量重复背景内容。
-要求：
-1. **提炼核心**：归纳对话中 AI 解释的核心观点或方法论（干货）。
-2. **脱水处理**：去除寒暄、废话和过于显而易见的信息。
-3. **格式清晰**：
-   - Q: 一个能概括这段对话核心议题的问题（简短有力）。
-   - A: 经过整理的回答。使用 Markdown 列表或加粗来突出重点。
-4. **直接输出**：不要使用 JSON，直接输出问答对。不要输出 "\n" 字符本身，而是使用真正的换行。
-
-输出示例：
-Q: [核心问题]
-A: [整理后的核心回答]
-''';
+    String contextContent,
+    String selectedChatContent, {
+    String outputLocale = 'zh',
+  }) async {
+    final prompt = aiSummarizeForPinPrompt(
+      contextContent: contextContent,
+      selectedChatContent: selectedChatContent,
+      outputLocale: outputLocale,
+    );
 
     final content = [Content.text(prompt)];
 
     try {
       final response = await _textModel.generateContent(content);
-      return response.text ?? '整理失败，请重试。';
+      final fallback = outputLocale == 'en'
+          ? 'Summary failed, please try again.'
+          : '整理失败，请重试。';
+      return response.text ?? fallback;
     } catch (e) {
       debugPrint('❌ Summarize API Error: $e');
+      if (outputLocale == 'en') {
+        throw Exception('Failed to summarize note');
+      }
       throw Exception('整理笔记失败');
     }
   }

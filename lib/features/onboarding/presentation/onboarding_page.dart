@@ -9,16 +9,26 @@ import '../../../core/services/auth_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../profile/presentation/philosophy_vision_section.dart';
 import 'package:quick_pm/l10n/app_localizations.dart';
-
-/// 官网页主价值句，便于后续改文案或多语言
-const String _kOnboardingValueProp =
-    '把长文、课程、笔记变成可刷的知识卡片，随时复习、随时问 AI。';
+import 'package:quick_pm/l10n/onboarding_landing_strings.dart';
+import '../../../core/locale/locale_provider.dart';
+import '../../legal/presentation/legal_popups.dart';
 
 /// 过程图单步：用于展开后的步骤/流程图展示
 class _ProcessStep {
   final String label;
   final IconData icon;
   const _ProcessStep(this.label, this.icon);
+}
+
+List<_ProcessStep> _landingSteps(
+  BuildContext context,
+  List<String> labels,
+  List<IconData> icons,
+) {
+  return List.generate(
+    labels.length,
+    (i) => _ProcessStep(labels[i], icons[i]),
+  );
 }
 
 class OnboardingPage extends ConsumerStatefulWidget {
@@ -155,9 +165,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
   Widget build(BuildContext context) {
     final isAuth = _isAuthView;
     // 官网页与登录/注册页统一白底（Notion 风格），避免登录页内容较短时底部露出深色
-    final isDark = isAuth ? Theme.of(context).brightness == Brightness.dark : false;
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subTextColor = isDark ? Colors.grey[400] : Colors.grey[600];
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
@@ -219,7 +226,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
 
                       // 2. 信任线（Notion 风格）
                       Text(
-                        '学习者和职场人都在用 Reado 沉淀知识。',
+                        OnboardingLandingStrings.trustLine(context),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
@@ -229,7 +236,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                       const SizedBox(height: 48),
 
                       // 3. Reado 能做什么（4 个卖点，用 IP 头像 + 对话式场景展示）
-                      _buildSectionTitle(textColor, 'Reado 能做什么'),
+                      _buildSectionTitle(textColor,
+                          OnboardingLandingStrings.sectionWhatWeDo(context)),
                       const SizedBox(height: 20),
                       _buildFeatureDialogueCard(
                         index: 0,
@@ -242,13 +250,13 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                         textColor: textColor,
                         subTextColor: subTextColor,
                         imagePath: 'assets/images/reado_ip_5_coder.png',
-                        title: '智能拆解',
-                        dialogue: '我丢了个链接进去，一会儿就拆成好几张卡片，太省事了。',
-                        steps: const [
-                          _ProcessStep('粘贴链接或上传 PDF', Icons.link),
-                          _ProcessStep('AI 自动拆解', Icons.auto_awesome),
-                          _ProcessStep('生成知识卡片', Icons.style),
-                        ],
+                        title: OnboardingLandingStrings.f0Title(context),
+                        dialogue: OnboardingLandingStrings.f0Dialogue(context),
+                        steps: _landingSteps(context, OnboardingLandingStrings.f0Steps(context), const [
+                          Icons.link,
+                          Icons.auto_awesome,
+                          Icons.style,
+                        ]),
                       ),
                       const SizedBox(height: 20),
                       _buildFeatureDialogueCard(
@@ -262,13 +270,13 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                         textColor: textColor,
                         subTextColor: subTextColor,
                         imagePath: 'assets/images/reado_ip_1_reader.png',
-                        title: '闪读记忆',
-                        dialogue: '像刷短视频一样上下滑，碎片时间就能刷完一沓卡片。',
-                        steps: const [
-                          _ProcessStep('上下滑动切换卡片', Icons.swap_vert),
-                          _ProcessStep('标记难易度', Icons.trending_up),
-                          _ProcessStep('间隔复习', Icons.schedule),
-                        ],
+                        title: OnboardingLandingStrings.f1Title(context),
+                        dialogue: OnboardingLandingStrings.f1Dialogue(context),
+                        steps: _landingSteps(context, OnboardingLandingStrings.f1Steps(context), const [
+                          Icons.swap_vert,
+                          Icons.trending_up,
+                          Icons.schedule,
+                        ]),
                       ),
                       const SizedBox(height: 20),
                       _buildFeatureDialogueCard(
@@ -282,13 +290,13 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                         textColor: textColor,
                         subTextColor: subTextColor,
                         imagePath: 'assets/images/reado_ip_7_idea.png',
-                        title: '深度内化',
-                        dialogue: '看不懂的地方直接问 AI，问完还能 Pin 成笔记，下次复习一起看。',
-                        steps: const [
-                          _ProcessStep('随时提问', Icons.chat_bubble_outline),
-                          _ProcessStep('Pin 成笔记', Icons.push_pin),
-                          _ProcessStep('复习时一起看', Icons.menu_book),
-                        ],
+                        title: OnboardingLandingStrings.f2Title(context),
+                        dialogue: OnboardingLandingStrings.f2Dialogue(context),
+                        steps: _landingSteps(context, OnboardingLandingStrings.f2Steps(context), const [
+                          Icons.chat_bubble_outline,
+                          Icons.push_pin,
+                          Icons.menu_book,
+                        ]),
                       ),
                       const SizedBox(height: 20),
                       _buildFeatureDialogueCard(
@@ -302,29 +310,36 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                         textColor: textColor,
                         subTextColor: subTextColor,
                         imagePath: 'assets/images/reado_ip_3_builder_v2.png',
-                        title: '多端同步',
-                        dialogue: '电脑上拆好的知识库，手机上也一样，通勤、睡前都能接着刷。',
-                        steps: const [
-                          _ProcessStep('网页端拆解与学习', Icons.computer),
-                          _ProcessStep('自动同步', Icons.cloud_sync),
-                          _ProcessStep('手机端接着刷', Icons.phone_android),
-                        ],
+                        title: OnboardingLandingStrings.f3Title(context),
+                        dialogue: OnboardingLandingStrings.f3Dialogue(context),
+                        steps: _landingSteps(context, OnboardingLandingStrings.f3Steps(context), const [
+                          Icons.computer,
+                          Icons.cloud_sync,
+                          Icons.phone_android,
+                        ]),
                       ),
                       const SizedBox(height: 40),
 
                       // 理念 + 未来愿景（主图与功能介绍下方）
-                      PhilosophyVisionSection(isDark: isDark),
+                      PhilosophyVisionSection(
+                        key: ValueKey(
+                            ref.watch(localeProvider).locale.languageCode),
+                        isDark: isDark,
+                      ),
                       const SizedBox(height: 40),
 
                       // 大家怎么说（模拟用户反馈卡片）
-                      _buildSectionTitle(textColor, '大家怎么说'),
+                      _buildSectionTitle(
+                          textColor,
+                          OnboardingLandingStrings.sectionTestimonials(
+                              context)),
                       const SizedBox(height: 16),
                       _buildOnboardingTestimonials(isDark, textColor, subTextColor),
                       const SizedBox(height: 48),
 
                       // 4. 引用线（Notion 风格）
                       Text(
-                        '你的知识，随时可刷、随时可问。',
+                        OnboardingLandingStrings.closingLine(context),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,
@@ -358,19 +373,24 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          '知识极速入脑',
+          OnboardingLandingStrings.heroTitle(context),
           style: TextStyle(
             fontSize: useRow ? 40 : 36,
             fontWeight: FontWeight.w900,
             letterSpacing: -0.5,
             color: textColor,
             height: 1.1,
-            fontFamily: 'JinghuaSong',
+            fontFamily: Localizations.localeOf(context)
+                    .languageCode
+                    .toLowerCase()
+                    .startsWith('zh')
+                ? 'JinghuaSong'
+                : null,
           ),
         ),
         const SizedBox(height: 16),
         Text(
-          _kOnboardingValueProp,
+          OnboardingLandingStrings.valueProp(context),
           style: TextStyle(
             fontSize: 16,
             height: 1.5,
@@ -392,9 +412,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text(
-              '立即开始体验',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            child: Text(
+              OnboardingLandingStrings.ctaStart(context),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
         ),
@@ -432,7 +452,47 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
     );
   }
 
+  /// 与 [localeProvider] 同步，切换后全站（含登录表单）文案随语言变
+  Widget _buildLanguageToggle(Color textColor, {required bool isDark}) {
+    final langCode =
+        ref.watch(localeProvider).locale.languageCode.toLowerCase();
+    final isZh = langCode.startsWith('zh');
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.2)
+              : Colors.black.withOpacity(0.12),
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _LangChip(
+            label: '中文',
+            selected: isZh,
+            textColor: textColor,
+            onTap: () => ref.read(localeProvider.notifier).setLocaleCode('zh'),
+          ),
+          _LangChip(
+            label: 'EN',
+            selected: !isZh,
+            textColor: textColor,
+            onTap: () => ref.read(localeProvider.notifier).setLocaleCode('en'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOnboardingTopBar(bool isDark, Color textColor) {
+    final isZh = ref
+        .watch(localeProvider)
+        .locale
+        .languageCode
+        .toLowerCase()
+        .startsWith('zh');
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: kIsWeb ? 32 : 16,
@@ -466,10 +526,12 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
               fontSize: 20,
               fontWeight: FontWeight.bold,
               color: textColor,
-              fontFamily: 'JinghuaSong',
+              fontFamily: isZh ? 'JinghuaSong' : null,
             ),
           ),
           const Spacer(),
+          _buildLanguageToggle(textColor, isDark: isDark),
+          const SizedBox(width: 12),
           TextButton(
             onPressed: () {
               setState(() {
@@ -477,7 +539,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                 _isAuthView = true;
               });
             },
-            child: Text('注册', style: TextStyle(color: textColor)),
+            child: Text(AppLocalizations.of(context)!.signUp,
+                style: TextStyle(color: textColor)),
           ),
           const SizedBox(width: 8),
           TextButton(
@@ -487,7 +550,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                 _isAuthView = true;
               });
             },
-            child: Text('登陆', style: TextStyle(color: textColor)),
+            child: Text(AppLocalizations.of(context)!.login,
+                style: TextStyle(color: textColor)),
           ),
         ],
       ),
@@ -513,20 +577,20 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
             runSpacing: 12,
             children: [
               TextButton(
-                onPressed: () => context.go('/profile/about'),
-                child: Text('支持', style: TextStyle(color: linkColor)),
+                onPressed: () =>
+                    LegalPopups.showContactFeedbackDialog(context),
+                child: Text(OnboardingLandingStrings.footerContact(context),
+                    style: TextStyle(color: linkColor)),
               ),
               TextButton(
-                onPressed: () => context.go('/profile/about'),
-                child: Text('联系我们', style: TextStyle(color: linkColor)),
+                onPressed: () => LegalPopups.showTermsDialog(context),
+                child: Text(OnboardingLandingStrings.footerTerms(context),
+                    style: TextStyle(color: linkColor)),
               ),
               TextButton(
-                onPressed: () => context.go('/profile/about'),
-                child: Text('用户协议', style: TextStyle(color: linkColor)),
-              ),
-              TextButton(
-                onPressed: () => context.go('/profile/about'),
-                child: Text('隐私政策', style: TextStyle(color: linkColor)),
+                onPressed: () => LegalPopups.showPrivacyDialog(context),
+                child: Text(OnboardingLandingStrings.footerPrivacy(context),
+                    style: TextStyle(color: linkColor)),
               ),
             ],
           ),
@@ -557,44 +621,17 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
     );
   }
 
-  static const List<Map<String, String>> _kOnboardingTestimonials = [
-    {
-      'name': '小林',
-      'tag': '产品学习者',
-      'quote': '官方免费知识库有aipm必学知识，我还学了深度学习basic知识库，良心。而且，拆成卡片后确实没那么大压力，通勤刷几张刚好。',
-    },
-    {
-      'name': '阿橙',
-      'tag': '职场人',
-      'quote': '最喜欢的还是问完 AI 能直接 Pin 成笔记，我就当普通ai来用，想问啥问啥，不用自己整理太方便。再也不会「当时懂、过后忘」了。',
-    },
-    {
-      'name': 'Mia',
-      'tag': '备考党',
-      'quote': '老奶模式讲得特别接地气。但我一般还是会针对不同情况，切换不同的模式。',
-    },
-    {
-      'name': 'LindaWu_1111',
-      'tag': '留学生',
-      'quote': '智障博士模式太棒了，我现在把英语课件放在左边，把 Reado开在右边。一边看课件，一边看拆解出来的中文知识点，哪里不会问哪里，还能一键整理成笔记，爽死了这个用户体验',
-    },
-    {
-      'name': '一凡',
-      'tag': '产品经理求职',
-      'quote': '现在已经支持挺多文件和链接的，但是如果国内的一些内容，比如能支持从小红书、微信公众号等平台导入内容，那就无敌了。我知道可以复制粘贴微信公众号的内容，但小红书就没那么方便，毕竟很多是图文笔记。',
-    },
-  ];
-
   Widget _buildOnboardingTestimonials(bool isDark, Color textColor, Color? subTextColor) {
     final sub = subTextColor ?? Colors.grey[600] ?? Colors.grey;
+    final testimonials = OnboardingLandingStrings.testimonials(context);
     return SizedBox(
       height: 220,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: _kOnboardingTestimonials.length,
+        itemCount: testimonials.length,
         separatorBuilder: (_, __) => const SizedBox(width: 16),
         itemBuilder: (context, index) {
-          final t = _kOnboardingTestimonials[index];
+          final t = testimonials[index];
           return _buildOnboardingTestimonialCard(
             name: t['name']!,
             tag: t['tag']!,
@@ -1053,12 +1090,16 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    icon: Icon(Icons.arrow_back_ios_new, size: 20, color: textColor),
-                    onPressed: () => setState(() => _isAuthView = false),
-                  ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.arrow_back_ios_new,
+                          size: 20, color: textColor),
+                      onPressed: () => setState(() => _isAuthView = false),
+                    ),
+                    const Spacer(),
+                    _buildLanguageToggle(textColor, isDark: isDark),
+                  ],
                 ),
                 const SizedBox(height: 24),
                 ClipRRect(
@@ -1248,3 +1289,42 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
     );
   }
 }
+
+class _LangChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final Color textColor;
+  final VoidCallback onTap;
+
+  const _LangChip({
+    required this.label,
+    required this.selected,
+    required this.textColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected
+                  ? const Color(0xFFFF8A65)
+                  : textColor.withOpacity(0.72),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

@@ -133,18 +133,34 @@ exports.processExtractionJob = onCall(
             const moduleId = jobData.moduleId || 'custom';
             const mode = jobData.deconstructionMode || (jobData.isGrandmaMode ? 'grandma' : 'standard');
             const outputLocale = (jobData.outputLocale === 'en' ? 'en' : 'zh');
+            const jm = {
+                analyzing: outputLocale === 'en' ? 'AI is analyzing content...' : 'AI 正在分析内容...',
+                foundTopics: (n) => outputLocale === 'en'
+                    ? `Found ${n} topics, generating...`
+                    : `发现 ${n} 个知识点，开始生成...`,
+                generating: (i, total, title) => outputLocale === 'en'
+                    ? `Generating ${i}/${total}: ${title}`
+                    : `正在生成 ${i}/${total}: ${title}`,
+                savedProgress: (i, total) => outputLocale === 'en'
+                    ? `Generated ${i}/${total} topics`
+                    : `已生成 ${i}/${total} 个知识点`,
+                allDone: (cards, total) => outputLocale === 'en'
+                    ? `All done (${cards}/${total} topics parsed)`
+                    : `全部完成！（解析出 ${cards}/${total} 个知识点）`,
+            };
             console.log(`📦 Job moduleId: ${moduleId}, Mode: ${mode}, outputLocale: ${outputLocale}`);
 
             if (!content || content.length === 0) {
-                await jobRef.update({ status: 'failed', error: '内容为空' });
-                throw new HttpsError('invalid-argument', '内容为空');
+                const emptyMsg = outputLocale === 'en' ? 'Content is empty' : '内容为空';
+                await jobRef.update({ status: 'failed', error: emptyMsg });
+                throw new HttpsError('invalid-argument', emptyMsg);
             }
 
             // 2. 更新状态为处理中
             await jobRef.update({
                 status: 'processing',
                 progress: 0.1,
-                message: 'AI 正在分析内容...',
+                message: jm.analyzing,
                 startedAt: admin.firestore.FieldValue.serverTimestamp()
             });
 
@@ -185,7 +201,7 @@ exports.processExtractionJob = onCall(
 
             await jobRef.update({
                 progress: 0.2,
-                message: `发现 ${topics.length} 个知识点，开始生成...`,
+                message: jm.foundTopics(topics.length),
                 totalCards: topics.length
             });
 
@@ -196,7 +212,7 @@ exports.processExtractionJob = onCall(
                 const title = topic.title;
 
                 await jobRef.update({
-                    message: `正在生成 ${i + 1}/${topics.length}: ${title}`,
+                    message: jm.generating(i + 1, topics.length, title),
                     progress: 0.2 + (0.7 * (i / topics.length))
                 });
 
@@ -239,7 +255,7 @@ exports.processExtractionJob = onCall(
                         await jobRef.update({
                             cards: cards,
                             progress: 0.2 + (0.7 * ((i + 1) / topics.length)),
-                            message: `已生成 ${i + 1}/${topics.length} 个知识点`
+                            message: jm.savedProgress(i + 1, topics.length)
                         });
 
                     } catch (err) {
@@ -270,7 +286,7 @@ exports.processExtractionJob = onCall(
             await jobRef.update({
                 status: 'completed',
                 progress: 1.0,
-                message: `全部完成！（解析出 ${cards.length}/${topics.length} 个知识点）`,
+                message: jm.allDone(cards.length, topics.length),
                 autoSaved: true,
                 savedCount: cards.length,
                 completedAt: new Date()

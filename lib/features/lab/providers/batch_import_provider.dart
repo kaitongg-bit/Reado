@@ -7,6 +7,7 @@ import '../../feed/presentation/feed_provider.dart';
 import '../../../core/providers/credit_provider.dart';
 import '../../../core/providers/ai_settings_provider.dart';
 import '../../../core/locale/locale_provider.dart';
+import '../../../l10n/generation_status_strings.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 
@@ -38,7 +39,7 @@ class BatchItem {
     required this.content,
     required this.stringContent,
     this.status = BatchStatus.pending,
-    this.statusMessage = '等待中...',
+    this.statusMessage = '',
     this.progress = 0.0,
     this.errorMessage,
     this.resultItems,
@@ -126,6 +127,7 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
       {BatchProcessingMode mode = BatchProcessingMode.ai}) async {
     final id =
         '${DateTime.now().millisecondsSinceEpoch}_${(title.hashCode % 1000)}';
+    final ol = ref.read(localeProvider).outputLocale;
 
     // 立即加入队列，状态为待解析
     final initialItem = BatchItem(
@@ -136,7 +138,7 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
       stringContent: title,
       processingMode: mode,
       status: BatchStatus.extracting,
-      statusMessage: '准备中...',
+      statusMessage: GenerationStatusStrings.batchPreparing(ol),
     );
 
     addToQueue(initialItem);
@@ -164,12 +166,14 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
           break;
       }
 
+      final ol = ref.read(localeProvider).outputLocale;
       state = state.copyWith(
         queue: state.queue.map((i) {
           if (i.id == item.id) {
             return i.copyWith(
               status: BatchStatus.pending,
-              statusMessage: '等待中 (${extraction!.content.length} 字)',
+              statusMessage: GenerationStatusStrings.batchWaitingChars(
+                  ol, extraction!.content.length),
               extractionResult: extraction,
             );
           }
@@ -177,7 +181,13 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
         }).toList(),
       );
     } catch (e) {
-      _updateItemStatus(item.id, BatchStatus.error, '解析失败: $e', 0.0);
+      final ol = ref.read(localeProvider).outputLocale;
+      _updateItemStatus(
+        item.id,
+        BatchStatus.error,
+        GenerationStatusStrings.batchParseFailed(ol, e),
+        0.0,
+      );
     }
   }
 
@@ -207,12 +217,18 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
   }
 
   Future<void> _processItem(BatchItem item, String moduleId) async {
+    final ol = ref.read(localeProvider).outputLocale;
     try {
       ExtractionResult? extraction = item.extractionResult;
 
       // 1. Extraction (If not already extracted)
       if (extraction == null) {
-        _updateItemStatus(item.id, BatchStatus.extracting, '正在提取内容...', 0.1);
+        _updateItemStatus(
+          item.id,
+          BatchStatus.extracting,
+          GenerationStatusStrings.batchExtracting(ol),
+          0.1,
+        );
         switch (item.type) {
           case BatchType.url:
             extraction =
@@ -258,7 +274,12 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
         ref.read(feedProvider.notifier).addCustomItems([feedItem]);
       } else {
         // AI Generation via Cloud Functions
-        _updateItemStatus(item.id, BatchStatus.generating, '正在提交任务...', 0.1);
+        _updateItemStatus(
+          item.id,
+          BatchStatus.generating,
+          GenerationStatusStrings.batchSubmittingJob(ol),
+          0.1,
+        );
 
         // 1. 计算所需积分
         final int credits = ContentExtractionService.calculateRequiredCredits(
@@ -268,7 +289,7 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
         final canUse =
             await ref.read(creditProvider.notifier).useAI(amount: credits);
         if (!canUse) {
-          throw Exception('积分不足，无法开始 AI 处理');
+          throw Exception(GenerationStatusStrings.batchInsufficientCredits(ol));
         }
 
         // 3. 提交任务到云函数 (Fire-and-Forget)
@@ -283,7 +304,12 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
         ref.read(feedProvider.notifier).observeJob(jobId);
 
         // 4. 监听 Firestore 获取实时进度 (用于当前界面的进度条显示)
-        _updateItemStatus(item.id, BatchStatus.generating, 'AI 处理中...', 0.2);
+        _updateItemStatus(
+          item.id,
+          BatchStatus.generating,
+          GenerationStatusStrings.batchAiProcessing(ol),
+          0.2,
+        );
 
         final db = FirebaseFirestore.instanceFor(
           app: Firebase.app(),
@@ -306,7 +332,11 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
               _updateItemStatus(
                   item.id,
                   BatchStatus.generating,
-                  '已生成 ${event.currentIndex}/${event.totalCards}',
+                  GenerationStatusStrings.batchGeneratedProgress(
+                    ol,
+                    event.currentIndex ?? 0,
+                    event.totalCards,
+                  ),
                   progress.clamp(0.0, 0.99));
             }
           } else if (event.type == StreamingEventType.complete) {
@@ -323,7 +353,7 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
           if (i.id == item.id) {
             return i.copyWith(
               status: BatchStatus.completed,
-              statusMessage: '完成',
+              statusMessage: GenerationStatusStrings.batchComplete(ol),
               progress: 1.0,
               resultItems: generatedItems,
             );
@@ -339,7 +369,10 @@ class BatchImportNotifier extends StateNotifier<BatchImportState> {
             return i.copyWith(
               status: BatchStatus.error,
               errorMessage: e.toString(),
-              statusMessage: '失败: ${e.toString().split('\n').first}',
+              statusMessage: GenerationStatusStrings.batchFailed(
+                ol,
+                e.toString().split('\n').first,
+              ),
               progress: 0.0,
             );
           }

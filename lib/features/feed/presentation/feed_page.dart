@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:quick_pm/l10n/app_localizations.dart';
 import 'package:quick_pm/l10n/l10n_numeric_strings.dart';
+import 'package:quick_pm/l10n/popup_and_assistant_strings.dart';
 import '../../../../core/widgets/app_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,8 +12,11 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/providers/adhd_provider.dart';
 import '../../../models/feed_item.dart';
+import '../../../models/knowledge_module.dart';
 
 import '../../home/presentation/module_provider.dart';
+import '../../../core/locale/locale_provider.dart';
+import '../../../l10n/module_display_strings.dart';
 import '../../lab/presentation/add_material_modal.dart';
 import '../../onboarding/providers/onboarding_provider.dart';
 import '../../onboarding/presentation/widgets/tutorial_overlay.dart';
@@ -337,7 +341,7 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                     );
                   },
                   icon: const Icon(Icons.add),
-                  label: const Text('添加内容'),
+                  label: Text(PopupAssistantL10n.studyAddContent(context)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFF8A65),
                     foregroundColor: Colors.white,
@@ -628,10 +632,25 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                                           mainAxisSize: MainAxisSize.min,
                                           children: modules
                                               .map((m) => ListTile(
-                                                    title: Text(m.title),
+                                                    title: Text(
+                                                      ModuleDisplayStrings
+                                                          .moduleTitle(
+                                                        m,
+                                                        ref.read(
+                                                                localeProvider)
+                                                            .outputLocale,
+                                                      ),
+                                                    ),
                                                     subtitle: m.description
-                                                        .isNotEmpty
-                                                        ? Text(m.description,
+                                                            .isNotEmpty
+                                                        ? Text(
+                                                            ModuleDisplayStrings
+                                                                .moduleDescription(
+                                                              m,
+                                                              ref.read(
+                                                                      localeProvider)
+                                                                  .outputLocale,
+                                                            ),
                                                             maxLines: 1,
                                                             overflow:
                                                                 TextOverflow
@@ -1342,18 +1361,26 @@ class _FeedPageState extends ConsumerState<FeedPage> {
     // 1. Try to find in loaded modules (Official + Custom)
     final allModules = ref.read(moduleProvider).all;
     final module = allModules.where((m) => m.id == moduleId).firstOrNull;
-    if (module != null) return module.title;
+    final loc = ref.read(localeProvider).outputLocale;
+    if (module != null) {
+      return ModuleDisplayStrings.moduleTitle(module, loc);
+    }
 
-    // 2. Fallback for hardcoded constants if not in list yet
+    // 2. Fallback for official ids if not in list yet
     switch (moduleId) {
       case 'A':
-        return '硬核基础';
       case 'B':
-        return '拆解案例';
+        try {
+          final om = KnowledgeModule.officials
+              .firstWhere((m) => m.id == moduleId);
+          return ModuleDisplayStrings.moduleTitle(om, loc);
+        } catch (_) {
+          return moduleId;
+        }
       case 'C':
-        return '全栈实操';
+        return loc == 'en' ? 'Full-stack practice' : '全栈实操';
       case 'D':
-        return '面经军火库';
+        return loc == 'en' ? 'Interview prep' : '面经军火库';
       default:
         return AppLocalizations.of(context)!.studyTitleModule;
     }
@@ -1425,32 +1452,35 @@ class _OverscrollNavigatableState extends ConsumerState<_OverscrollNavigatable>
       if (adhdState.isEnabled) {
         showDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Row(
+          builder: (ctx) => AlertDialog(
+            title: Row(
               children: [
-                Icon(Icons.auto_awesome, color: Colors.amber),
-                SizedBox(width: 12),
-                Text('已启用沉浸阅读模式'),
+                const Icon(Icons.auto_awesome, color: Colors.amber),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                      PopupAssistantL10n.adhdDialogTitle(ctx)),
+                ),
               ],
             ),
-            content: const Text(
-                '为了帮助提升阅读专注力，我们默认开启了 ADHD 辅助变色模式。\n\n如需关闭或调整，请点击页面右上角的设置。'),
+            content: Text(
+                PopupAssistantL10n.adhdDialogBody(ctx)),
             actions: [
               TextButton(
                 onPressed: () {
-                  Navigator.pop(context);
+                  Navigator.pop(ctx);
                 },
-                child: const Text('知道了'),
+                child: Text(PopupAssistantL10n.adhdGotIt(ctx)),
               ),
               TextButton(
                 onPressed: () {
-                  // TODO: Navigate to settings or toggle off directly
                   ref.read(adhdSettingsProvider.notifier).setEnabled(false);
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(const SnackBar(content: Text('已关闭辅助模式')));
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                      content: Text(
+                          PopupAssistantL10n.adhdAssistOffSnackbar(ctx))));
                 },
-                child: const Text('关闭'),
+                child: Text(PopupAssistantL10n.adhdTurnOff(ctx)),
               ),
             ],
           ),
@@ -1597,6 +1627,7 @@ class _OverscrollNavigatableState extends ConsumerState<_OverscrollNavigatable>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     // Asymmetric thresholds for UI feedback too
     final h = MediaQuery.of(context).size.height;
     final prevThreshold = h * 0.05;
@@ -1610,18 +1641,23 @@ class _OverscrollNavigatableState extends ConsumerState<_OverscrollNavigatable>
     if (_dragOffset.dy > 0 && widget.hasPrev) {
       progress = (_dragOffset.dy.abs() / prevThreshold).clamp(0.0, 1.0);
       bool isReady = _dragOffset.dy.abs() > prevThreshold;
-      textAlert = isReady ? "释放切换到上一篇" : "继续下拉";
+      textAlert = isReady
+          ? l10n.feedSwipeReleasePrevious
+          : l10n.feedSwipePullDownMore;
       icon = Icons.arrow_upward;
     } else if (_dragOffset.dy < 0 && widget.hasNext) {
       progress = (_dragOffset.dy.abs() / nextThreshold).clamp(0.0, 1.0);
       bool isReady = _dragOffset.dy.abs() > nextThreshold;
-      textAlert = isReady ? "释放进入下一篇" : "继续上拉";
+      textAlert =
+          isReady ? l10n.feedSwipeReleaseNext : l10n.feedSwipePullUpMore;
       icon = Icons.arrow_downward;
     } else if (_dragOffset.dx > 0 && widget.onTriggerBack != null) {
       final backThreshold = MediaQuery.of(context).size.width * 0.25;
       progress = (_dragOffset.dx.abs() / backThreshold).clamp(0.0, 1.0);
       bool isReady = _dragOffset.dx.abs() > backThreshold;
-      textAlert = isReady ? "释放返回列表" : "左滑返回";
+      textAlert = isReady
+          ? l10n.feedSwipeReleaseBackList
+          : l10n.feedSwipeLeftBack;
       icon = Icons.grid_view;
     }
 

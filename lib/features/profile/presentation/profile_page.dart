@@ -13,6 +13,7 @@ import '../../../models/feed_item.dart';
 import '../../../core/providers/credit_provider.dart';
 import '../../../core/providers/adhd_provider.dart';
 import '../../onboarding/providers/onboarding_provider.dart';
+import '../../feedback/presentation/contact_feedback_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'dart:html' as html;
@@ -334,7 +335,8 @@ class ProfilePage extends ConsumerWidget {
                                 color: const Color(0xFFFFB300),
                                 isDark: isDark,
                                 subtitle: statsAsync.when(
-                                  data: (stats) => AppLocalizations.of(context)!.profileShareClicks(stats.shareClicks),
+                                  data: (stats) => L10nNumbers.profileShareClicksLine(
+                                      context, stats.shareClicks),
                                   loading: () => '',
                                   error: (_, __) => '',
                                 ),
@@ -490,7 +492,9 @@ class ProfilePage extends ConsumerWidget {
                     isDark: isDark,
                     onTap: () => showDialog(
                         context: context,
-                        builder: (_) => const _ContactDialog()),
+                        builder: (_) => const ContactFeedbackDialog(
+                              feedbackSource: 'profile',
+                            )),
                     trailing: const Icon(Icons.chevron_right, size: 20),
                   ),
                   const SizedBox(height: 12),
@@ -625,10 +629,18 @@ class ProfilePage extends ConsumerWidget {
                     const SizedBox(height: 12),
                     Row(
                       children: AdhdIntensity.values.map((intensity) {
+                        final label = switch (intensity) {
+                          AdhdIntensity.low =>
+                            AppLocalizations.of(context)!.settingsAdhdIntensityLow,
+                          AdhdIntensity.medium =>
+                            AppLocalizations.of(context)!.settingsAdhdIntensityMedium,
+                          AdhdIntensity.high =>
+                            AppLocalizations.of(context)!.settingsAdhdIntensityHigh,
+                        };
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
-                          child: _buildIntensityChip(ref, intensity.label,
-                              intensity, adhdSettings.intensity, isDark),
+                          child: _buildIntensityChip(ref, label, intensity,
+                              adhdSettings.intensity, isDark),
                         );
                       }).toList(),
                     ),
@@ -1227,179 +1239,6 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
             : Colors.black.withOpacity(0.05),
         child: const Icon(Icons.person, size: 24, color: Colors.grey),
       ),
-    );
-  }
-}
-
-class _ContactDialog extends ConsumerStatefulWidget {
-  const _ContactDialog();
-
-  @override
-  ConsumerState<_ContactDialog> createState() => _ContactDialogState();
-}
-
-class _ContactDialogState extends ConsumerState<_ContactDialog> {
-  final _formKey = GlobalKey<FormState>();
-  String _type = 'bug';
-  final _contentController = TextEditingController();
-  final _contactController = TextEditingController();
-  bool _isSubmitting = false;
-
-  @override
-  void dispose() {
-    _contentController.dispose();
-    _contactController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isSubmitting = true);
-    try {
-      await ref.read(dataServiceProvider).submitFeedback(
-            _type,
-            _contentController.text.trim(),
-            _contactController.text.trim().isEmpty
-                ? null
-                : _contactController.text.trim(),
-          );
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.feedbackThanks)),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.feedbackSubmitFailed(e.toString()))),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final l10n = AppLocalizations.of(context)!;
-    final typeLabels = <String, String>{
-      'bug': l10n.feedbackTypeBug,
-      'advice': l10n.feedbackTypeAdvice,
-      'cooperation': l10n.feedbackTypeCoop,
-      'other': l10n.feedbackTypeOther,
-    };
-
-    return AlertDialog(
-      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text(l10n.contactUsTitle,
-          style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DropdownButtonFormField<String>(
-                  value: _type,
-                  dropdownColor:
-                      isDark ? const Color(0xFF2C2C2C) : Colors.white,
-                  style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black87,
-                      fontSize: 14),
-                  decoration: InputDecoration(
-                    labelText: AppLocalizations.of(context)!.feedbackTypeLabel,
-                    filled: true,
-                    fillColor: isDark
-                        ? Colors.white.withOpacity(0.05)
-                        : Colors.grey[100],
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none),
-                  ),
-                  items: typeLabels.entries.map((e) {
-                    return DropdownMenuItem(
-                      value: e.key,
-                      child: Text(e.value),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => _type = val);
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _contentController,
-                  maxLines: 5,
-                  validator: (v) =>
-                      v == null || v.trim().isEmpty ? AppLocalizations.of(context)!.feedbackContentRequired : null,
-                  style:
-                      TextStyle(color: isDark ? Colors.white : Colors.black87),
-                  decoration: InputDecoration(
-                    labelText: AppLocalizations.of(context)!.feedbackDescLabel,
-                    hintText: AppLocalizations.of(context)!.feedbackDescHint,
-                    filled: true,
-                    fillColor: isDark
-                        ? Colors.white.withOpacity(0.05)
-                        : Colors.grey[100],
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _contactController,
-                  style:
-                      TextStyle(color: isDark ? Colors.white : Colors.black87),
-                  decoration: InputDecoration(
-                    labelText: AppLocalizations.of(context)!.feedbackContactLabel,
-                    hintText: AppLocalizations.of(context)!.feedbackContactHint,
-                    filled: true,
-                    fillColor: isDark
-                        ? Colors.white.withOpacity(0.05)
-                        : Colors.grey[100],
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
-          child:
-              Text(AppLocalizations.of(context)!.cancel, style: TextStyle(color: isDark ? Colors.grey : null)),
-        ),
-        ElevatedButton(
-          onPressed: _isSubmitting ? null : _submit,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.orangeAccent,
-            disabledBackgroundColor: Colors.orangeAccent.withOpacity(0.5),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white))
-              : Text(
-                  AppLocalizations.of(context)!.feedbackSubmit,
-                  style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
-        ),
-      ],
     );
   }
 }

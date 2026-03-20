@@ -8,7 +8,6 @@ import 'core/theme/theme_provider.dart' as core;
 import 'core/theme/theme_provider.dart' show AppTheme;
 import 'core/locale/locale_provider.dart';
 import 'package:flutter/material.dart' as flutter;
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:quick_pm/l10n/app_localizations.dart';
 import 'core/router/router_provider.dart';
 
@@ -21,14 +20,28 @@ void main() async {
   try {
     await dotenv.load(fileName: ".env");
   } catch (e) {
-    if (kDebugMode)
+    if (kDebugMode) {
       print('⚠️ .env file not found, using environment variables only.');
+    }
   }
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const ProviderScope(child: QuickPMApp()));
+
+  // 官网/设置里选过的语言：首帧即用，避免先英文再跳变；并与 AI outputLocale 一致
+  final initialLocaleCode = await LocaleNotifier.readPersistedCode();
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        localeProvider.overrideWith(
+          (ref) => LocaleNotifier.fromInitialCode(initialLocaleCode),
+        ),
+      ],
+      child: const QuickPMApp(),
+    ),
+  );
 }
 
 class QuickPMApp extends ConsumerWidget {

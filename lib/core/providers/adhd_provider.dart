@@ -10,14 +10,11 @@ enum AdhdReadingMode {
   hybrid, // 混合模式 (加粗 + 标色)
 }
 
-/// ADHD 引导强度
+/// ADHD 引导强度（展示文案在设置页用 AppLocalizations）
 enum AdhdIntensity {
-  low('低'),
-  medium('中'),
-  high('高');
-
-  final String label;
-  const AdhdIntensity(this.label);
+  low,
+  medium,
+  high,
 }
 
 /// ADHD 辅助色

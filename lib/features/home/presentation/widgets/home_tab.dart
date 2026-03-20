@@ -11,6 +11,8 @@ import '../../../../models/knowledge_module.dart';
 import '../../../../models/share_stats.dart';
 import '../module_provider.dart';
 import '../../../../core/providers/credit_provider.dart';
+import '../../../../core/locale/locale_provider.dart';
+import '../../../../l10n/module_display_strings.dart';
 import '../../../lab/presentation/add_material_modal.dart';
 import '../../../lab/presentation/widgets/tutorial_pulse.dart';
 import '../../../onboarding/providers/onboarding_provider.dart';
@@ -233,7 +235,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                     }
                                     final firstStarIndex = displayedModules
                                         .indexWhere(
-                                            (m) => m.title.contains('STAR'));
+                                            ModuleDisplayStrings.isStarOfficialModule);
                                     return _buildModuleCard(
                                       context,
                                       displayedModules[index],
@@ -261,7 +263,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                 itemBuilder: (context, index) {
                                   final firstStarIndex = displayedModules
                                       .indexWhere(
-                                          (m) => m.title.contains('STAR'));
+                                          ModuleDisplayStrings.isStarOfficialModule);
                                   return _buildModuleCard(
                                     context,
                                     displayedModules[index],
@@ -587,15 +589,16 @@ class _HomeTabState extends ConsumerState<HomeTab> {
             (i) => i.masteryLevel != FeedItemMastery.unknown)
         .length;
     final progress = count > 0 ? learned / count : 0.0;
-    final isStarModule = module.title.contains('STAR');
+    final isStarModule = ModuleDisplayStrings.isStarOfficialModule(module);
+    final loc = ref.watch(localeProvider).outputLocale;
     final ShareStats? shareStats = (!module.isOfficial && _currentUser != null)
         ? ref.watch(shareStatsProvider((_currentUser!.uid, module.id))).valueOrNull
         : null;
 
     return _WideKnowledgeCard(
       key: useStarKey ? _starModuleKey : ValueKey('module_${module.id}'),
-      title: module.title,
-      description: module.description,
+      title: ModuleDisplayStrings.moduleTitle(module, loc),
+      description: ModuleDisplayStrings.moduleDescription(module, loc),
       progress: progress,
       cardCount: count,
       isHighlighted: isHighlighted,

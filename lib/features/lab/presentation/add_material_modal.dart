@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:quick_pm/l10n/app_localizations.dart';
 import 'package:quick_pm/l10n/l10n_numeric_strings.dart';
+import 'package:quick_pm/l10n/add_material_strings.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../models/feed_item.dart';
@@ -17,6 +18,7 @@ import '../../../../core/router/router_provider.dart';
 import '../../onboarding/providers/onboarding_provider.dart';
 import '../../home/presentation/module_provider.dart';
 import '../../../../models/knowledge_module.dart';
+import '../../../../l10n/module_display_strings.dart';
 import 'widgets/tutorial_pulse.dart';
 
 class AddMaterialModal extends ConsumerStatefulWidget {
@@ -92,7 +94,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     if (allModules.isNotEmpty) {
       // Try to find "默认知识库" or just take the first one
       try {
-        final defaultMod = allModules.firstWhere((m) => m.title == '默认知识库',
+        final defaultMod = allModules.firstWhere(
+            (m) => ModuleDisplayStrings.isDefaultModuleTitle(m.title),
             orElse: () => allModules.first);
         setState(() {
           _selectedModuleId = defaultMod.id;
@@ -170,6 +173,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                 itemBuilder: (ctx, i) {
                                   final mod = allModules[i];
                                   final isSelected = mod.id == tempId;
+                                  final loc =
+                                      ref.read(localeProvider).outputLocale;
                                   return InkWell(
                                       onTap: () =>
                                           setState(() => tempId = mod.id),
@@ -196,7 +201,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                                 size: 20),
                                             const SizedBox(width: 8),
                                             Expanded(
-                                                child: Text(mod.title,
+                                                child: Text(
+                                                    ModuleDisplayStrings
+                                                        .moduleTitle(mod, loc),
                                                     style: TextStyle(
                                                         fontWeight: isSelected
                                                             ? FontWeight.bold
@@ -247,7 +254,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
               cardCount: 0,
               description: ''));
       if (mod.id != '?') {
-        displayTitle = mod.title;
+        displayTitle = ModuleDisplayStrings.moduleTitle(
+            mod, ref.watch(localeProvider).outputLocale);
       } else if (_selectedModuleId == 'unknown_default') {
         displayTitle = AppLocalizations.of(context)!.addMaterialDefaultModule;
       }
@@ -317,7 +325,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     // ... rest of normal logic ...
 
     // For normal flow, verify credits etc.
-    final estTime = _calculateEstimatedTime(charCount);
+    final estTime = _calculateEstimatedTime(context, charCount);
     final confirm =
         await _showGenerationConfirmDialog(credits, estTime, charCount);
     if (confirm != true) return;
@@ -325,7 +333,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     try {
       setState(() {
         _isGenerating = true;
-        _streamingStatus = '正在提交任务...';
+        _streamingStatus = AddMaterialL10n.submittingTask(context);
       });
 
       // Use centralized helper to resolve the actual moduleId (ensuring we respect _selectedModuleId)
@@ -489,8 +497,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
           // Fallback to creating a temporary default one for display
           allModules.add(KnowledgeModule(
             id: 'unknown_default',
-            title: '默认知识库',
-            description: '系统默认',
+            title: ref.read(localeProvider).outputLocale == 'en'
+                ? 'default'
+                : '默认知识库',
+            description: ref.read(localeProvider).outputLocale == 'en'
+                ? 'Your default library'
+                : '系统默认',
             ownerId: FirebaseAuth.instance.currentUser?.uid ?? '',
             isOfficial: false,
             cardCount: 0,
@@ -512,7 +524,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
             tempSelectedId = allModules.first.id;
             try {
               final defaultMod = allModules.firstWhere(
-                  (m) => m.title == '默认知识库',
+                  (m) => ModuleDisplayStrings.isDefaultModuleTitle(m.title),
                   orElse: () => allModules.first);
               tempSelectedId = defaultMod.id;
             } catch (e) {
@@ -542,6 +554,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                               itemBuilder: (ctx, i) {
                                 final module = allModules[i];
                                 final isSelected = module.id == tempSelectedId;
+                                final loc =
+                                    ref.read(localeProvider).outputLocale;
                                 return InkWell(
                                   onTap: () {
                                     setState(() {
@@ -577,7 +591,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                module.title,
+                                                ModuleDisplayStrings
+                                                    .moduleTitle(module, loc),
                                                 style: TextStyle(
                                                   fontWeight: isSelected
                                                       ? FontWeight.bold
@@ -588,9 +603,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                                       : null,
                                                 ),
                                               ),
-                                              if (module.description.isNotEmpty)
+                                              if (module
+                                                  .description.isNotEmpty)
                                                 Text(
-                                                  module.description,
+                                                  ModuleDisplayStrings
+                                                      .moduleDescription(
+                                                          module, loc),
                                                   style: const TextStyle(
                                                       fontSize: 10,
                                                       color: Colors.grey),
@@ -617,11 +635,11 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(null), // Cancel
-                  child: const Text('取消'),
+                  child: Text(AppLocalizations.of(context)!.cancel),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(context).pop(tempSelectedId),
-                  child: const Text('确定'),
+                  child: Text(AppLocalizations.of(context)!.dialogConfirm),
                 ),
               ],
             );
@@ -646,7 +664,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
       final charCount = _extractionResult!.content.length;
       final credits =
           ContentExtractionService.calculateRequiredCredits(charCount);
-      final estTime = _calculateEstimatedTime(charCount);
+      final estTime = _calculateEstimatedTime(context, charCount);
 
       // Show Confirmation Dialog (Unless explicitly skipped or decided otherwise)
       if (!widget.isTutorialMode) {
@@ -659,7 +677,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
       // 3. Submit Job
       setState(() {
         _isGenerating = true;
-        _streamingStatus = '正在提交任务...';
+        _streamingStatus = AddMaterialL10n.submittingTask(context);
       });
 
       // Check Balance
@@ -1053,7 +1071,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                 Icon(Icons.playlist_add_check, color: accentColor),
                 const SizedBox(width: 12),
                 Text(
-                  AppLocalizations.of(context)!.addMaterialQueueCount(queue.length),
+                  L10nNumbers.addMaterialQueueCountLine(
+                      context, queue.length),
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -1373,8 +1392,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                               fontSize: 16, height: 1.5, color: textColor),
                           scrollPadding: const EdgeInsets.only(bottom: 150),
                           decoration: InputDecoration(
-                            hintText:
-                                '在此粘贴文章内容、笔记或网页文本...\n\n示例：\n# 什么是 Flutter\nFlutter 是 Google 开源的 UI 工具包...\n\n# 特点\n1. 跨平台\n2. 高性能...',
+                            hintText: AddMaterialL10n.textPasteHint(context),
                             hintStyle: TextStyle(
                                 color: secondaryTextColor.withOpacity(0.5)),
                             border: InputBorder.none,
@@ -1410,22 +1428,26 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                   style:
                                       TextStyle(fontSize: 12, color: textColor),
                                   children: [
-                                    const TextSpan(
-                                        text: '直接导模式的小贴士：',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold)),
-                                    const TextSpan(text: '使用 Markdown 标题 (如 '),
                                     TextSpan(
-                                        text: '# 标题',
+                                        text: AddMaterialL10n.directTipTitle(
+                                            context),
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold)),
+                                    TextSpan(
+                                        text: AddMaterialL10n.directTipMid1(
+                                            context)),
+                                    TextSpan(
+                                        text: AddMaterialL10n
+                                            .directTipHashExample(context),
                                         style: TextStyle(
                                             fontFamily: 'monospace',
                                             color: isDark ? accentColor : null,
                                             backgroundColor: isDark
                                                 ? Colors.transparent
                                                 : const Color(0xFFDBEAFE))),
-                                    const TextSpan(
-                                        text:
-                                            ') 可手动拆分卡片，无需消耗 AI 额度。若无标题，将默认使用第一句话作为标题。'),
+                                    TextSpan(
+                                        text: AddMaterialL10n.directTipMid2(
+                                            context)),
                                   ],
                                 ),
                               ),
@@ -1477,7 +1499,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                         ? () => _showQueueConflictMessage()
                         : (_isGenerating ? null : _parseLocally),
                     icon: const Icon(Icons.format_align_left),
-                    label: const Text('直接导入'),
+                    label: Text(AddMaterialL10n.directImport(context)),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 20),
                       foregroundColor: hasQueueItems
@@ -1518,8 +1540,10 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                           .addItem(BatchType.text, text, title,
                                               mode: BatchProcessingMode.direct);
                                       ScaffoldMessenger.of(context)
-                                          .showSnackBar(const SnackBar(
-                                              content: Text('已直接加入队列')));
+                                          .showSnackBar(SnackBar(
+                                              content: Text(AddMaterialL10n
+                                                  .snackDirectQueued(
+                                                      context))));
                                       _textController.clear();
                                     }
                                   },
@@ -1531,8 +1555,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                       borderRadius: BorderRadius.circular(16),
                                     ),
                                   ),
-                                  child: const Text('直接导队列',
-                                      style: TextStyle(fontSize: 12)),
+                                  child: Text(
+                                      AddMaterialL10n.directQueue(context),
+                                      style: const TextStyle(fontSize: 12)),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -1551,15 +1576,16 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                           .addItem(BatchType.text, text, title,
                                               mode: BatchProcessingMode.ai);
                                       ScaffoldMessenger.of(context)
-                                          .showSnackBar(const SnackBar(
-                                              content: Text('已加入AI队列')));
+                                          .showSnackBar(SnackBar(
+                                              content: Text(AddMaterialL10n
+                                                  .snackAiQueued(context))));
                                       _textController.clear();
                                     }
                                   },
                                   icon:
                                       const Icon(Icons.auto_awesome, size: 14),
-                                  label: const Text('AI队列',
-                                      style: TextStyle(fontSize: 12)),
+                                  label: Text(AddMaterialL10n.aiQueue(context),
+                                      style: const TextStyle(fontSize: 12)),
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 20),
@@ -1641,7 +1667,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                           Flexible(
                             child: Text(
                               _isGenerating
-                                  ? (_streamingStatus ?? '正在生成...')
+                                  ? (_streamingStatus ??
+                                      AddMaterialL10n.generating(context))
                                   : L10nNumbers.addMaterialGeneratedCount(
                                       context, _generatedItems?.length ?? 0),
                               style: TextStyle(
@@ -1855,7 +1882,13 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                           const SizedBox(width: 8),
                                           Expanded(
                                               child: Text(
-                                                  '提问: ${(item.pages.first as OfficialPage).flashcardQuestion ?? "无"}',
+                                                  AddMaterialL10n.flashcardQuestion(
+                                                      context,
+                                                      (item.pages.first
+                                                                  as OfficialPage)
+                                                              .flashcardQuestion ??
+                                                          AddMaterialL10n.none(
+                                                              context)),
                                                   style: TextStyle(
                                                       fontSize: 13,
                                                       color: isDark
@@ -1999,7 +2032,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  _pickedFileName ?? '支持PDF, Word, Markdown',
+                                  _pickedFileName ??
+                                      AddMaterialL10n.fileFormatsHint(context),
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -2017,8 +2051,10 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                 ),
                                 if (_pickedFile != null) ...[
                                   const SizedBox(height: 4),
-                                  const Text('已选择 (点击更换)',
-                                      style: TextStyle(
+                                  Text(
+                                      AddMaterialL10n.fileSelectedChange(
+                                          context),
+                                      style: const TextStyle(
                                           fontSize: 10, color: Colors.grey)),
                                 ]
                               ],
@@ -2034,7 +2070,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                           style: TextStyle(fontSize: 15, color: textColor),
                           scrollPadding: const EdgeInsets.only(bottom: 100),
                           decoration: InputDecoration(
-                            hintText: '支持大部分网页、YouTube等',
+                            hintText: AddMaterialL10n.urlHint(context),
                             hintStyle: TextStyle(
                                 color: secondaryTextColor.withOpacity(0.5)),
                             prefixIcon:
@@ -2142,7 +2178,13 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                 Padding(
                                   padding: const EdgeInsets.only(left: 36),
                                   child: Text(
-                                    '包含 ${_extractionResult!.content.length} 字符 · 预计耗时 ${_calculateEstimatedTime(_extractionResult!.content.length)}',
+                                    AddMaterialL10n.charsAndEstTime(
+                                        context,
+                                        _extractionResult!.content.length,
+                                        _calculateEstimatedTime(
+                                            context,
+                                            _extractionResult!
+                                                .content.length)),
                                     style: const TextStyle(
                                         color: Color(0xFF047857), fontSize: 13),
                                   ),
@@ -2178,7 +2220,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                           _pickedFile!.bytes!,
                                           _pickedFileName!);
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('文件已加入队列')));
+                                      SnackBar(
+                                          content: Text(AddMaterialL10n
+                                              .snackFileQueued(context))));
                                   setState(() {
                                     _pickedFile = null;
                                     _pickedFileName = null;
@@ -2191,7 +2235,9 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                           _urlController.text.trim(),
                                           _urlController.text.trim());
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('链接已加入队列')));
+                                      SnackBar(
+                                          content: Text(AddMaterialL10n
+                                              .snackLinkQueued(context))));
                                   _urlController.clear();
                                 }
                               },
@@ -2201,7 +2247,8 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              child: const Text('加入队列'),
+                              child:
+                                  Text(AddMaterialL10n.addToQueue(context)),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -2244,13 +2291,13 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2,
                                         color: isDark ? accentColor : null))
-                                : const Column(
+                                : Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.auto_fix_high, size: 20),
-                                      SizedBox(height: 4),
-                                      Text('解析',
-                                          style: TextStyle(
+                                      const Icon(Icons.auto_fix_high, size: 20),
+                                      const SizedBox(height: 4),
+                                      Text(AddMaterialL10n.parse(context),
+                                          style: const TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold)),
                                     ],
@@ -2323,8 +2370,15 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                                       _streamingStatus ??
                                                           (_extractionResult !=
                                                                   null
-                                                              ? '开始智能拆解 (${ContentExtractionService.calculateRequiredCredits(_extractionResult!.content.length)} 积分)'
-                                                              : '等待解析...'),
+                                                              ? AddMaterialL10n.startDeconstructCredits(
+                                                                  context,
+                                                                  ContentExtractionService.calculateRequiredCredits(
+                                                                      _extractionResult!
+                                                                          .content
+                                                                          .length))
+                                                              : AddMaterialL10n
+                                                                  .waitParse(
+                                                                      context)),
                                                       style: const TextStyle(
                                                           fontSize: 14,
                                                           fontWeight:
@@ -2357,8 +2411,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                               side: BorderSide(
                                                   color: borderColor)),
                                         ),
-                                        child: const Text('直接收藏 (不拆解)',
-                                            style: TextStyle(fontSize: 12)),
+                                        child: Text(
+                                            AddMaterialL10n
+                                                .saveWithoutDeconstruct(
+                                                    context),
+                                            style:
+                                                const TextStyle(fontSize: 12)),
                                       ),
                                     ),
                                   ),
@@ -2379,7 +2437,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
             Column(
               children: [
                 Text(
-                  '即将支持 / Coming Soon',
+                  AddMaterialL10n.comingSoon(context),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -2411,13 +2469,14 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
   bool get _isParsing => _isExtractingUrl; // Helper getter
 
   void _showQueueConflictMessage() {
+    final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Row(
+        content: Row(
           children: [
-            Icon(Icons.layers_clear, color: Colors.white, size: 18),
-            SizedBox(width: 8),
-            Text('队列中已有待处理任务。请清空队列或使用批量模式。'),
+            const Icon(Icons.layers_clear, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text(l10n.addMaterialQueueBusy)),
           ],
         ),
         behavior: SnackBarBehavior.floating,
@@ -2428,15 +2487,12 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     );
   }
 
-  String _calculateEstimatedTime(int length) {
-    // 粗略估算：假设每 1000 字处理需要 5-8 秒 + 网络延迟
-    // 简单公式：基础 3秒 + 每1000字 3秒
+  String _calculateEstimatedTime(BuildContext context, int length) {
     final seconds = 3 + (length / 1000 * 3).round();
     if (seconds < 60) {
-      return '$seconds 秒';
-    } else {
-      return '${(seconds / 60).toStringAsFixed(1)} 分钟';
+      return AddMaterialL10n.estSeconds(context, seconds);
     }
+    return AddMaterialL10n.estMinutes(context, seconds / 60);
   }
 
   /// 批量处理前确认：展示预计消耗积分（与单次拆解一致的对话框风格）
@@ -2471,102 +2527,105 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     if (totalAi == 0) {
       return showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('确认批量处理'),
-          content: const Text(
-            '当前队列中仅有「直接导入」项，不会消耗积分。是否开始？',
+        builder: (ctx) {
+          final l10n = AppLocalizations.of(ctx)!;
+          return AlertDialog(
+            title: Text(AddMaterialL10n.batchConfirmDirectTitle(ctx)),
+            content: Text(AddMaterialL10n.batchConfirmDirectBody(ctx)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text(l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFee8f4b)),
+                child: Text(AddMaterialL10n.batchStart(ctx)),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    final creditsSummary = countWithoutExtraction == 0
+        ? AddMaterialL10n.batchCreditsOnlyParsed(
+            context, totalCreditsForExtracted)
+        : totalCreditsForExtracted == 0
+            ? AddMaterialL10n.batchCreditsAiOnly(context, totalAi)
+            : AddMaterialL10n.batchCreditsMixed(context,
+                totalCreditsForExtracted, countWithoutExtraction);
+
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final l10n = AppLocalizations.of(ctx)!;
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.auto_awesome, color: Color(0xFFee8f4b)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Text(AddMaterialL10n.batchDeconstructTitle(ctx))),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                AddMaterialL10n.batchPendingLine(
+                    ctx, totalAi + directPending, totalAi),
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFee8f4b).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: const Color(0xFFee8f4b).withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.stars,
+                        color: Color(0xFFee8f4b), size: 20),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        creditsSummary,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                AddMaterialL10n.batchPerItemTip(ctx),
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('取消'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
               style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFFee8f4b)),
-              child: const Text('开始'),
+              child: Text(AddMaterialL10n.startGenerate(ctx)),
             ),
           ],
-        ),
-      );
-    }
-
-    String creditsSummary;
-    if (countWithoutExtraction == 0) {
-      creditsSummary = '本次将扣除 $totalCreditsForExtracted 积分';
-    } else if (totalCreditsForExtracted == 0) {
-      creditsSummary =
-          '共 $totalAi 项，将按内容长度逐项扣费（约 10～40 积分/项）';
-    } else {
-      creditsSummary =
-          '已解析项合计 $totalCreditsForExtracted 积分；其余 $countWithoutExtraction 项将按长度逐项扣费（10～40 积分/项）';
-    }
-
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.auto_awesome, color: Color(0xFFee8f4b)),
-            SizedBox(width: 12),
-            Text('确认开始批量拆解？'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '共 ${totalAi + directPending} 项待处理（其中 $totalAi 项为 AI 智能拆解）。',
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFee8f4b).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                    color: const Color(0xFFee8f4b).withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.stars,
-                      color: Color(0xFFee8f4b), size: 20),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: Text(
-                      creditsSummary,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '💡 每项将根据字数按规则扣费（约 10～40 积分/项），与单次拆解一致。',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFee8f4b)),
-            child: const Text('开始生成'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -2574,117 +2633,129 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
       int credits, String estTime, int charCount) {
     return showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.auto_awesome, color: Color(0xFFee8f4b)),
-            SizedBox(width: 12),
-            Text('确认开始拆解？'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('系统已识别内容：约 $charCount 字'),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.timer_outlined, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text('预计耗时：$estTime',
-                    style: const TextStyle(color: Colors.grey)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFee8f4b).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border:
-                    Border.all(color: const Color(0xFFee8f4b).withOpacity(0.3)),
-              ),
-              child: Row(
+      builder: (dialogCtx) {
+        final l10n = AppLocalizations.of(dialogCtx)!;
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.auto_awesome, color: Color(0xFFee8f4b)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Text(
+                      AddMaterialL10n.singleDeconstructTitle(dialogCtx))),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(AddMaterialL10n.recognizedChars(dialogCtx, charCount)),
+              const SizedBox(height: 8),
+              Row(
                 children: [
-                  const Icon(Icons.stars, color: Color(0xFFee8f4b), size: 20),
-                  const SizedBox(width: 12),
-                  const Text('本次将扣除：',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text('$credits',
-                      style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFee8f4b))),
-                  const Text(' 积分'),
+                  const Icon(Icons.timer_outlined,
+                      size: 16, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(
+                      '${AddMaterialL10n.estTimePrefix(dialogCtx)}$estTime',
+                      style: const TextStyle(color: Colors.grey)),
                 ],
               ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFee8f4b).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: const Color(0xFFee8f4b).withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.stars,
+                        color: Color(0xFFee8f4b), size: 20),
+                    const SizedBox(width: 12),
+                    Text(AddMaterialL10n.deductThisTime(dialogCtx),
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text('$credits',
+                        style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFee8f4b))),
+                    Text(AddMaterialL10n.creditsUnit(dialogCtx)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(AddMaterialL10n.tipParseFree(dialogCtx),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const Divider(height: 24),
+              Consumer(builder: (ctx, ref, _) {
+                final isDark = Theme.of(ctx).brightness == Brightness.dark;
+                return _buildAiDeconstructionSelector(ref, isDark);
+              }),
+              const Divider(height: 24),
+              Row(
+                children: [
+                  Icon(Icons.volunteer_activism_outlined,
+                      size: 14, color: Colors.green[400]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(AddMaterialL10n.readoPerk(dialogCtx),
+                        style:
+                            TextStyle(fontSize: 11, color: Colors.green[700])),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(false),
+              child: Text(l10n.cancel),
             ),
-            const SizedBox(height: 12),
-            const Text('💡 提示：AI 解析内容是免费的，智能拆解将根据内容深度自动匹配最佳方案。',
-                style: TextStyle(fontSize: 12, color: Colors.grey)),
-            const Divider(height: 24),
-            Consumer(builder: (context, ref, _) {
-              final isDark = Theme.of(context).brightness == Brightness.dark;
-              return _buildAiDeconstructionSelector(ref, isDark);
-            }),
-            const Divider(height: 24),
-            Row(
-              children: [
-                Icon(Icons.volunteer_activism_outlined,
-                    size: 14, color: Colors.green[400]),
-                const SizedBox(width: 8),
-                Text('Reado 福利：AI 聊天、解析文件完全免费',
-                    style: TextStyle(fontSize: 11, color: Colors.green[700])),
-              ],
+            FilledButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(true),
+              style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFee8f4b)),
+              child: Text(AddMaterialL10n.startGenerate(dialogCtx)),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFee8f4b)),
-            child: const Text('开始生成'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   void _showInsufficientCreditsDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: const Center(
           child: Icon(Icons.stars, color: Color(0xFFFFB300), size: 48),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('积分不足',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(AddMaterialL10n.insufficientCreditsTitle(dialogCtx),
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            const Text('执行 AI 解析或生成卡片需要 10 积分。您可以去分享知识库获取更多奖励！',
+            Text(AddMaterialL10n.insufficientCreditsBody(dialogCtx),
                 textAlign: TextAlign.center),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('了解'),
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: Text(AddMaterialL10n.understood(dialogCtx)),
           ),
           FilledButton(
             onPressed: () {
-              Navigator.of(context).pop(); // Close dialog
-              Navigator.of(context).pop(); // Close modal
-              context.push('/task-center'); // Go to tasks/credits
+              Navigator.of(dialogCtx).pop();
+              Navigator.of(dialogCtx).pop();
+              dialogCtx.push('/task-center');
             },
-            child: const Text('去分享奖励'),
+            child: Text(AddMaterialL10n.goShareReward(dialogCtx)),
           ),
         ],
       ),
@@ -2747,7 +2818,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text('AI 拆解风格',
+          child: Text(AddMaterialL10n.aiStyleTitle(context),
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,

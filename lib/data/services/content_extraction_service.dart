@@ -15,6 +15,7 @@ import 'package:firebase_core/firebase_core.dart';
 import '../../../core/services/proxy_http_client.dart';
 import '../../core/providers/ai_settings_provider.dart';
 import '../../core/prompts/app_prompts.dart';
+import '../../l10n/generation_status_strings.dart';
 
 /// 内容来源类型
 enum SourceType {
@@ -488,7 +489,12 @@ $modeInstructions
 
       if (chunks.length > 1) {
         yield StreamingGenerationEvent.status(
-            '正在处理第 ${chunkIndex + 1}/${chunks.length} 段内容...');
+          GenerationStatusStrings.processingChunk(
+            outputLocale,
+            chunkIndex + 1,
+            chunks.length,
+          ),
+        );
       }
 
       // ========== 第一步：获取当前 Chunk 的大纲 ==========
@@ -547,7 +553,11 @@ ${languageInstruction(outputLocale)}
 
         if (!canContinue) {
           yield StreamingGenerationEvent.error(
-              chunks.length > 1 ? '积分不足，已停止处理后续分段' : '积分不足，无法开始生成');
+            GenerationStatusStrings.insufficientCreditsStop(
+              outputLocale,
+              chunks.length > 1,
+            ),
+          );
           return;
         }
 
@@ -581,7 +591,12 @@ ${languageInstruction(outputLocale)}
 
         if (chunks.length > 1) {
           yield StreamingGenerationEvent.status(
-              '第 ${chunkIndex + 1} 段发现 ${topics.length} 个知识点，正在生成...');
+            GenerationStatusStrings.chunkFoundTopics(
+              outputLocale,
+              chunkIndex + 1,
+              topics.length,
+            ),
+          );
         } else {
           yield StreamingGenerationEvent.outline(topics.length);
         }
@@ -595,7 +610,13 @@ ${languageInstruction(outputLocale)}
           final String difficulty = topic['difficulty'] as String? ?? 'Medium';
 
           yield StreamingGenerationEvent.status(
-              '正在生成: $title (${i + 1}/${topics.length})');
+            GenerationStatusStrings.generatingCard(
+              outputLocale,
+              title,
+              i + 1,
+              topics.length,
+            ),
+          );
 
           String modeInstructions = '';
           if (mode == AiDeconstructionMode.grandma) {
@@ -770,7 +791,9 @@ $chunkContent
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception('未登录');
 
-    yield StreamingGenerationEvent.status('正在提交任务...');
+    yield StreamingGenerationEvent.status(
+      GenerationStatusStrings.submittingTask(outputLocale),
+    );
 
     // 使用 'reado' 数据库
     final db = FirebaseFirestore.instanceFor(
@@ -789,14 +812,16 @@ $chunkContent
         'outputLocale': outputLocale,
         'status': 'pending',
         'progress': 0.0,
-        'message': '等待服务器...',
+        'message': GenerationStatusStrings.waitingServer(outputLocale),
         'createdAt': FieldValue.serverTimestamp(),
       });
 
       final jobId = docRef.id;
       if (kDebugMode) print('📝 Created job: $jobId (outputLocale=$outputLocale)');
 
-      yield StreamingGenerationEvent.status('任务已提交，正在启动处理...');
+      yield StreamingGenerationEvent.status(
+        GenerationStatusStrings.taskSubmittedStarting(outputLocale),
+      );
 
       // 2. 调用云函数启动处理 (Fire-and-forget，不等待返回)
       final callable = FirebaseFunctions.instance.httpsCallable(
@@ -817,7 +842,9 @@ $chunkContent
       // 3. 监听 Firestore 获取实时更新
       yield* listenToJob(db, jobId);
     } catch (e) {
-      yield StreamingGenerationEvent.error('启动任务失败: $e');
+      yield StreamingGenerationEvent.error(
+        GenerationStatusStrings.startJobFailed(outputLocale, e),
+      );
     }
   }
 
@@ -851,9 +878,9 @@ $chunkContent
       'outputLocale': outputLocale,
       'status': 'pending',
       'progress': 0.0,
-      'message': '等待服务器...',
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+        'message': GenerationStatusStrings.waitingServer(outputLocale),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
 
     final jobId = docRef.id;
     if (kDebugMode) print('📝 Created job (fire-and-forget): $jobId (outputLocale=$outputLocale)');
@@ -884,6 +911,7 @@ $chunkContent
   ) async* {
     final controller = StreamController<StreamingGenerationEvent>();
     int yieldedCardsCount = 0;
+    var lastOutputLocale = 'zh';
 
     final docRef = db.collection('extraction_jobs').doc(jobId);
 
@@ -892,6 +920,8 @@ $chunkContent
 
       final data = snapshot.data();
       if (data == null) return;
+
+      lastOutputLocale = data['outputLocale'] == 'en' ? 'en' : 'zh';
 
       final status = data['status'] as String?;
       final message = data['message'] as String?;
@@ -961,12 +991,15 @@ $chunkContent
         controller.add(StreamingGenerationEvent.complete());
         controller.close();
       } else if (status == 'failed') {
-        final error = data['error'] as String? ?? '未知错误';
+        final error = data['error'] as String? ??
+            GenerationStatusStrings.unknownError(lastOutputLocale);
         controller.add(StreamingGenerationEvent.error(error));
         controller.close();
       }
     }, onError: (e) {
-      controller.add(StreamingGenerationEvent.error('连接错误: $e'));
+      controller.add(StreamingGenerationEvent.error(
+        GenerationStatusStrings.connectionError(lastOutputLocale, e),
+      ));
       controller.close();
     });
 

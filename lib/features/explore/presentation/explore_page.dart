@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
 import '../../../../core/widgets/app_background.dart';
 
 /// Knowledge Marketplace - Explore Page
@@ -21,6 +22,11 @@ class _ExplorePageState extends State<ExplorePage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+  }
+
+  bool _localeEn(BuildContext context) {
+    final c = Localizations.localeOf(context).languageCode.toLowerCase();
+    return !c.startsWith('zh');
   }
 
   @override
@@ -240,7 +246,7 @@ class _ExplorePageState extends State<ExplorePage>
                 Icon(Icons.verified_outlined,
                     size: 18, color: const Color(0xFF0D9488)),
                 const SizedBox(width: 8),
-                const Text('官方精选'),
+                Text(AppLocalizations.of(context)!.officialCurated),
               ],
             ),
           ),
@@ -265,12 +271,12 @@ class _ExplorePageState extends State<ExplorePage>
     // Filter by search query
     final filteredItems = _officialItems.where((item) {
       if (_searchQuery.isEmpty) return true;
-      return item['title']!
-              .toLowerCase()
-              .contains(_searchQuery.toLowerCase()) ||
-          item['description']!
-              .toLowerCase()
-              .contains(_searchQuery.toLowerCase());
+      final q = _searchQuery.toLowerCase();
+      bool has(String? s) => (s ?? '').toLowerCase().contains(q);
+      return has(item['title']) ||
+          has(item['description']) ||
+          has(item['title_en']) ||
+          has(item['description_en']);
     }).toList();
 
     if (filteredItems.isEmpty) {
@@ -288,15 +294,22 @@ class _ExplorePageState extends State<ExplorePage>
       itemCount: filteredItems.length,
       itemBuilder: (context, index) {
         final item = filteredItems[index];
+        final en = _localeEn(context);
+        final title = en
+            ? (item['title_en'] ?? item['title'])!
+            : item['title']!;
+        final desc = en
+            ? (item['description_en'] ?? item['description'])!
+            : item['description']!;
         return _KnowledgeCard(
-          title: item['title']!,
-          description: item['description']!,
+          title: title,
+          description: desc,
           cardCount: int.parse(item['count']!),
           emoji: item['emoji']!,
           isOfficial: true,
           isFree: item['isFree'] == 'true',
           price: item['price'],
-          onTap: () => _showComingSoon(context, item['title']!),
+          onTap: () => _showComingSoon(context, title),
         );
       },
     );
@@ -434,11 +447,13 @@ class _ExplorePageState extends State<ExplorePage>
   }
 }
 
-// Fake data for official knowledge bases
+// Fake data for official knowledge bases (demo marketplace)
 final List<Map<String, String>> _officialItems = [
   {
     'title': '硬核知识入门',
+    'title_en': 'Learning fundamentals',
     'description': '从零开始掌握高效学习方法论',
+    'description_en': 'Build strong learning habits from scratch',
     'count': '25',
     'emoji': '🎯',
     'isFree': 'true',
@@ -446,7 +461,9 @@ final List<Map<String, String>> _officialItems = [
   },
   {
     'title': '产品经理必备',
+    'title_en': 'Product management essentials',
     'description': '系统化产品思维与实战技巧',
+    'description_en': 'Structured product thinking and practice',
     'count': '32',
     'emoji': '💼',
     'isFree': 'true',
@@ -454,7 +471,9 @@ final List<Map<String, String>> _officialItems = [
   },
   {
     'title': '高效阅读术',
+    'title_en': 'Efficient reading',
     'description': '快速吸收书籍精华的秘诀',
+    'description_en': 'Absorb book insights faster',
     'count': '18',
     'emoji': '📚',
     'isFree': 'false',
@@ -462,7 +481,9 @@ final List<Map<String, String>> _officialItems = [
   },
   {
     'title': '思维导图精通',
+    'title_en': 'Mind mapping mastery',
     'description': '用可视化提升思考效率',
+    'description_en': 'Think clearer with visual maps',
     'count': '22',
     'emoji': '🧠',
     'isFree': 'false',
@@ -470,7 +491,9 @@ final List<Map<String, String>> _officialItems = [
   },
   {
     'title': 'AI 时代生存指南',
+    'title_en': 'Thriving in the AI era',
     'description': '掌握 AI 工具，提升 10x 效率',
+    'description_en': 'Use AI tools to multiply your output',
     'count': '30',
     'emoji': '🤖',
     'isFree': 'false',
@@ -478,7 +501,9 @@ final List<Map<String, String>> _officialItems = [
   },
   {
     'title': '极简写作法',
+    'title_en': 'Minimalist writing',
     'description': '高效输出清晰有力的文字',
+    'description_en': 'Write clearly with less friction',
     'count': '15',
     'emoji': '✍️',
     'isFree': 'false',

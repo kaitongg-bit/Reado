@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:quick_pm/l10n/app_localizations.dart';
+import 'package:quick_pm/l10n/l10n_numeric_strings.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/app_background.dart';
 import '../../feed/presentation/feed_provider.dart';
@@ -285,7 +286,8 @@ class _NoteCard extends StatelessWidget {
                       if (noteCount > 0) ...[
                         const SizedBox(width: 8),
                         Text(
-                          AppLocalizations.of(context)!.aiNotesNoteCount(noteCount),
+                          L10nNumbers.aiNotesNoteCountLine(
+                              context, noteCount),
                           style: TextStyle(
                             fontSize: 11,
                             color: isDark ? Colors.white54 : Colors.grey[600],

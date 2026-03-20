@@ -189,6 +189,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tabOfficial => 'Official';
 
   @override
+  String get officialCurated => 'Official picks';
+
+  @override
   String get tabPersonal => 'Personal';
 
   @override
@@ -447,6 +450,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAdhdStrength => 'Strength';
 
   @override
+  String get settingsAdhdIntensityLow => 'Low';
+
+  @override
+  String get settingsAdhdIntensityMedium => 'Medium';
+
+  @override
+  String get settingsAdhdIntensityHigh => 'High';
+
+  @override
   String get settingsAdhdTip =>
       '💡 Dynamic random algorithm places color anchors to reduce drift.';
 
@@ -538,6 +550,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get feedbackSubmit => 'Submit';
+
+  @override
+  String get feedbackGuestHint =>
+      'You can submit without signing in. Add email or WeChat in Contact if you want a reply.';
 
   @override
   String get securityAnswerMin => 'Answer at least 2 characters';
@@ -965,6 +981,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addMaterialModePodcastDesc => 'Two-person dialogue';
+
+  @override
+  String get feedSwipeBackToBody => 'Swipe left for article';
+
+  @override
+  String get feedSwipeReleaseBackList => 'Release to return to feed';
+
+  @override
+  String get feedSwipeLeftBack => 'Swipe left to go back';
+
+  @override
+  String get feedSwipeReleasePrevious => 'Release for previous';
+
+  @override
+  String get feedSwipePullDownMore => 'Pull down';
+
+  @override
+  String get feedSwipeReleaseNext => 'Release for next';
+
+  @override
+  String get feedSwipePullUpMore => 'Pull up';
 
   @override
   String get studyTitleAll => 'All knowledge';

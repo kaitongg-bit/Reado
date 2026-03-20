@@ -4,6 +4,8 @@ import '../../../models/feed_item.dart';
 import '../../feed/presentation/feed_provider.dart';
 import '../../home/presentation/home_page.dart';
 import '../../home/presentation/module_provider.dart';
+import '../../../core/locale/locale_provider.dart';
+import '../../../l10n/module_display_strings.dart';
 
 class SearchResultsPage extends ConsumerStatefulWidget {
   final String query;
@@ -305,7 +307,10 @@ class _SearchResultsPageState extends ConsumerState<SearchResultsPage> {
       final modules = ref.read(moduleProvider);
       final allModules = [...modules.officials, ...modules.custom];
       final module = allModules.firstWhere((m) => m.id == moduleId);
-      return module.title;
+      return ModuleDisplayStrings.moduleTitle(
+        module,
+        ref.read(localeProvider).outputLocale,
+      );
     } catch (e) {
       return moduleId;
     }

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:quick_pm/l10n/app_localizations.dart';
+import 'package:quick_pm/l10n/popup_and_assistant_strings.dart';
+import '../../../../core/locale/owner_locale_scope.dart';
 import '../../../../core/router/pending_login_return_path.dart';
 import '../../../../core/widgets/save_error_dialog.dart';
 import '../../../models/feed_item.dart';
@@ -38,16 +41,21 @@ class SharedFeedPage extends ConsumerWidget {
       data: (shared) {
         final items = shared.items;
         if (items.isEmpty) {
-          return Scaffold(
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            appBar: AppBar(
-              title: const Text('分享的知识库'),
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => context.pop(),
+          return OwnerLocaleScope(
+            ownerUiLocale: shared.ownerUiLocale,
+            child: Scaffold(
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              appBar: AppBar(
+                title: Text(AppLocalizations.of(context)!.moduleSharedLibrary),
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => context.pop(),
+                ),
               ),
+              body: Center(
+                  child: Text(
+                      PopupAssistantL10n.sharedLibraryNoCards(context))),
             ),
-            body: const Center(child: Text('暂无卡片')),
           );
         }
         final startIndex = (initialIndex != null &&
@@ -55,15 +63,18 @@ class SharedFeedPage extends ConsumerWidget {
                 initialIndex! < items.length)
             ? initialIndex!
             : 0;
-        return _SharedFeedBody(
-          moduleId: moduleId,
-          ownerId: ownerId,
-          items: items,
-          initialIndex: startIndex,
-          returnUrl: returnPath,
-          isDark: isDark,
-          module: shared.module,
-          ref: ref,
+        return OwnerLocaleScope(
+          ownerUiLocale: shared.ownerUiLocale,
+          child: _SharedFeedBody(
+            moduleId: moduleId,
+            ownerId: ownerId,
+            items: items,
+            initialIndex: startIndex,
+            returnUrl: returnPath,
+            isDark: isDark,
+            module: shared.module,
+            ref: ref,
+          ),
         );
       },
       loading: () => Scaffold(
@@ -148,7 +159,7 @@ class _SharedFeedBodyState extends State<_SharedFeedBody> {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
             const SizedBox(width: 20),
-            const Text('正在保存到你的知识库…'),
+            Text(AppLocalizations.of(ctx)!.moduleSavingToLibrary),
           ],
         ),
       ),
@@ -163,8 +174,9 @@ class _SharedFeedBodyState extends State<_SharedFeedBody> {
         if (mounted) context.go('/');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('已加入学习，去首页开始吧'),
+            SnackBar(
+                content: Text(
+                    AppLocalizations.of(context)!.moduleAddedGoHome),
                 behavior: SnackBarBehavior.floating),
           );
         }
@@ -184,8 +196,9 @@ class _SharedFeedBodyState extends State<_SharedFeedBody> {
         Navigator.of(context).pop();
         context.go('/module/$newId');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('已保存到你的知识库'),
+          SnackBar(
+              content:
+                  Text(AppLocalizations.of(context)!.moduleSavedToLibrary),
               behavior: SnackBarBehavior.floating),
         );
       }
@@ -204,7 +217,7 @@ class _SharedFeedBodyState extends State<_SharedFeedBody> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('分享的知识库'),
+        title: Text(AppLocalizations.of(context)!.moduleSharedLibrary),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
@@ -213,7 +226,8 @@ class _SharedFeedBodyState extends State<_SharedFeedBody> {
           TextButton.icon(
             onPressed: () => _handleSaveToMyLibrary(context),
             icon: const Icon(Icons.bookmark_add_outlined, size: 18),
-            label: const Text('保存到我的知识库'),
+            label: Text(
+                AppLocalizations.of(context)!.moduleSaveToMyLibrary),
           ),
         ],
       ),

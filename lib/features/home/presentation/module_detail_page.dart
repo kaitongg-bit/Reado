@@ -8,6 +8,7 @@ import 'dart:html' as html;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../../core/locale/owner_locale_scope.dart';
 import '../../../../core/router/pending_login_return_path.dart';
 import '../../../../core/widgets/save_error_dialog.dart';
 import '../../feed/presentation/feed_provider.dart';
@@ -19,6 +20,8 @@ import 'module_provider.dart';
 import 'home_page.dart'; // Import for homeTabControlProvider
 import '../../lab/presentation/add_material_modal.dart';
 import '../../../../core/providers/credit_provider.dart';
+import '../../../../core/locale/locale_provider.dart';
+import '../../../../l10n/module_display_strings.dart';
 
 class ModuleDetailPage extends ConsumerWidget {
   static final Set<String> _shareViewRecorded = {};
@@ -53,6 +56,10 @@ class ModuleDetailPage extends ConsumerWidget {
           ModuleDetailPage._shareViewRecorded.add('$ownerId-$moduleId');
           ref.read(dataServiceProvider).recordShareView(ownerId!, moduleId);
         }
+        final scoped = OwnerLocaleScope(
+          ownerUiLocale: shared.ownerUiLocale,
+          child: _buildGuestSharedBody(context, ref, isDark, shared),
+        );
         if (afterLoginSave) {
           return _AutoSaveAfterLogin(
             moduleId: moduleId,
@@ -65,10 +72,10 @@ class ModuleDetailPage extends ConsumerWidget {
             ),
             onClearParam: () =>
                 context.go('/module/$moduleId?ref=$ownerId'),
-            child: _buildGuestSharedBody(context, ref, isDark, shared),
+            child: scoped,
           );
         }
-        return _buildGuestSharedBody(context, ref, isDark, shared);
+        return scoped;
       },
       loading: () => Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -103,6 +110,7 @@ class ModuleDetailPage extends ConsumerWidget {
 
   Widget _buildGuestSharedBody(
       BuildContext context, WidgetRef ref, bool isDark, SharedModuleData shared) {
+    final loc = ref.watch(localeProvider).outputLocale;
     final module = shared.module;
     final moduleItems = shared.items;
     final cardCount = moduleItems.length;
@@ -147,11 +155,11 @@ class ModuleDetailPage extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 16),
-                    Text(module.title,
+                    Text(ModuleDisplayStrings.moduleTitle(module, loc),
                         style: const TextStyle(
                             fontSize: 22, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    Text(module.description,
+                    Text(ModuleDisplayStrings.moduleDescription(module, loc),
                         style: TextStyle(
                             fontSize: 14,
                             color: isDark ? Colors.white70 : Colors.black54)),
@@ -447,6 +455,7 @@ class ModuleDetailPage extends ConsumerWidget {
         .where((i) => i.masteryLevel != FeedItemMastery.unknown)
         .length;
     final progress = cardCount > 0 ? learned / cardCount : 0.0;
+    final loc = ref.watch(localeProvider).outputLocale;
 
     // Get current progress for this module
     final currentProgress = ref.watch(feedProgressProvider);
@@ -753,7 +762,7 @@ class ModuleDetailPage extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    module.title,
+                    ModuleDisplayStrings.moduleTitle(module, loc),
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
@@ -763,7 +772,7 @@ class ModuleDetailPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    module.description,
+                    ModuleDisplayStrings.moduleDescription(module, loc),
                     style: TextStyle(
                       fontSize: 16,
                       color: isDark ? Colors.grey[400] : Colors.grey[600],

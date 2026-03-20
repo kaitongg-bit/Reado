@@ -9,11 +9,12 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:quick_pm/l10n/app_localizations.dart';
 import 'package:quick_pm/l10n/l10n_numeric_strings.dart';
+import 'package:quick_pm/l10n/popup_and_assistant_strings.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:quick_pm/l10n/app_localizations.dart';
 import '../../../../models/feed_item.dart';
 import '../feed_provider.dart';
+import '../../../../core/locale/locale_provider.dart';
 import '../../../../core/providers/adhd_provider.dart';
 import '../../../../core/providers/adhd_text_transformer.dart';
 
@@ -1135,8 +1136,9 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: Colors.blue.withOpacity(0.3)),
                       ),
-                      child: const Text('官方精选',
-                          style: TextStyle(
+                      child: Text(
+                          AppLocalizations.of(context)!.officialCurated,
+                          style: const TextStyle(
                               fontSize: 10,
                               color: Colors.blue,
                               fontWeight: FontWeight.bold)),
@@ -1231,7 +1233,7 @@ class _FeedItemViewState extends ConsumerState<FeedItemView> {
                               color: isDark ? Colors.white54 : Colors.black45),
                           const SizedBox(width: 6),
                           Text(
-                            '左滑回到正文',
+                            AppLocalizations.of(context)!.feedSwipeBackToBody,
                             style: TextStyle(
                               fontSize: 12,
                               fontFamily: 'JinghuaSong',
@@ -1420,20 +1422,6 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
   Timer? _placeholderTimer;
   int _placeholderIndex = 0;
   static const _placeholderInterval = Duration(seconds: 5);
-  static const _loadingPlaceholders = [
-    '正在思考中...',
-    '马上生成好...',
-    '快好了...',
-  ];
-
-  /// 无对话时的预设问题（通俗易懂，点击即填入并发送，不调用 LLM）
-  static const List<String> _presetQuestions = [
-    '举个例子讲解一下',
-    '用简单的话总结一下',
-    '这段在说什么？',
-    '有什么重点？',
-    '能再解释得通俗一点吗？',
-  ];
 
   @override
   void initState() {
@@ -1540,7 +1528,8 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
 
     final aiTimestamp = DateTime.now();
     _placeholderIndex = 0;
-    final initialPlaceholder = _loadingPlaceholders[0];
+    final loadingPh = PopupAssistantL10n.aiLoadingPlaceholders(context);
+    final initialPlaceholder = loadingPh[0];
 
     setState(() {
       _messages.add(_ChatMessage(
@@ -1553,9 +1542,9 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
 
     void switchPlaceholder() {
       if (!mounted || !_isLoading) return;
-      _placeholderIndex =
-          (_placeholderIndex + 1) % _loadingPlaceholders.length;
-      final next = _loadingPlaceholders[_placeholderIndex];
+      final ph = PopupAssistantL10n.aiLoadingPlaceholders(context);
+      _placeholderIndex = (_placeholderIndex + 1) % ph.length;
+      final next = ph[_placeholderIndex];
       setState(() {
         if (_messages.isNotEmpty) {
           _messages[_messages.length - 1] = _ChatMessage(
@@ -1581,9 +1570,11 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
               })
           .toList();
 
-      final stream = ref
-          .read(contentGeneratorProvider)
-          .chatWithContentStream(_getContextContent(), history);
+      final stream = ref.read(contentGeneratorProvider).chatWithContentStream(
+            _getContextContent(),
+            history,
+            outputLocale: ref.read(localeProvider).outputLocale,
+          );
 
       final buffer = StringBuffer();
       await for (final chunk in stream) {
@@ -1639,10 +1630,10 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
     final sortedIndices = _selectedMessageIndices.toList()..sort();
     final rawContent = sortedIndices
         .map((i) =>
-            "${_messages[i].isUser ? '我' : '囤囤鼠'}: ${_messages[i].content}")
+            "${_messages[i].isUser ? PopupAssistantL10n.aiChatUserLabel(context) : PopupAssistantL10n.aiChatAssistantLabel(context)}: ${_messages[i].content}")
         .join("\n\n");
 
-    widget.onPin("对话记录", rawContent);
+    widget.onPin(PopupAssistantL10n.aiChatLogTitle(context), rawContent);
 
     setState(() {
       _pinnedMessageIndices.addAll(_selectedMessageIndices);
@@ -1666,9 +1657,11 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
               "${_messages[i].isUser ? 'User' : 'AI Mentor'}: ${_messages[i].content}")
           .join("\n\n");
 
-      final summary = await ref
-          .read(contentGeneratorProvider)
-          .summarizeForPin(_getContextContent(), selectedContent);
+      final summary = await ref.read(contentGeneratorProvider).summarizeForPin(
+            _getContextContent(),
+            selectedContent,
+            outputLocale: ref.read(localeProvider).outputLocale,
+          );
 
       String finalQuestion = "AI Note";
       String finalAnswer = summary;
@@ -1698,7 +1691,9 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('AI 整理失败: $e')),
+        SnackBar(
+            content: Text(
+                PopupAssistantL10n.aiSummarizeFailed(context, e))),
       );
       setState(() {
         _isSummarizing = false;
@@ -1739,19 +1734,23 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                           if (_isSelectionMode)
                             Text(
                                 _selectedMessageIndices.isEmpty
-                                    ? '选择要保存的对话'
-                                    : '已选 ${_selectedMessageIndices.length} 条',
+                                    ? PopupAssistantL10n.aiSelectToSave(
+                                        context)
+                                    : PopupAssistantL10n.aiSelectedCount(
+                                        context,
+                                        _selectedMessageIndices.length),
                                 style: const TextStyle(
                                     fontSize: 10, color: Colors.grey))
                           else
-                            const Text('点击 Pin 多选对话再保存',
-                                style: TextStyle(
+                            Text(
+                                PopupAssistantL10n.aiPinHint(context),
+                                style: const TextStyle(
                                     fontSize: 10, color: Colors.grey)),
                         ],
                       ),
                       const SizedBox(width: 12),
                       IconButton(
-                        tooltip: '多选对话并保存',
+                        tooltip: PopupAssistantL10n.aiPinTooltip(context),
                         icon: Icon(
                           _isSelectionMode
                               ? Icons.push_pin
@@ -1776,7 +1775,8 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                             _selectedMessageIndices.addAll(
                                 List.generate(_messages.length, (i) => i));
                           }),
-                          child: const Text('全选'),
+                          child: Text(
+                              PopupAssistantL10n.aiSelectAll(context)),
                         ),
                         TextButton(
                           onPressed: () => setState(() {
@@ -1813,13 +1813,13 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                                       size: 48, color: Colors.grey[300]),
                                   const SizedBox(height: 16),
                                   Text(
-                                    '关于卡片内容，尽管问我',
+                                    PopupAssistantL10n.aiWelcomeLine(context),
                                     style: TextStyle(
                                         color: Theme.of(context).hintColor),
                                   ),
                                   const SizedBox(height: 20),
                                   Text(
-                                    '试试这些常见问题：',
+                                    PopupAssistantL10n.aiTryThese(context),
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: Theme.of(context).hintColor,
@@ -1830,7 +1830,9 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                                     alignment: WrapAlignment.center,
                                     spacing: 10,
                                     runSpacing: 10,
-                                    children: _presetQuestions.map((q) {
+                                    children: PopupAssistantL10n
+                                        .aiPresetQuestions(context)
+                                        .map((q) {
                                       return ActionChip(
                                         label: Text(q,
                                             style: const TextStyle(fontSize: 13)),
@@ -1877,7 +1879,8 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                       child: OutlinedButton.icon(
                         onPressed: _isSummarizing ? null : _handleSaveAsIs,
                         icon: const Icon(Icons.content_copy, size: 18),
-                        label: const Text('原味保存'),
+                        label: Text(
+                            PopupAssistantL10n.aiSaveAsIs(context)),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Theme.of(context).brightness == Brightness.dark
                               ? Colors.white
@@ -1904,8 +1907,8 @@ class _AskAISheetState extends ConsumerState<_AskAISheet> {
                                     strokeWidth: 2, color: Colors.white))
                             : const Icon(Icons.auto_awesome, size: 18),
                         label: Text(_isSummarizing
-                            ? '整理中...'
-                            : 'AI 整理并存'),
+                            ? PopupAssistantL10n.aiSummarizing(context)
+                            : PopupAssistantL10n.aiSummarizeSave(context)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF9333EA),
                           foregroundColor: Colors.white,

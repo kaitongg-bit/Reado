@@ -71,4 +71,14 @@ abstract final class L10nNumbers {
 
   static String markedAsLabel(BuildContext context, String label) =>
       _isZh(context) ? '已标记为 $label' : 'Marked as $label';
+
+  /// AI 笔记列表「n 条笔记」
+  static String aiNotesNoteCountLine(BuildContext context, int n) =>
+      _isZh(context) ? '$n 条笔记' : '$n notes';
+
+  static String addMaterialQueueCountLine(BuildContext context, int n) =>
+      _isZh(context) ? '批量处理队列 ($n)' : 'Batch queue ($n)';
+
+  static String profileShareClicksLine(BuildContext context, int n) =>
+      _isZh(context) ? '推广点击: $n' : 'Share clicks: $n';
 }

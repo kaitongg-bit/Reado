@@ -183,6 +183,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tabOfficial => '官方';
 
   @override
+  String get officialCurated => '官方精选';
+
+  @override
   String get tabPersonal => '个人';
 
   @override
@@ -430,6 +433,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsAdhdStrength => '引导强度';
 
   @override
+  String get settingsAdhdIntensityLow => '低';
+
+  @override
+  String get settingsAdhdIntensityMedium => '中';
+
+  @override
+  String get settingsAdhdIntensityHigh => '高';
+
+  @override
   String get settingsAdhdTip => '💡 采用动态随机算法，在文中分布三色视觉锚点，防止视线漂移。';
 
   @override
@@ -518,6 +530,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get feedbackSubmit => '提交';
+
+  @override
+  String get feedbackGuestHint => '未登录也可提交；如需回复请在「联系方式」填写邮箱或微信。';
 
   @override
   String get securityAnswerMin => '答案至少 2 个字符';
@@ -934,6 +949,27 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get addMaterialModePodcastDesc => '两人对谈讲解';
+
+  @override
+  String get feedSwipeBackToBody => '左滑回到正文';
+
+  @override
+  String get feedSwipeReleaseBackList => '释放返回列表';
+
+  @override
+  String get feedSwipeLeftBack => '左滑返回';
+
+  @override
+  String get feedSwipeReleasePrevious => '释放切换到上一篇';
+
+  @override
+  String get feedSwipePullDownMore => '继续下拉';
+
+  @override
+  String get feedSwipeReleaseNext => '释放进入下一篇';
+
+  @override
+  String get feedSwipePullUpMore => '继续上拉';
 
   @override
   String get studyTitleAll => '全部知识';

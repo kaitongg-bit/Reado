@@ -20,6 +20,10 @@ import '../../home/presentation/module_provider.dart';
 import '../../../../models/knowledge_module.dart';
 import '../../../../l10n/module_display_strings.dart';
 import 'widgets/tutorial_pulse.dart';
+import '../deconstruct/deconstruct_ai_mode_selector.dart';
+import '../deconstruct/deconstruct_flow_service.dart';
+import '../deconstruct/deconstruct_generation_confirm_dialog.dart';
+import '../deconstruct/deconstruct_module_picker.dart';
 
 class AddMaterialModal extends ConsumerStatefulWidget {
   final String? targetModuleId;
@@ -325,9 +329,14 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     // ... rest of normal logic ...
 
     // For normal flow, verify credits etc.
-    final estTime = _calculateEstimatedTime(context, charCount);
+    final estTime = DeconstructFlowService.estimatedTimeLabel(context, charCount);
     final confirm =
-        await _showGenerationConfirmDialog(credits, estTime, charCount);
+        await showDeconstructGenerationConfirmDialog(
+          context,
+          credits: credits,
+          estTime: estTime,
+          charCount: charCount,
+        );
     if (confirm != true) return;
 
     try {
@@ -467,189 +476,14 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
 
   /// 开始 AI 生成（流式版本） - Multimodal
   /// Helper to ensure a target module ID is selected if not provided via widget
-  Future<String?> _ensureTargetModuleId() async {
-    try {
-      // 0. Use manually selected module if available (Upfront Selector)
-      if (_selectedModuleId != null && _selectedModuleId!.isNotEmpty) {
-        return _selectedModuleId;
-      }
-
-      // 1. If in tutorial mode, force the first available custom module (usually "默认知识库")
-      if (widget.isTutorialMode) {
-        final moduleState = ref.read(moduleProvider);
-        if (moduleState.custom.isNotEmpty) {
-          return moduleState.custom.first.id;
-        }
-      }
-
-      // 2. If widget has a target (Navigation context), use it
-      if (widget.targetModuleId != null && widget.targetModuleId!.isNotEmpty) {
-        return widget.targetModuleId;
-      }
-
-      // 2. Fetch available modules
-      final moduleState = ref.read(moduleProvider);
-      final allModules = [...moduleState.custom, ...moduleState.officials];
-
-      // Ensure default module exists in list if possible
-      if (allModules.isEmpty) {
-        try {
-          // Fallback to creating a temporary default one for display
-          allModules.add(KnowledgeModule(
-            id: 'unknown_default',
-            title: ref.read(localeProvider).outputLocale == 'en'
-                ? 'default'
-                : '默认知识库',
-            description: ref.read(localeProvider).outputLocale == 'en'
-                ? 'Your default library'
-                : '系统默认',
-            ownerId: FirebaseAuth.instance.currentUser?.uid ?? '',
-            isOfficial: false,
-            cardCount: 0,
-          ));
-        } catch (e) {
-          print('Error creating default module placeholder: $e');
-        }
-      }
-
-      if (!mounted) return null;
-
-      // 3. Show Selection Dialog
-      return await showDialog<String>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) {
-          String? tempSelectedId;
-          if (allModules.isNotEmpty) {
-            tempSelectedId = allModules.first.id;
-            try {
-              final defaultMod = allModules.firstWhere(
-                  (m) => ModuleDisplayStrings.isDefaultModuleTitle(m.title),
-                  orElse: () => allModules.first);
-              tempSelectedId = defaultMod.id;
-            } catch (e) {
-              // Ignore
-            }
-          }
-
-          return StatefulBuilder(builder: (context, setState) {
-            return AlertDialog(
-              title: Text(AppLocalizations.of(context)!.addMaterialSelectTarget),
-              content: SizedBox(
-                width: double.maxFinite,
-                height: 300, // Fixed height for scrolling
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(AppLocalizations.of(context)!.addMaterialSelectTargetHint,
-                        style: TextStyle(color: Colors.grey, fontSize: 13)),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: allModules.isEmpty
-                          ? Center(child: Text(AppLocalizations.of(context)!.addMaterialNoModule))
-                          : ListView.separated(
-                              itemCount: allModules.length,
-                              separatorBuilder: (ctx, i) =>
-                                  const Divider(height: 1),
-                              itemBuilder: (ctx, i) {
-                                final module = allModules[i];
-                                final isSelected = module.id == tempSelectedId;
-                                final loc =
-                                    ref.read(localeProvider).outputLocale;
-                                return InkWell(
-                                  onTap: () {
-                                    setState(() {
-                                      tempSelectedId = module.id;
-                                    });
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 12, horizontal: 8),
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? Theme.of(context)
-                                              .primaryColor
-                                              .withOpacity(0.1)
-                                          : null,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          module.isOfficial
-                                              ? Icons.verified
-                                              : Icons.folder,
-                                          color: isSelected
-                                              ? Theme.of(context).primaryColor
-                                              : Colors.grey,
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                ModuleDisplayStrings
-                                                    .moduleTitle(module, loc),
-                                                style: TextStyle(
-                                                  fontWeight: isSelected
-                                                      ? FontWeight.bold
-                                                      : FontWeight.normal,
-                                                  color: isSelected
-                                                      ? Theme.of(context)
-                                                          .primaryColor
-                                                      : null,
-                                                ),
-                                              ),
-                                              if (module
-                                                  .description.isNotEmpty)
-                                                Text(
-                                                  ModuleDisplayStrings
-                                                      .moduleDescription(
-                                                          module, loc),
-                                                  style: const TextStyle(
-                                                      fontSize: 10,
-                                                      color: Colors.grey),
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                )
-                                            ],
-                                          ),
-                                        ),
-                                        if (isSelected)
-                                          const Icon(Icons.check_circle,
-                                              color: Colors.green, size: 20),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(null), // Cancel
-                  child: Text(AppLocalizations.of(context)!.cancel),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.of(context).pop(tempSelectedId),
-                  child: Text(AppLocalizations.of(context)!.dialogConfirm),
-                ),
-              ],
-            );
-          });
-        },
-      );
-    } catch (e) {
-      print('Error in _ensureTargetModuleId: $e');
-      return null;
-    }
+  Future<String?> _ensureTargetModuleId() {
+    return DeconstructModulePicker.ensureTargetModuleId(
+      context: context,
+      ref: ref,
+      selectedModuleId: _selectedModuleId,
+      targetModuleId: widget.targetModuleId,
+      isTutorialMode: widget.isTutorialMode,
+    );
   }
 
   Future<void> _startGeneration() async {
@@ -664,13 +498,18 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
       final charCount = _extractionResult!.content.length;
       final credits =
           ContentExtractionService.calculateRequiredCredits(charCount);
-      final estTime = _calculateEstimatedTime(context, charCount);
+      final estTime = DeconstructFlowService.estimatedTimeLabel(context, charCount);
 
       // Show Confirmation Dialog (Unless explicitly skipped or decided otherwise)
       if (!widget.isTutorialMode) {
         if (!mounted) return;
         final confirm =
-            await _showGenerationConfirmDialog(credits, estTime, charCount);
+            await showDeconstructGenerationConfirmDialog(
+          context,
+          credits: credits,
+          estTime: estTime,
+          charCount: charCount,
+        );
         if (confirm != true) return;
       }
 
@@ -1457,7 +1296,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                       ),
                       const SizedBox(height: 12),
                       _buildKbSelector(isDark), // Added Selector
-                      _buildAiDeconstructionSelector(ref, isDark),
+                      const DeconstructAiModeSelector(),
 
                       // 底部留白，防止被键盘遮挡体验不好
                       const SizedBox(height: 20),
@@ -2113,7 +1952,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
 
                         const SizedBox(height: 12),
                         _buildKbSelector(isDark), // Added Selector
-                        _buildAiDeconstructionSelector(ref, isDark),
+                        const DeconstructAiModeSelector(),
 
                         // 3. Status / Info Area (Result or Error)
                         if (_error != null || _urlError != null) ...[
@@ -2181,7 +2020,7 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
                                     AddMaterialL10n.charsAndEstTime(
                                         context,
                                         _extractionResult!.content.length,
-                                        _calculateEstimatedTime(
+                                        DeconstructFlowService.estimatedTimeLabel(
                                             context,
                                             _extractionResult!
                                                 .content.length)),
@@ -2487,14 +2326,6 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     );
   }
 
-  String _calculateEstimatedTime(BuildContext context, int length) {
-    final seconds = 3 + (length / 1000 * 3).round();
-    if (seconds < 60) {
-      return AddMaterialL10n.estSeconds(context, seconds);
-    }
-    return AddMaterialL10n.estMinutes(context, seconds / 60);
-  }
-
   /// 批量处理前确认：展示预计消耗积分（与单次拆解一致的对话框风格）
   static Future<bool?> _showBatchConfirmDialog(
     BuildContext context,
@@ -2629,103 +2460,6 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
     );
   }
 
-  Future<bool?> _showGenerationConfirmDialog(
-      int credits, String estTime, int charCount) {
-    return showDialog<bool>(
-      context: context,
-      builder: (dialogCtx) {
-        final l10n = AppLocalizations.of(dialogCtx)!;
-        return AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.auto_awesome, color: Color(0xFFee8f4b)),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: Text(
-                      AddMaterialL10n.singleDeconstructTitle(dialogCtx))),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(AddMaterialL10n.recognizedChars(dialogCtx, charCount)),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.timer_outlined,
-                      size: 16, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(
-                      '${AddMaterialL10n.estTimePrefix(dialogCtx)}$estTime',
-                      style: const TextStyle(color: Colors.grey)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFee8f4b).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                      color: const Color(0xFFee8f4b).withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.stars,
-                        color: Color(0xFFee8f4b), size: 20),
-                    const SizedBox(width: 12),
-                    Text(AddMaterialL10n.deductThisTime(dialogCtx),
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text('$credits',
-                        style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFee8f4b))),
-                    Text(AddMaterialL10n.creditsUnit(dialogCtx)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(AddMaterialL10n.tipParseFree(dialogCtx),
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              const Divider(height: 24),
-              Consumer(builder: (ctx, ref, _) {
-                final isDark = Theme.of(ctx).brightness == Brightness.dark;
-                return _buildAiDeconstructionSelector(ref, isDark);
-              }),
-              const Divider(height: 24),
-              Row(
-                children: [
-                  Icon(Icons.volunteer_activism_outlined,
-                      size: 14, color: Colors.green[400]),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(AddMaterialL10n.readoPerk(dialogCtx),
-                        style:
-                            TextStyle(fontSize: 11, color: Colors.green[700])),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogCtx).pop(false),
-              child: Text(l10n.cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogCtx).pop(true),
-              style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFee8f4b)),
-              child: Text(AddMaterialL10n.startGenerate(dialogCtx)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   void _showInsufficientCreditsDialog() {
     showDialog(
       context: context,
@@ -2763,83 +2497,6 @@ class _AddMaterialModalState extends ConsumerState<AddMaterialModal>
   }
 
   // New Minimal Chip for Coming Soon Sources
-  Widget _buildAiDeconstructionSelector(WidgetRef ref, bool isDark) {
-    final aiSettings = ref.watch(aiSettingsProvider);
-    final accentColor = const Color(0xFFee8f4b);
-
-    Widget _buildModeChip(BuildContext context, AiDeconstructionMode mode, String label, String sub) {
-      final isSelected = aiSettings.mode == mode;
-      return Expanded(
-        child: GestureDetector(
-          onTap: () => ref.read(aiSettingsProvider.notifier).setMode(mode),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? accentColor.withOpacity(0.1)
-                  : (isDark
-                      ? Colors.white.withOpacity(0.05)
-                      : Colors.black.withOpacity(0.03)),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected
-                    ? accentColor
-                    : (isDark ? Colors.white12 : Colors.black12),
-                width: 1.5,
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected
-                          ? accentColor
-                          : (isDark ? Colors.white70 : Colors.black87),
-                    )),
-                const SizedBox(height: 2),
-                Text(sub,
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: isDark ? Colors.grey : Colors.grey[600],
-                    )),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(AddMaterialL10n.aiStyleTitle(context),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.grey[400] : Colors.grey[600],
-              )),
-        ),
-        Row(
-          children: [
-            _buildModeChip(context, AiDeconstructionMode.standard, AppLocalizations.of(context)!.addMaterialModeStandard, AppLocalizations.of(context)!.addMaterialModeStandardDesc),
-            const SizedBox(width: 8),
-            _buildModeChip(context, AiDeconstructionMode.grandma, AppLocalizations.of(context)!.addMaterialModeGrandma, AppLocalizations.of(context)!.addMaterialModeGrandmaDesc),
-            const SizedBox(width: 8),
-            _buildModeChip(context, AiDeconstructionMode.phd, AppLocalizations.of(context)!.addMaterialModePhd, AppLocalizations.of(context)!.addMaterialModePhdDesc),
-            const SizedBox(width: 8),
-            _buildModeChip(context, AiDeconstructionMode.podcast, AppLocalizations.of(context)!.addMaterialModePodcast, AppLocalizations.of(context)!.addMaterialModePodcastDesc),
-          ],
-        ),
-      ],
-    );
-  }
-
   Widget _buildComingSoonChip(String label, IconData icon) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? const Color(0xFF2d3233) : const Color(0xFFF8FAFC);

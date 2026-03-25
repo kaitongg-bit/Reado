@@ -13,7 +13,7 @@ import '../module_provider.dart';
 import '../../../../core/providers/credit_provider.dart';
 import '../../../../core/locale/locale_provider.dart';
 import '../../../../l10n/module_display_strings.dart';
-import '../../../lab/presentation/add_material_modal.dart';
+import '../../../lab/deconstruct/deconstruct_chat_route_args.dart';
 import '../../../lab/presentation/widgets/tutorial_pulse.dart';
 import '../../../onboarding/providers/onboarding_provider.dart';
 import '../../../onboarding/presentation/widgets/tutorial_overlay.dart';
@@ -400,9 +400,10 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                           color: const Color(0xFFFF5252),
                           bgColor: const Color(0xFFFFEBEE),
                           onTap: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AddMaterialModal(
+                            context
+                                .push(
+                              '/deconstruct-chat',
+                              extra: DeconstructChatRouteArgs(
                                 isTutorialMode:
                                     onboardingState.isTutorialActive,
                                 tutorialStep: _tutorialTargetKey ==
@@ -412,7 +413,8 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                         : 'text')
                                     : null,
                               ),
-                            ).then((_) {
+                            )
+                                .then((_) {
                               if (mounted && _tutorialText != null) {
                                 setState(() {
                                   _tutorialText = null;

@@ -272,10 +272,39 @@ class ContentExtractionService {
     return null;
   }
 
+  /// 从正文推断展示用标题（首行/首个 Markdown 标题，避免「粘贴的文本」等机械文案）
+  static String derivePlainTextTitle(
+    String text, {
+    String outputLocale = 'zh',
+  }) {
+    final lines = text.split(RegExp(r'\r?\n'));
+    for (final raw in lines) {
+      var line = raw.trim();
+      if (line.isEmpty) continue;
+      while (line.startsWith('#')) {
+        line = line.replaceFirst(RegExp(r'^#+\s*'), '').trim();
+      }
+      if (line.isEmpty) continue;
+      final lower = line.toLowerCase();
+      if (lower.startsWith('http://') || lower.startsWith('https://')) {
+        continue;
+      }
+      if (line.length > 56) {
+        return '${line.substring(0, 53)}…';
+      }
+      return line;
+    }
+    return outputLocale == 'en' ? 'Untitled note' : '未命名笔记';
+  }
+
   /// 从纯文本创建提取结果
-  static ExtractionResult extractFromText(String text, {String? title}) {
+  static ExtractionResult extractFromText(
+    String text, {
+    String? title,
+    String outputLocale = 'zh',
+  }) {
     return ExtractionResult(
-      title: title ?? '粘贴的文本',
+      title: title ?? derivePlainTextTitle(text, outputLocale: outputLocale),
       content: text,
       sourceType: SourceType.text,
     );

@@ -6,6 +6,8 @@ import '../../features/explore/presentation/explore_page.dart';
 import '../../features/home/presentation/home_page.dart';
 import '../../features/lab/presentation/lab_page.dart';
 import '../../features/lab/presentation/task_center_page.dart';
+import '../../features/lab/presentation/deconstruct_chat_page.dart';
+import '../../features/lab/deconstruct/deconstruct_chat_route_args.dart';
 import '../../features/war_room/presentation/war_room_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 import '../../features/home/presentation/module_detail_page.dart';
@@ -145,6 +147,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/task-center',
         builder: (context, state) => const TaskCenterPage(),
+      ),
+      GoRoute(
+        path: '/deconstruct-chat',
+        builder: (context, state) {
+          final extra = state.extra as DeconstructChatRouteArgs?;
+          return DeconstructChatPage.fromArgs(extra);
+        },
       ),
       GoRoute(
         path: '/war-room',

@@ -75,11 +75,17 @@ AI 拆解（把长文/PDF/链接变成一张张知识卡）主要是：
 - AI 导师：把 `history` 拼进 prompt → `lib/core/services/content_generator_service.dart`（`chatWithContentStream`）
 - 消息列表与发请求 → `lib/features/feed/presentation/widgets/feed_item_view.dart`（`_handleSend`、`fetchAiChatHistory` / `saveAiChatHistory`）
 - AI 拆解提示与任务 → `lib/data/services/content_extraction_service.dart`、`functions/` 下提示与 Cloud Functions 等
+- **对话式 AI 拆解**（囤囤鼠聊天页）：消息列表 **防抖写入 Firestore** `users/{uid}/deconstruct_chat/main`（`fetchDeconstructChatHistory` / `saveDeconstructChatHistory` / `clearDeconstructChatHistory`），与卡片内导师的 `ai_chats` 并列；未登录仅本地欢迎语，不落库。实现见 `lib/features/lab/presentation/deconstruct_chat_page.dart`
 
 ### 5.1 界面语言与 AI 输出语言（一致）
 
 - 用户在 **官网 / 设置** 选择的 **中文或英文** 会写入 **SharedPreferences**（`app_locale_code`），`main` 启动时用 **`LocaleNotifier.fromInitialCode`** 预读，**首帧就是该语言**，避免先英文再跳变。
-- **`localeProvider.outputLocale`**（`zh` / `en`）会传给：**AI 拆解/导入**（如 `add_material_modal`、后台 `outputLocale` 字段）、**卡片内 AI 导师**、**整理 Pin 笔记**（`app_prompts.dart` 中英两套系统提示）。
+- **`localeProvider.outputLocale`**（`zh` / `en`）会传给：**AI 拆解/导入**（对话页 `DeconstructChatPage`、弹窗 `add_material_modal`、后台 `outputLocale` 字段）、**卡片内 AI 导师**、**整理 Pin 笔记**（`app_prompts.dart` 中英两套系统提示）。
+
+### 5.2 对话式 AI 拆解与任务中心
+
+- 主路径为全屏对话页 **`/deconstruct-chat`**（见 [`docs/DECONSTRUCT_CHAT.md`](DECONSTRUCT_CHAT.md)）：解析仍走 `ContentExtractionService`，提交与监听与弹窗一致；**不是**向量 RAG。
+- 旧 **`AddMaterialModal`** 仍保留作高级/批量等能力；**对话页**以 **AI 编排 + 自然语言确认** 为主（无扣费确认弹窗），弹窗仍用共享的 **知识库选择**、**扣费前确认**、**预估耗时**（`lib/features/lab/deconstruct/`）。
 - 登录用户还会把偏好同步到 Firestore **`reado`**：`users/{uid}.preferredLocale` 与分享用的 `share_settings.appLocale`（与 `FirestoreService` 读库一致）。
 
 ---

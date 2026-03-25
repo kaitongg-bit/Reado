@@ -75,6 +75,13 @@ abstract class DataService {
   Future<void> saveAiChatHistory(
       String userId, String itemId, List<Map<String, dynamic>> messages);
 
+  /// AI 拆解对话页：读取/保存/清空（单会话文档 `main`）
+  Future<List<Map<String, dynamic>>> fetchDeconstructChatHistory(
+      String userId);
+  Future<void> saveDeconstructChatHistory(
+      String userId, List<Map<String, dynamic>> messages);
+  Future<void> clearDeconstructChatHistory(String userId);
+
   /// 获取共享知识库只读数据（游客或复制用）；ownerId 即分享链接中的 ref
   Future<SharedModuleData> fetchSharedModule(String ownerId, String moduleId);
 
@@ -1193,6 +1200,60 @@ class FirestoreService implements DataService {
       }, SetOptions(merge: true));
     } catch (e) {
       if (kDebugMode) print('Error saving AI chat for $itemId: $e');
+      rethrow;
+    }
+  }
+
+  static const _deconstructChatDocId = 'main';
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchDeconstructChatHistory(
+      String userId) async {
+    try {
+      final doc = await _usersRef
+          .doc(userId)
+          .collection('deconstruct_chat')
+          .doc(_deconstructChatDocId)
+          .get();
+      if (!doc.exists) return [];
+      final data = doc.data();
+      if (data == null || data['messages'] == null) return [];
+      final raw = data['messages'] as List<dynamic>;
+      return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (e) {
+      if (kDebugMode) print('Error fetch deconstruct chat: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<void> saveDeconstructChatHistory(
+      String userId, List<Map<String, dynamic>> messages) async {
+    try {
+      await _usersRef
+          .doc(userId)
+          .collection('deconstruct_chat')
+          .doc(_deconstructChatDocId)
+          .set({
+        'messages': messages,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      if (kDebugMode) print('Error save deconstruct chat: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> clearDeconstructChatHistory(String userId) async {
+    try {
+      await _usersRef
+          .doc(userId)
+          .collection('deconstruct_chat')
+          .doc(_deconstructChatDocId)
+          .delete();
+    } catch (e) {
+      if (kDebugMode) print('Error clear deconstruct chat: $e');
       rethrow;
     }
   }

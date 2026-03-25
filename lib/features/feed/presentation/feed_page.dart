@@ -17,7 +17,7 @@ import '../../../models/knowledge_module.dart';
 import '../../home/presentation/module_provider.dart';
 import '../../../core/locale/locale_provider.dart';
 import '../../../l10n/module_display_strings.dart';
-import '../../lab/presentation/add_material_modal.dart';
+import '../../lab/deconstruct/deconstruct_chat_route_args.dart';
 import '../../onboarding/providers/onboarding_provider.dart';
 import '../../onboarding/presentation/widgets/tutorial_overlay.dart';
 import 'feed_provider.dart';
@@ -334,10 +334,11 @@ class _FeedPageState extends ConsumerState<FeedPage> {
                 const SizedBox(height: 24),
                 ElevatedButton.icon(
                   onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) =>
-                          AddMaterialModal(targetModuleId: widget.moduleId),
+                    context.push(
+                      '/deconstruct-chat',
+                      extra: DeconstructChatRouteArgs(
+                        targetModuleId: widget.moduleId,
+                      ),
                     );
                   },
                   icon: const Icon(Icons.add),

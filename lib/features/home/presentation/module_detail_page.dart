@@ -18,7 +18,7 @@ import '../../../models/shared_module_data.dart';
 import '../../../models/share_stats.dart';
 import 'module_provider.dart';
 import 'home_page.dart'; // Import for homeTabControlProvider
-import '../../lab/presentation/add_material_modal.dart';
+import '../../lab/deconstruct/deconstruct_chat_route_args.dart';
 import '../../../../core/providers/credit_provider.dart';
 import '../../../../core/locale/locale_provider.dart';
 import '../../../../l10n/module_display_strings.dart';
@@ -853,10 +853,11 @@ class ModuleDetailPage extends ConsumerWidget {
                         ),
                         child: IconButton(
                           onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) =>
-                                  AddMaterialModal(targetModuleId: moduleId),
+                            context.push(
+                              '/deconstruct-chat',
+                              extra: DeconstructChatRouteArgs(
+                                targetModuleId: moduleId,
+                              ),
                             );
                           },
                           icon: const Icon(Icons.add, color: Colors.black),
